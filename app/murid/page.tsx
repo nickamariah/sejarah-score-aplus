@@ -182,22 +182,7 @@ export default function MuridDashboard() {
   const endQuiz = () => {
     const percentage = Math.round((quizScore / quizQuestions.length) * 100);
     
-    // Determine adaptive path
-    let adaptiveScore = 0;
-    let adaptiveMsg = '';
-    
-    if (percentage >= 70) {
-      adaptiveScore = 85;
-      adaptiveMsg = 'Tahniah! Anda Cemerlang & Kuasai Bab Ini!';
-    } else if (percentage >= 50) {
-      adaptiveScore = 60;
-      adaptiveMsg = 'Pencapaian Sederhana. Mari kita gilap lagi!';
-    } else {
-      adaptiveScore = 30;
-      adaptiveMsg = 'Jangan putus asa! Mari mulakan bimbingan RAG.';
-    }
-    
-    setSimulasiSkor(adaptiveScore);
+    setSimulasiSkor(percentage);
     setShowQuizResult(true);
   };
 
@@ -543,7 +528,7 @@ export default function MuridDashboard() {
                       </div>
                     </div>
                     <h4 className="text-2xl font-bold text-slate-900 mb-4">
-                      {simulasiSkor >= 70 ? '🎉 Tahniah! Anda Cemerlang & Kuasai Bab Ini!' : simulasiSkor >= 50 ? '👍 Pencapaian Sederhana. Mari kita gilap lagi!' : '💪 Jangan putus asa! Mari mulakan bimbingan RAG.'}
+                      {(simulasiSkor ?? 0) >= 70 ? '🎉 Tahniah! Anda Cemerlang & Kuasai Bab Ini!' : (simulasiSkor ?? 0) >= 50 ? '👍 Pencapaian Sederhana. Mari kita gilap lagi!' : '💪 Jangan putus asa! Mari mulakan bimbingan RAG.'}
                     </h4>
                     <p className="text-slate-600 mb-8">Anda mendapat {quizScore} daripada {quizQuestions.length} soalan</p>
                     <button
