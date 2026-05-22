@@ -66,6 +66,7 @@ export default function MuridDashboard() {
   const [userData, setUserData] = useState<any>(null);
   const [activeLevel, setActiveLevel] = useState<"t4" | "t5">("t4");
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
+  const [simulasiSkor, setSimulasiSkor] = useState<number | null>(null);
   const [completedModules, setCompletedModules] = useState<string[]>([]);
 
   useEffect(() => {
@@ -107,6 +108,41 @@ export default function MuridDashboard() {
     if (moduleId === 1) return false;
     const prevKey = `${activeLevel}-ch${chapterId}-mod${moduleId - 1}`;
     return !completedModules.includes(prevKey);
+  };
+
+  const handlePreTestSubmit = (skor: number) => {
+    setSimulasiSkor(skor);
+    let msg = "";
+    if (skor >= 70) msg = "Tahniah! Anda telah kuasai bab ini!";
+    else if (skor >= 50) msg = "Tahniah, tapi mari kita gilap lagi di Laluan Sederhana.";
+    else msg = "Mari belajar bersama di Laluan Bimbingan.";
+    // simple feedback modal
+    window.alert(msg + ` (Skor: ${skor}%)`);
+  };
+
+  const getAdaptiveMeta = (chapterId: number, moduleId: number) => {
+    // returns { hidden, adaptiveLocked, displayName }
+    const meta: { hidden: boolean; adaptiveLocked: boolean; displayName?: string } = { hidden: false, adaptiveLocked: false };
+    const skor = simulasiSkor;
+
+    if (skor === null) {
+      // before pre-test: lock modules 3,4,5
+      if ([3, 4, 5].includes(moduleId)) meta.adaptiveLocked = true;
+    } else if (skor >= 70) {
+      // excellent: hide 3 & 4, unlock 5 & 6
+      if ([3, 4].includes(moduleId)) meta.hidden = true;
+      if ([5, 6].includes(moduleId)) meta.adaptiveLocked = false;
+    } else if (skor >= 50) {
+      // moderate: unlock 3 (simple), lock 4 & 5
+      if (moduleId === 3) meta.displayName = 'Modul Pengukuhan (Laluan Sederhana)';
+      if ([4, 5].includes(moduleId)) meta.adaptiveLocked = true;
+    } else {
+      // low: unlock 3 (detailed), lock 4 & 5
+      if (moduleId === 3) meta.displayName = 'Modul Pengukuhan (Bimbingan Terperinci RAG)';
+      if ([4, 5].includes(moduleId)) meta.adaptiveLocked = true;
+    }
+
+    return meta;
   };
 
   const handleLogout = () => {
@@ -250,7 +286,11 @@ export default function MuridDashboard() {
                     <div className="grid gap-3 sm:grid-cols-2">
                       {modules.map((module) => {
                         const Icon = module.icon;
-                        const isLocked = isModuleLocked(chapter.id, module.id);
+                        const adaptive = getAdaptiveMeta(chapter.id, module.id);
+                        if (adaptive.hidden) return null;
+                        const adaptiveLocked = adaptive.adaptiveLocked;
+                        const displayName = adaptive.displayName || module.name;
+                        const isLocked = adaptiveLocked || isModuleLocked(chapter.id, module.id);
                         const isCompleted = getModuleStatus(chapter.id, module.id);
                         const key = `${activeLevel}-ch${chapter.id}-mod${module.id}`;
 
@@ -262,7 +302,7 @@ export default function MuridDashboard() {
                             <div className="flex-1">
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <h4 className="font-semibold text-slate-900">{module.name}</h4>
+                                  <h4 className="font-semibold text-slate-900">{displayName}</h4>
                                   {module.note && <p className="text-xs text-slate-600 mt-1">{module.note}</p>}
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -272,6 +312,16 @@ export default function MuridDashboard() {
                                   </button>
                                 </div>
                               </div>
+
+                              {/* Pre-Test mock buttons for module 2 */}
+                              {module.id === 2 && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <button onClick={() => handlePreTestSubmit(30)} className="px-3 py-1 rounded bg-red-50 text-red-700 border border-red-100 text-sm">Skor Rendah (30%)</button>
+                                  <button onClick={() => handlePreTestSubmit(60)} className="px-3 py-1 rounded bg-amber-50 text-amber-700 border border-amber-100 text-sm">Skor Sederhana (60%)</button>
+                                  <button onClick={() => handlePreTestSubmit(85)} className="px-3 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 text-sm">Skor Cemerlang (85%)</button>
+                                  {simulasiSkor !== null && <span className="ml-3 text-sm text-slate-600">Skor Terbaru: {simulasiSkor}%</span>}
+                                </div>
+                              )}
                             </div>
                           </motion.div>
                         );
