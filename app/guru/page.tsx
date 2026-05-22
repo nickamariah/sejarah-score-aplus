@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { LogOut } from "lucide-react";
 
 export default function GuruDashboard() {
@@ -12,6 +13,12 @@ export default function GuruDashboard() {
   const [uploadBab, setUploadBab] = useState<number>(1);
   const [uploadJenis, setUploadJenis] = useState<string>('Bahan Bacaan');
   const [uploadUrl, setUploadUrl] = useState<string>('');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const tabs = ["Analitik", "Bank Soalan", "Kuiz RAG"];
 
@@ -36,17 +43,17 @@ export default function GuruDashboard() {
       const text = await res.text();
       const data = JSON.parse(text);
       if (data && data.success) {
-        window.alert('Modul berjaya disimpan.');
+        showToast('Modul berjaya disimpan.', 'success');
         setShowUploadModal(false);
         setUploadUrl('');
         setUploadJenis('Bahan Bacaan');
         setUploadBab(1);
         setUploadTingkatan('4');
       } else {
-        window.alert('Gagal menyimpan modul. Sila cuba lagi.');
+        showToast('Gagal menyimpan modul. Sila cuba lagi.', 'error');
       }
     } catch (err) {
-      window.alert('Ralat sambungan. Sila cuba lagi.');
+      showToast('Ralat sambungan. Sila cuba lagi.', 'error');
     }
   };
 
@@ -180,6 +187,22 @@ export default function GuruDashboard() {
           </div>
         </div>
       )}
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className={`fixed bottom-6 right-6 px-6 py-3 rounded-lg shadow-lg text-white ${
+              toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'
+            }`}
+          >
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

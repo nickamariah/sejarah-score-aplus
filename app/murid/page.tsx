@@ -71,6 +71,12 @@ export default function MuridDashboard() {
   const [moduleLinks, setModuleLinks] = useState<Record<string, string>>({});
   const [showIframe, setShowIframe] = useState(false);
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     try {
@@ -113,6 +119,12 @@ export default function MuridDashboard() {
     } else {
       window.alert('Bahan belum dimuat naik oleh guru');
     }
+  };
+
+  const closeIframe = () => {
+    setShowIframe(false);
+    setIframeUrl(null);
+    showToast('Modul ditutup', 'info');
   };
 
   const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
@@ -384,7 +396,7 @@ export default function MuridDashboard() {
               <div className="flex items-center justify-between p-3 border-b">
                 <h3 className="font-semibold">Pratonton Modul</h3>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => { setShowIframe(false); setIframeUrl(null); }} className="px-3 py-1 rounded bg-slate-100">Tutup</button>
+                  <button onClick={closeIframe} className="px-3 py-1 rounded bg-slate-100">Tutup</button>
                 </div>
               </div>
               <div className="w-full h-full">
@@ -393,6 +405,22 @@ export default function MuridDashboard() {
             </div>
           </div>
         )}
+
+        {/* Toast Notification */}
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className={`fixed bottom-6 right-6 px-6 py-3 rounded-lg shadow-lg text-white ${
+                toast.type === 'success' ? 'bg-emerald-500' : toast.type === 'error' ? 'bg-red-500' : 'bg-sky-500'
+              }`}
+            >
+              {toast.message}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
