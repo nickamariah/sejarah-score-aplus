@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 import { Sparkles, Map, Trophy, BookOpen, CheckCircle2 } from "lucide-react";
 
@@ -19,20 +20,46 @@ const masteryPath = [
 ];
 
 export default function CheerfulDashboard() {
+  const [userData, setUserData] = useState<any>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("currentUser");
+      if (raw) setUserData(JSON.parse(raw));
+    } catch (e) {
+      // ignore parse errors
+    }
+  }, []);
+
+  const tingkatan = userData?.tingkatan?.toString();
+
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8 font-sans text-slate-900">
       <div className="mx-auto flex max-w-7xl flex-col gap-8">
         <header className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4">
               <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-slate-900 text-4xl font-bold text-white shadow-xl">
-                S
-n              </div>
+                {userData?.nama ? userData.nama.charAt(0).toUpperCase() : "S"}
+              </div>
               <div>
                 <p className="text-sm uppercase tracking-[0.24em] text-slate-400">Selamat datang,</p>
-                <h1 className="mt-2 text-3xl font-semibold text-slate-950">Siti Nurul</h1>
+                <h1 className="mt-2 text-3xl font-semibold text-slate-950">{userData?.nama || 'Pelajar'}</h1>
                 <p className="mt-1 text-slate-500">Dashboard Murid Sejarah Score A+</p>
               </div>
+            </div>
+
+            <div className="mt-6 flex items-center gap-3">
+              {tingkatan === '4' && (
+                <button className="px-4 py-2 rounded-lg bg-sky-600 text-white">Tingkatan 4</button>
+              )}
+              {tingkatan === '5' && (
+                <>
+                  <button className="px-4 py-2 rounded-lg bg-sky-600 text-white">Tingkatan 4</button>
+                  <button className="px-4 py-2 rounded-lg bg-emerald-600 text-white">Tingkatan 5</button>
+                </>
+              )}
+              {!tingkatan && <button className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700">Tingkatan 4</button>}
             </div>
             <div className="rounded-3xl bg-amber-50 p-5 text-amber-950 shadow-inner shadow-amber-100/70">
               <div className="flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.18em]">
@@ -57,7 +84,7 @@ n              </div>
               </div>
             </div>
             <div className="mt-8 h-[340px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={340}>
                 <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
                   <PolarGrid stroke="#cbd5e1" />
                   <PolarAngleAxis dataKey="subject" stroke="#475569" />

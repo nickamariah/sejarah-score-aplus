@@ -1,12 +1,36 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const [idMurid, setIdMurid] = useState("");
   const [kataLaluan, setKataLaluan] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
 
+  async function handleLogin() {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: idMurid, password: kataLaluan }),
+      });
+      const result = await res.json();
+      if (result?.success) {
+        localStorage.setItem("currentUser", JSON.stringify(result.user));
+        router.push("/murid");
+      } else {
+        setError(result?.message || "ID atau kata laluan salah");
+      }
+    } catch (e) {
+      setError("Ralat rangkaian. Sila cuba lagi.");
+    }
+    setLoading(false);
+  }
   return (
     <div
       className="min-h-screen flex items-center justify-center"
@@ -40,14 +64,16 @@ export default function Home() {
                 className="mt-2 mb-6 w-full px-4 py-3 rounded-lg border border-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-300"
               />
 
-              <Link href="/murid" className="block">
-                <a
-                  className="w-full inline-flex items-center justify-center px-6 py-3 rounded-lg text-white font-semibold"
-                  style={{ background: "linear-gradient(90deg,#ffd24d 0%, #ffbf00 100%)" }}
-                >
-                  Log Masuk
-                </a>
-              </Link>
+              <button
+                onClick={handleLogin}
+                disabled={loading}
+                className="w-full inline-flex items-center justify-center px-6 py-3 rounded-lg text-white font-semibold"
+                style={{ background: "linear-gradient(90deg,#ffd24d 0%, #ffbf00 100%)" }}
+              >
+                {loading ? "Sedang log masuk..." : "Log Masuk"}
+              </button>
+
+              {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
 
               <p className="mt-3 text-xs text-sky-600">Atau hubungi guru jika anda terlupa ID atau kata laluan.</p>
             </div>
