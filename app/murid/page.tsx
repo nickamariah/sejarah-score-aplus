@@ -11,7 +11,8 @@ import {
   Medal,
   ChevronDown,
   Lock,
-  Sparkles
+  Sparkles,
+  LogOut
 } from "lucide-react";
 
 const chapters = {
@@ -100,6 +101,11 @@ export default function MuridDashboard() {
     return !completedModules.includes(prevKey);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('currentUser');
+    window.location.href = '/';
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-8 md:px-6 font-sans text-slate-900">
       <div className="mx-auto max-w-6xl">
@@ -120,6 +126,13 @@ export default function MuridDashboard() {
                 <p className="text-sm text-slate-600">Laluan Pembelajaran Adaptif Sejarah A+</p>
               </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-300 bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition"
+            >
+              <LogOut className="w-5 h-5" />
+              Log Keluar
+            </button>
           </div>
         </motion.div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { LogOut } from "lucide-react";
 
 export default function GuruDashboard() {
   const [activeTab, setActiveTab] = useState("Analitik");
@@ -15,6 +16,11 @@ export default function GuruDashboard() {
     setShowUploadModal(false);
     setTopik("");
     setGoogleDriveLink("");
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('currentUser');
+    window.location.href = '/';
   };
 
   return (
@@ -45,12 +51,19 @@ export default function GuruDashboard() {
               <h1 className="text-2xl font-bold">Dashboard Guru</h1>
               <p className="text-sm text-slate-300">Ringkasan kelas dan aktiviti</p>
             </div>
-            <div>
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowUploadModal(true)}
                 className="rounded-md bg-amber-400 px-4 py-2 font-semibold text-slate-900 hover:brightness-95 transition"
               >
                 Upload Nota / Soalan
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-400 bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition"
+              >
+                <LogOut className="w-5 h-5" />
+                Log Keluar
               </button>
             </div>
           </header>
