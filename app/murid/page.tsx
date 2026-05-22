@@ -2,18 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  BookOpen, 
-  Zap, 
-  CheckCircle2, 
-  Trophy, 
-  Gamepad2, 
+import {
+  BookOpen,
+  Zap,
+  CheckCircle2,
+  Trophy,
+  Gamepad2,
   Medal,
   ChevronDown,
   Lock,
   Sparkles,
   LogOut
 } from "lucide-react";
+import { Radar, RadarChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, ResponsiveContainer } from "recharts";
+import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
+import "react-circular-progressbar/dist/styles.css";
+
+const radarData = [
+  { subject: "Pemahaman", A: 88, fullMark: 100 },
+  { subject: "Tarikh", A: 82, fullMark: 100 },
+  { subject: "Analisis", A: 76, fullMark: 100 },
+  { subject: "Kefahaman", A: 90, fullMark: 100 },
+  { subject: "Kreativiti", A: 72, fullMark: 100 },
+];
 
 const chapters = {
   t4: [
@@ -78,9 +89,7 @@ export default function MuridDashboard() {
 
   const toggleModule = (moduleKey: string) => {
     setCompletedModules((prev) =>
-      prev.includes(moduleKey)
-        ? prev.filter((m) => m !== moduleKey)
-        : [...prev, moduleKey]
+      prev.includes(moduleKey) ? prev.filter((m) => m !== moduleKey) : [...prev, moduleKey]
     );
   };
 
@@ -95,16 +104,20 @@ export default function MuridDashboard() {
   };
 
   const isModuleLocked = (chapterId: number, moduleId: number) => {
-    // First module is always unlocked, subsequent modules lock based on previous completion
     if (moduleId === 1) return false;
     const prevKey = `${activeLevel}-ch${chapterId}-mod${moduleId - 1}`;
     return !completedModules.includes(prevKey);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('currentUser');
-    window.location.href = '/';
+    localStorage.removeItem("currentUser");
+    window.location.href = "/";
   };
+
+  // Mastery percent across active level
+  const totalModules = currentChapters.length * modules.length;
+  const completedCount = completedModules.filter((k) => k.startsWith(activeLevel)).length;
+  const masteryPercent = totalModules ? Math.round((completedCount / totalModules) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-8 md:px-6 font-sans text-slate-900">
@@ -124,24 +137,72 @@ export default function MuridDashboard() {
                 <p className="text-xs md:text-sm uppercase tracking-widest text-slate-500">Selamat datang,</p>
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{userData?.nama || "Pelajar"}</h1>
                 <p className="text-sm text-slate-600">Laluan Pembelajaran Adaptif Sejarah A+</p>
+                <div className="mt-2 flex items-center gap-3">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-700 text-xs font-semibold">🔥 Streak: {userData?.streak ?? 7}</span>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-sky-700 text-xs font-semibold">XP: {userData?.xp ?? 1240}</span>
+                </div>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-300 bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition"
-            >
-              <LogOut className="w-5 h-5" />
-              Log Keluar
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-300 bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition"
+              >
+                <LogOut className="w-5 h-5" />
+                Log Keluar
+              </button>
+            </div>
           </div>
         </motion.div>
 
-        {/* Level Tabs */}
+        {/* Analytics + Progress */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="md:col-span-1 rounded-xl bg-white p-6 shadow-sm border border-slate-200 flex flex-col items-center">
+            <h3 className="text-sm text-slate-500 uppercase tracking-widest">Penguasaan Keseluruhan</h3>
+            <div className="w-36 h-36 mt-4">
+              <CircularProgressbar
+                value={masteryPercent}
+                text={`${masteryPercent}%`}
+                styles={buildStyles({
+                  textSize: "18px",
+                  pathColor: `rgba(245, 158, 11, ${masteryPercent / 100})`,
+                  textColor: "#92400e",
+                  trailColor: "#f3f4f6",
+                })}
+              />
+            </div>
+            <p className="mt-4 text-sm text-slate-600 text-center">Selesaikan modul untuk naik tahap penguasaan dan dapat lencana.</p>
+          </div>
+
+          <div className="md:col-span-2 rounded-xl bg-white p-6 shadow-sm border border-slate-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-widest text-slate-500">Analitik Penguasaan</p>
+                <h2 className="mt-2 text-xl font-semibold text-slate-900">Prestasi Sejarah</h2>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
+                <Trophy className="w-4 h-4 text-amber-500" /> Top 14%
+              </div>
+            </div>
+            <div className="mt-6 h-64">
+              <ResponsiveContainer width="100%" height={256}>
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                  <PolarGrid stroke="#e6e9ef" />
+                  <PolarAngleAxis dataKey="subject" stroke="#475569" />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} />
+                  <Radar name="Skor" dataKey="A" stroke="#b45309" fill="#b45309" fillOpacity={0.25} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Level Tabs + Adaptive Pathway (kept below analytics) */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="mb-8 flex gap-3"
+          className="mb-6 flex gap-3"
         >
           {["t4", "t5"].map((level) => (
             <button
@@ -150,7 +211,7 @@ export default function MuridDashboard() {
                 setActiveLevel(level as "t4" | "t5");
                 setExpandedChapter(null);
               }}
-              className={`px-6 py-3 rounded-xl font-semibold transition ${
+              className={`px-5 py-2 rounded-xl font-semibold transition ${
                 activeLevel === level
                   ? "bg-gradient-to-r from-sky-600 to-sky-500 text-white shadow-lg"
                   : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
@@ -161,19 +222,13 @@ export default function MuridDashboard() {
           ))}
         </motion.div>
 
-        {/* Chapters List */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="space-y-4"
-        >
+        <motion.div className="space-y-4">
           {currentChapters.map((chapter, index) => (
             <motion.div
               key={chapter.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
+              transition={{ delay: index * 0.04 }}
               className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
             >
               <button
@@ -184,69 +239,41 @@ export default function MuridDashboard() {
                   <h3 className="font-bold text-slate-900">{chapter.title}</h3>
                   <p className="text-sm text-slate-600 mt-1">{chapter.desc}</p>
                 </div>
-                <motion.div
-                  animate={{ rotate: expandedChapter === chapter.id ? 180 : 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="ml-4 flex-shrink-0"
-                >
+                <motion.div animate={{ rotate: expandedChapter === chapter.id ? 180 : 0 }} transition={{ duration: 0.2 }} className="ml-4 flex-shrink-0">
                   <ChevronDown className="w-5 h-5 text-slate-400" />
                 </motion.div>
               </button>
 
-              {/* Modules Accordion */}
               <AnimatePresence>
                 {expandedChapter === chapter.id && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="border-t border-slate-200 bg-gradient-to-b from-slate-50 to-white p-6"
-                  >
-                    <div className="space-y-3">
-                      {modules.map((module, idx) => {
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="border-t border-slate-200 bg-gradient-to-b from-slate-50 to-white p-6">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {modules.map((module) => {
                         const Icon = module.icon;
                         const isLocked = isModuleLocked(chapter.id, module.id);
                         const isCompleted = getModuleStatus(chapter.id, module.id);
+                        const key = `${activeLevel}-ch${chapter.id}-mod${module.id}`;
 
                         return (
-                          <motion.button
-                            key={module.id}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: idx * 0.05 }}
-                            onClick={() => {
-                              if (!isLocked) markModuleComplete(chapter.id, module.id);
-                            }}
-                            disabled={isLocked}
-                            className={`w-full px-4 py-4 rounded-lg flex items-start gap-4 transition ${
-                              isLocked
-                                ? "bg-slate-100 opacity-50 cursor-not-allowed"
-                                : isCompleted
-                                ? "bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200"
-                                : "bg-white border border-slate-200 hover:border-sky-400 hover:bg-sky-50"
-                            }`}
-                          >
-                            <div className={`flex-shrink-0 p-2 rounded-lg ${
-                              isLocked
-                                ? "bg-slate-300 text-slate-500"
-                                : isCompleted
-                                ? `bg-emerald-100 text-emerald-600`
-                                : `bg-${module.color}-100 text-${module.color}-600`
-                            }`}>
-                              {isLocked ? (
-                                <Lock className="w-5 h-5" />
-                              ) : (
-                                <Icon className="w-5 h-5" />
-                              )}
+                          <motion.div key={module.id} whileHover={{ y: -4 }} className={`rounded-lg p-4 flex items-start gap-4 transition ${isLocked ? 'bg-slate-100 opacity-60' : isCompleted ? 'bg-emerald-50 border border-emerald-200' : 'bg-white border border-slate-200 hover:border-sky-300'}`}>
+                            <div className={`p-2 rounded-lg flex items-center justify-center ${isLocked ? 'bg-slate-300 text-slate-600' : isCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-sky-50 text-sky-600'}`}>
+                              {isLocked ? <Lock className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
                             </div>
-                            <div className="flex-1 text-left">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-semibold text-slate-900">{module.name}</h4>
-                                {isCompleted && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-semibold text-slate-900">{module.name}</h4>
+                                  {module.note && <p className="text-xs text-slate-600 mt-1">{module.note}</p>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {isCompleted ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : null}
+                                  <button onClick={() => { if (!isLocked) markModuleComplete(chapter.id, module.id); }} disabled={isLocked} className={`text-sm font-semibold px-3 py-1 rounded ${isLocked ? 'text-slate-500' : 'text-sky-700 hover:bg-sky-50'}`}>
+                                    {isCompleted ? 'Selesai' : isLocked ? 'Terkunci' : 'Mula'}
+                                  </button>
+                                </div>
                               </div>
-                              {module.note && <p className="text-xs text-slate-600 mt-1">{module.note}</p>}
                             </div>
-                          </motion.button>
+                          </motion.div>
                         );
                       })}
                     </div>
@@ -257,20 +284,12 @@ export default function MuridDashboard() {
           ))}
         </motion.div>
 
-        {/* Footer CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="mt-12 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 p-6 md:p-8 text-white shadow-lg"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-12 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 p-6 md:p-8 text-white shadow-lg">
           <div className="flex items-center gap-3 mb-3">
             <Medal className="w-6 h-6" />
             <h3 className="text-xl font-bold">Teruskan Pembelajaran!</h3>
           </div>
-          <p className="text-amber-50 text-sm md:text-base">
-            Siapkan semua modul untuk mendapatkan lencana penguasaan dan naik ke tahap berikutnya. Kecilkan modul untuk melihat laluan lengkap anda.
-          </p>
+          <p className="text-amber-50 text-sm md:text-base">Siapkan semua modul untuk mendapatkan lencana penguasaan dan naik ke tahap berikutnya.</p>
         </motion.div>
       </div>
     </div>
