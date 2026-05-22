@@ -30,26 +30,26 @@ const chapters = {
   t4: [
     { id: 1, title: "Bab 1: Warisan Negara Bangsa", desc: "Mengenal identiti dan nilai kebangsaan" },
     { id: 2, title: "Bab 2: Kebangkitan Nasionalisme", desc: "Asas kebangkitan dan semangat kebangsaan" },
-    { id: 3, title: "Bab 3: Konflik Dunia & Jepun", desc: "Perang Dunia dan pendudukan Jepun" },
-    { id: 4, title: "Bab 4: Kemerdekaan Malaya", desc: "Perjalanan menuju kemerdekaan" },
-    { id: 5, title: "Bab 5: Pembentukan Malaysia", desc: "Ekspansi dan perluasan negara" },
-    { id: 6, title: "Bab 6: Politik & Ekonomi Awal", desc: "Dasar-dasar awal kemerdekaan" },
-    { id: 7, title: "Bab 7: Perkembangan Sosial", desc: "Aspek sosial negara baru" },
-    { id: 8, title: "Bab 8: Krisis & Perubahan", desc: "Peristiwa penting tahun 1960s-1970s" },
-    { id: 9, title: "Bab 9: Era Pembangunan", desc: "Pembangunan ekonomi dan infrastruktur" },
-    { id: 10, title: "Bab 10: Malaysia Moden", desc: "Perkembangan terkini dan masa depan" },
+    { id: 3, title: "Bab 3: Konflik Dunia & Pendudukan Jepun Di negara Kita", desc: "Perang Dunia dan pendudukan Jepun di negara kita" },
+    { id: 4, title: "Bab 4: Era Peralihan Kuasa British Di Negara Kita", desc: "Perubahan kuasa British dan kesannya" },
+    { id: 5, title: "Bab 5: Persekutuan Tanah Melayu (PTM) 1948", desc: "Pembentukan PTM 1948" },
+    { id: 6, title: "Bab 6: Ancaman Komunis & Perisytiharan Darurat", desc: "Perjuangan menentang ancaman komunis" },
+    { id: 7, title: "Bab 7: Usaha Ke Arah Kemerdekaan", desc: "Gerakan dan rundingan ke arah merdeka" },
+    { id: 8, title: "Bab 8: Pilihan Raya", desc: "Proses pilihan raya awal dan impaknya" },
+    { id: 9, title: "Bab 9: PTM 1957", desc: "Peristiwa penting PTM 1957" },
+    { id: 10, title: "Bab 10: Permasyuran Kemerdekaan", desc: "Upacara dan simbol permasyuran kemerdekaan" },
   ],
   t5: [
-    { id: 1, title: "Bab 1: Peradaban Awal Dunia", desc: "Sejarah peradaban manusia purba" },
-    { id: 2, title: "Bab 2: Empayar & Kerajaan", desc: "Perkembangan sistem kerajaan" },
-    { id: 3, title: "Bab 3: Perdagangan & Pertukaran", desc: "Rute perdagangan dunia kuno" },
-    { id: 4, title: "Bab 4: Zaman Pencerahan", desc: "Periode pemikiran dan sains" },
-    { id: 5, title: "Bab 5: Revolusi Industri", desc: "Transformasi ekonomi dunia" },
-    { id: 6, title: "Bab 6: Imperialisme & Kolonialisme", desc: "Ekspansi kuasa Eropah" },
-    { id: 7, title: "Bab 7: Perang Dunia I", desc: "Konflik global pertama" },
-    { id: 8, title: "Bab 8: Perang Dunia II & Kesan", desc: "Perang kedua dan dampaknya" },
-    { id: 9, title: "Bab 9: Perang Dingin", desc: "Ketegangan antara blok" },
-    { id: 10, title: "Bab 10: Dunia Kontemporari", desc: "Sejarah masa kini dan trend global" },
+    { id: 1, title: "Bab 1: Kedaulatan Negara", desc: "Konsep dan kepentingan kedaulatan" },
+    { id: 2, title: "Bab 2: Perlembagaan Persekutuan", desc: "Rangka perlembagaan dan hak" },
+    { id: 3, title: "Bab 3: Raja berperlembagaan & Demokrasi Berparlimen", desc: "Peranan Raja dan Parlimen" },
+    { id: 4, title: "Bab 4: Sistem Persekutuan", desc: "Susunan dan fungsi kerajaan persekutuan" },
+    { id: 5, title: "Bab 5: Pembentukan Malaysia", desc: "Proses dan isu pembentukan Malaysia" },
+    { id: 6, title: "Bab 6: Cabaran Selepas Pembentukaan Malaysia", desc: "Isu sosial dan politik pasca pembentukan" },
+    { id: 7, title: "Bab 7: Membina Kesejahteraan Negara", desc: "Dasar dan program membina kesejahteraan" },
+    { id: 8, title: "Bab 8: Membina Kemakmuran Negara", desc: "Strategi pembangunan ekonomi" },
+    { id: 9, title: "Bab 9: Dasar Luar Malaysia", desc: "Pendekatan dan kepentingan dasar luar" },
+    { id: 10, title: "Bab 10: Kecemerlangan Malaysia di Persada Dunia", desc: "Peranan Malaysia di pentas antarabangsa" },
   ]
 };
 
@@ -68,6 +68,9 @@ export default function MuridDashboard() {
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
   const [simulasiSkor, setSimulasiSkor] = useState<number | null>(null);
   const [completedModules, setCompletedModules] = useState<string[]>([]);
+  const [moduleLinks, setModuleLinks] = useState<Record<string, string>>({});
+  const [showIframe, setShowIframe] = useState(false);
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -81,6 +84,36 @@ export default function MuridDashboard() {
       // ignore parse errors
     }
   }, []);
+
+  useEffect(() => {
+    // fetch module links from GAS based on active level
+    const fetchModules = async () => {
+      try {
+        const endpoint = "https://script.google.com/macros/s/AKfycbzeGCohq7mGAcQ7igJryYX7Nba3SkZPLDluj44K-Cps1CwWuOEpNdxAGkL4RwBc1nfjLQ/exec";
+        const tingkatan = activeLevel === 't5' ? '5' : '4';
+        const res = await fetch(endpoint, { method: 'POST', body: JSON.stringify({ action: 'GET_MODUL', tingkatan }) });
+        const text = await res.text();
+        const data = JSON.parse(text);
+        // expect data to be an object mapping keys to URLs
+        setModuleLinks(data || {});
+      } catch (err) {
+        // ignore for now
+      }
+    };
+
+    fetchModules();
+  }, [activeLevel]);
+
+  const openModule = (chapterId: number, moduleId: number) => {
+    const key = `${activeLevel}-ch${chapterId}-mod${moduleId}`;
+    const url = moduleLinks[key];
+    if (url) {
+      setIframeUrl(url);
+      setShowIframe(true);
+    } else {
+      window.alert('Bahan belum dimuat naik oleh guru');
+    }
+  };
 
   const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
 
@@ -307,9 +340,12 @@ export default function MuridDashboard() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {isCompleted ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : null}
-                                  <button onClick={() => { if (!isLocked) markModuleComplete(chapter.id, module.id); }} disabled={isLocked} className={`text-sm font-semibold px-3 py-1 rounded ${isLocked ? 'text-slate-500' : 'text-sky-700 hover:bg-sky-50'}`}>
-                                    {isCompleted ? 'Selesai' : isLocked ? 'Terkunci' : 'Mula'}
-                                  </button>
+                                  <div className="flex items-center gap-2">
+                                    <button onClick={() => { if (!isLocked) openModule(chapter.id, module.id); }} disabled={isLocked} className={`text-sm font-semibold px-3 py-1 rounded ${isLocked ? 'text-slate-500' : 'text-sky-700 hover:bg-sky-50'}`}>
+                                      {isCompleted ? 'Buka' : isLocked ? 'Terkunci' : 'Buka'}
+                                    </button>
+                                    <button onClick={() => { if (!isLocked) markModuleComplete(chapter.id, module.id); }} disabled={isLocked} className={`text-xs px-2 py-1 rounded bg-slate-100 text-slate-700 ${isCompleted ? 'line-through' : ''}`}>Tandakan Selesai</button>
+                                  </div>
                                 </div>
                               </div>
 
@@ -341,6 +377,22 @@ export default function MuridDashboard() {
           </div>
           <p className="text-amber-50 text-sm md:text-base">Siapkan semua modul untuk mendapatkan lencana penguasaan dan naik ke tahap berikutnya.</p>
         </motion.div>
+
+        {showIframe && iframeUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="bg-white w-[90%] md:w-3/4 h-[80%] rounded-xl shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between p-3 border-b">
+                <h3 className="font-semibold">Pratonton Modul</h3>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => { setShowIframe(false); setIframeUrl(null); }} className="px-3 py-1 rounded bg-slate-100">Tutup</button>
+                </div>
+              </div>
+              <div className="w-full h-full">
+                <iframe src={iframeUrl} className="w-full h-full" />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

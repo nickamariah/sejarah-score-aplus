@@ -8,6 +8,10 @@ export default function GuruDashboard() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [topik, setTopik] = useState("");
   const [googleDriveLink, setGoogleDriveLink] = useState("");
+  const [uploadTingkatan, setUploadTingkatan] = useState<'4'|'5'>('4');
+  const [uploadBab, setUploadBab] = useState<number>(1);
+  const [uploadJenis, setUploadJenis] = useState<string>('Bahan Bacaan');
+  const [uploadUrl, setUploadUrl] = useState<string>('');
 
   const tabs = ["Analitik", "Bank Soalan", "Kuiz RAG"];
 
@@ -16,6 +20,34 @@ export default function GuruDashboard() {
     setShowUploadModal(false);
     setTopik("");
     setGoogleDriveLink("");
+  };
+
+  const handleSaveModul = async () => {
+    try {
+      const endpoint = "https://script.google.com/macros/s/AKfycbzeGCohq7mGAcQ7igJryYX7Nba3SkZPLDluj44K-Cps1CwWuOEpNdxAGkL4RwBc1nfjLQ/exec";
+      const body = {
+        action: 'SAVE_MODUL',
+        tingkatan: uploadTingkatan,
+        bab: uploadBab,
+        jenis: uploadJenis,
+        url: uploadUrl
+      };
+      const res = await fetch(endpoint, { method: 'POST', body: JSON.stringify(body) });
+      const text = await res.text();
+      const data = JSON.parse(text);
+      if (data && data.success) {
+        window.alert('Modul berjaya disimpan.');
+        setShowUploadModal(false);
+        setUploadUrl('');
+        setUploadJenis('Bahan Bacaan');
+        setUploadBab(1);
+        setUploadTingkatan('4');
+      } else {
+        window.alert('Gagal menyimpan modul. Sila cuba lagi.');
+      }
+    } catch (err) {
+      window.alert('Ralat sambungan. Sila cuba lagi.');
+    }
   };
 
   const handleLogout = () => {
@@ -108,49 +140,42 @@ export default function GuruDashboard() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">
-                  Topik / Bab
-                </label>
-                <input
-                  type="text"
-                  value={topik}
-                  onChange={(e) => setTopik(e.target.value)}
-                  placeholder="Contoh: Bab 1 - Warisan Negara"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <label className="block text-sm font-medium mb-2">Tingkatan</label>
+                <select value={uploadTingkatan} onChange={(e) => setUploadTingkatan(e.target.value as '4'|'5')} className="w-full px-4 py-2 border rounded">
+                  <option value="4">Tingkatan 4</option>
+                  <option value="5">Tingkatan 5</option>
+                </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">
-                  Link Google Drive / URL PDF
-                </label>
-                <input
-                  type="text"
-                  value={googleDriveLink}
-                  onChange={(e) => setGoogleDriveLink(e.target.value)}
-                  placeholder="https://drive.google.com/..."
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <label className="block text-sm font-medium mb-2">Bab</label>
+                <select value={uploadBab} onChange={(e) => setUploadBab(parseInt(e.target.value))} className="w-full px-4 py-2 border rounded">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <option key={i} value={i + 1}>Bab {i + 1}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Jenis Modul</label>
+                <select value={uploadJenis} onChange={(e) => setUploadJenis(e.target.value)} className="w-full px-4 py-2 border rounded">
+                  <option>Bahan Bacaan</option>
+                  <option>Pre Test</option>
+                  <option>Modul Pengukuhan</option>
+                  <option>Post Test</option>
+                  <option>Games</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">URL (Google Drive atau pautan lain)</label>
+                <input type="text" value={uploadUrl} onChange={(e) => setUploadUrl(e.target.value)} placeholder="https://..." className="w-full px-4 py-2 border rounded" />
               </div>
             </div>
 
             <div className="mt-8 flex gap-3">
-              <button
-                onClick={handleUpload}
-                className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
-              >
-                Simpan ke Database
-              </button>
-              <button
-                onClick={() => {
-                  setShowUploadModal(false);
-                  setTopik("");
-                  setGoogleDriveLink("");
-                }}
-                className="flex-1 bg-slate-300 text-slate-900 py-2 rounded-lg font-semibold hover:bg-slate-400 transition"
-              >
-                Batal
-              </button>
+              <button onClick={handleSaveModul} className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition">Simpan ke GAS</button>
+              <button onClick={() => { setShowUploadModal(false); setTopik(""); setGoogleDriveLink(""); setUploadUrl(''); }} className="flex-1 bg-slate-300 text-slate-900 py-2 rounded-lg font-semibold hover:bg-slate-400 transition">Batal</button>
             </div>
           </div>
         </div>
