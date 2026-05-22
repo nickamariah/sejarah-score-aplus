@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 import { Sparkles, Map, Trophy, BookOpen, CheckCircle2 } from "lucide-react";
 
@@ -13,10 +14,24 @@ const radarData = [
 ];
 
 const masteryPath = [
-  { step: "Pengenalan Zaman", progress: "Sedia" },
-  { step: "Kesultanan Melayu", progress: "Dalam Proses" },
-  { step: "Perang Dunia", progress: "Belum Mula" },
-  { step: "Kemerdekaan", progress: "Belum Mula" },
+  {
+    step: "Bab 1: Warisan Negara Bangsa",
+    progress: "Aktif",
+    variant: "emerald",
+    subtitle: "Mengenal identiti dan nilai kebangsaan",
+  },
+  {
+    step: "Bab 2: Kebangkitan Nasionalisme",
+    progress: "Sedang",
+    variant: "sky",
+    subtitle: "Asas kebangkitan dan semangat kebangsaan",
+  },
+  {
+    step: "Bab 3: Konflik Dunia & Jepun",
+    progress: "Terkunci",
+    variant: "slate",
+    subtitle: "Perang Dunia dan pendudukan Jepun dalam Sejarah SPM",
+  },
 ];
 
 export default function CheerfulDashboard() {
@@ -72,6 +87,46 @@ export default function CheerfulDashboard() {
           </div>
         </header>
 
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.24em] text-slate-400">Menu Pantas</p>
+              <h2 className="mt-3 text-2xl font-semibold text-slate-950">Akses Bahan Sejarah</h2>
+            </div>
+            <Sparkles className="h-6 w-6 text-amber-500" />
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            {[
+              { label: "Buku Teks & Nota", href: "https://drive.google.com/drive/folders/1EZQiDtdESNHk2g79hNEYJMkz9gXVfSIr?usp=drive_link" },
+              { label: "Soalan Percubaan", href: "https://drive.google.com/drive/folders/1EZQiDtdESNHk2g79hNEYJMkz9gXVfSIr?usp=drive_link" },
+            ].map((item) => (
+              <motion.a
+                key={item.label}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                whileHover={{ y: -3 }}
+                className="group rounded-[28px] border border-slate-200 bg-slate-50 px-6 py-6 text-left shadow-sm transition duration-200 hover:border-sky-300 hover:bg-white"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.24em] text-slate-400">Akses Segera</p>
+                    <h3 className="mt-3 text-xl font-semibold text-slate-950">{item.label}</h3>
+                  </div>
+                  <BookOpen className="h-6 w-6 text-sky-500" />
+                </div>
+                <p className="mt-4 text-sm text-slate-500">Buka bahan sila rujuk Google Drive guru untuk silibus Sejarah SPM.</p>
+              </motion.a>
+            ))}
+          </div>
+        </motion.section>
+
         <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <article className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm">
             <div className="flex items-center justify-between">
@@ -107,17 +162,21 @@ export default function CheerfulDashboard() {
             </div>
             <div className="space-y-4">
               {masteryPath.map((item) => (
-                <div key={item.step} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex items-center justify-between gap-3">
+                <motion.div
+                  key={item.step}
+                  whileHover={{ y: -2 }}
+                  className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{item.step}</p>
-                      <p className="mt-1 text-sm text-slate-500">Langkah seterusnya dalam perjalananmu</p>
+                      <p className="mt-1 text-sm text-slate-500">{item.subtitle}</p>
                     </div>
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${item.progress === "Dalam Proses" ? "bg-amber-100 text-amber-700" : item.progress === "Sedia" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"}`}>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${item.variant === "emerald" ? "bg-emerald-100 text-emerald-700" : item.variant === "sky" ? "bg-sky-100 text-sky-700" : "bg-slate-200 text-slate-700"}`}>
                       {item.progress}
                     </span>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
             <div className="rounded-3xl bg-slate-950 p-6 text-slate-50 shadow-lg">

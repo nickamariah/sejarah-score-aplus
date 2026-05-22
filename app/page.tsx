@@ -10,31 +10,38 @@ export default function Home() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  async function handleLogin() {
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
     setLoading(true);
     setError("");
+
     try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: idMurid, password: kataLaluan }),
-      });
-      const result = await res.json();
-      if (result?.success) {
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbzeGCohq7mGAcQ7igJryYX7Nba3SkZPLDluj44K-Cps1CwWuOEpNdxAGkL4RwBc1nfjLQ/exec",
+        {
+          method: "POST",
+          body: JSON.stringify({ action: "LOGIN", id: idMurid, password: kataLaluan }),
+        }
+      );
+
+      const textResult = await response.text();
+      const result = JSON.parse(textResult);
+
+      if (result.success) {
         localStorage.setItem("currentUser", JSON.stringify(result.user));
-        const role = result.user?.role;
-        if (role === "guru") {
-          router.push("/guru");
+        if (result.user.role === "guru") {
+          window.location.href = "/guru";
         } else {
-          router.push("/murid");
+          window.location.href = "/murid";
         }
       } else {
-        setError(result?.message || "ID atau kata laluan salah");
+        setError(result.error || "ID atau kata laluan salah");
       }
-    } catch (e) {
-      setError("Ralat rangkaian. Sila cuba lagi.");
+    } catch (err: any) {
+      setError("Ralat: " + (err?.message || "sila cuba lagi"));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
   return (
     <div
@@ -52,31 +59,33 @@ export default function Home() {
 
           <div className="w-full md:w-1/2">
             <div className="rounded-xl p-6" style={{ background: "#f8fbff" }}>
-              <label className="block text-sm font-medium text-sky-800">ID Murid</label>
-              <input
-                value={idMurid}
-                onChange={(e) => setIdMurid(e.target.value)}
-                placeholder="Masukkan ID Murid"
-                className="mt-2 mb-4 w-full px-4 py-3 rounded-lg border border-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-300"
-              />
+              <form onSubmit={handleLogin}>
+                <label className="block text-sm font-medium text-sky-800">ID Murid</label>
+                <input
+                  value={idMurid}
+                  onChange={(e) => setIdMurid(e.target.value)}
+                  placeholder="Masukkan ID Murid"
+                  className="mt-2 mb-4 w-full px-4 py-3 rounded-lg border border-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                />
 
-              <label className="block text-sm font-medium text-sky-800">Kata Laluan</label>
-              <input
-                value={kataLaluan}
-                onChange={(e) => setKataLaluan(e.target.value)}
-                type="password"
-                placeholder="Kata Laluan"
-                className="mt-2 mb-6 w-full px-4 py-3 rounded-lg border border-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-300"
-              />
+                <label className="block text-sm font-medium text-sky-800">Kata Laluan</label>
+                <input
+                  value={kataLaluan}
+                  onChange={(e) => setKataLaluan(e.target.value)}
+                  type="password"
+                  placeholder="Kata Laluan"
+                  className="mt-2 mb-6 w-full px-4 py-3 rounded-lg border border-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                />
 
-              <button
-                onClick={handleLogin}
-                disabled={loading}
-                className="w-full inline-flex items-center justify-center px-6 py-3 rounded-lg text-white font-semibold"
-                style={{ background: "linear-gradient(90deg,#ffd24d 0%, #ffbf00 100%)" }}
-              >
-                {loading ? "Sedang log masuk..." : "Log Masuk"}
-              </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full inline-flex items-center justify-center px-6 py-3 rounded-lg text-white font-semibold"
+                  style={{ background: "linear-gradient(90deg,#ffd24d 0%, #ffbf00 100%)" }}
+                >
+                  {loading ? "Sedang log masuk..." : "Log Masuk"}
+                </button>
+              </form>
 
               {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
 
