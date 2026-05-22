@@ -22,7 +22,12 @@ export default function Home() {
       const result = await res.json();
       if (result?.success) {
         localStorage.setItem("currentUser", JSON.stringify(result.user));
-        router.push("/murid");
+        const role = result.user?.role;
+        if (role === "guru") {
+          router.push("/guru");
+        } else {
+          router.push("/murid");
+        }
       } else {
         setError(result?.message || "ID atau kata laluan salah");
       }
