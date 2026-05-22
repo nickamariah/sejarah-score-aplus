@@ -1,199 +1,264 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Radar, RadarChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, ResponsiveContainer } from "recharts";
-import { Sparkles, Map, Trophy, BookOpen, CheckCircle2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  BookOpen, 
+  Zap, 
+  CheckCircle2, 
+  Trophy, 
+  Gamepad2, 
+  Medal,
+  ChevronDown,
+  Lock,
+  Sparkles
+} from "lucide-react";
 
-const radarData = [
-  { subject: "Pemahaman", A: 88, fullMark: 100 },
-  { subject: "Tarikh", A: 82, fullMark: 100 },
-  { subject: "Analisis", A: 76, fullMark: 100 },
-  { subject: "Kefahaman", A: 90, fullMark: 100 },
-  { subject: "Kreativiti", A: 72, fullMark: 100 },
+const chapters = {
+  t4: [
+    { id: 1, title: "Bab 1: Warisan Negara Bangsa", desc: "Mengenal identiti dan nilai kebangsaan" },
+    { id: 2, title: "Bab 2: Kebangkitan Nasionalisme", desc: "Asas kebangkitan dan semangat kebangsaan" },
+    { id: 3, title: "Bab 3: Konflik Dunia & Jepun", desc: "Perang Dunia dan pendudukan Jepun" },
+    { id: 4, title: "Bab 4: Kemerdekaan Malaya", desc: "Perjalanan menuju kemerdekaan" },
+    { id: 5, title: "Bab 5: Pembentukan Malaysia", desc: "Ekspansi dan perluasan negara" },
+    { id: 6, title: "Bab 6: Politik & Ekonomi Awal", desc: "Dasar-dasar awal kemerdekaan" },
+    { id: 7, title: "Bab 7: Perkembangan Sosial", desc: "Aspek sosial negara baru" },
+    { id: 8, title: "Bab 8: Krisis & Perubahan", desc: "Peristiwa penting tahun 1960s-1970s" },
+    { id: 9, title: "Bab 9: Era Pembangunan", desc: "Pembangunan ekonomi dan infrastruktur" },
+    { id: 10, title: "Bab 10: Malaysia Moden", desc: "Perkembangan terkini dan masa depan" },
+  ],
+  t5: [
+    { id: 1, title: "Bab 1: Peradaban Awal Dunia", desc: "Sejarah peradaban manusia purba" },
+    { id: 2, title: "Bab 2: Empayar & Kerajaan", desc: "Perkembangan sistem kerajaan" },
+    { id: 3, title: "Bab 3: Perdagangan & Pertukaran", desc: "Rute perdagangan dunia kuno" },
+    { id: 4, title: "Bab 4: Zaman Pencerahan", desc: "Periode pemikiran dan sains" },
+    { id: 5, title: "Bab 5: Revolusi Industri", desc: "Transformasi ekonomi dunia" },
+    { id: 6, title: "Bab 6: Imperialisme & Kolonialisme", desc: "Ekspansi kuasa Eropah" },
+    { id: 7, title: "Bab 7: Perang Dunia I", desc: "Konflik global pertama" },
+    { id: 8, title: "Bab 8: Perang Dunia II & Kesan", desc: "Perang kedua dan dampaknya" },
+    { id: 9, title: "Bab 9: Perang Dingin", desc: "Ketegangan antara blok" },
+    { id: 10, title: "Bab 10: Dunia Kontemporari", desc: "Sejarah masa kini dan trend global" },
+  ]
+};
+
+const modules = [
+  { id: 1, name: "Bahan Bacaan", icon: BookOpen, color: "sky", note: "" },
+  { id: 2, name: "Pre Test", icon: Zap, color: "amber", note: "Skor cemerlang akan melangkau Pengukuhan & Post Test" },
+  { id: 3, name: "Modul Pengukuhan", icon: Sparkles, color: "purple", note: "Latihan RAG & Scaffolding AI" },
+  { id: 4, name: "Post Test", icon: CheckCircle2, color: "emerald", note: "" },
+  { id: 5, name: "Games", icon: Gamepad2, color: "pink", note: "" },
+  { id: 6, name: "Status Kuasai", icon: Trophy, color: "amber", note: "" },
 ];
 
-const masteryPath = [
-  {
-    step: "Bab 1: Warisan Negara Bangsa",
-    progress: "Aktif",
-    variant: "emerald",
-    subtitle: "Mengenal identiti dan nilai kebangsaan",
-  },
-  {
-    step: "Bab 2: Kebangkitan Nasionalisme",
-    progress: "Sedang",
-    variant: "sky",
-    subtitle: "Asas kebangkitan dan semangat kebangsaan",
-  },
-  {
-    step: "Bab 3: Konflik Dunia & Jepun",
-    progress: "Terkunci",
-    variant: "slate",
-    subtitle: "Perang Dunia dan pendudukan Jepun dalam Sejarah SPM",
-  },
-];
-
-export default function CheerfulDashboard() {
+export default function MuridDashboard() {
   const [userData, setUserData] = useState<any>(null);
+  const [activeLevel, setActiveLevel] = useState<"t4" | "t5">("t4");
+  const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
+  const [completedModules, setCompletedModules] = useState<string[]>([]);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem("currentUser");
-      if (raw) setUserData(JSON.parse(raw));
+      if (raw) {
+        const user = JSON.parse(raw);
+        setUserData(user);
+        if (user.tingkatan === "5") setActiveLevel("t5");
+      }
     } catch (e) {
       // ignore parse errors
     }
   }, []);
 
-  const tingkatan = userData?.tingkatan?.toString();
+  const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
+
+  const toggleChapter = (chapterId: number) => {
+    setExpandedChapter(expandedChapter === chapterId ? null : chapterId);
+  };
+
+  const toggleModule = (moduleKey: string) => {
+    setCompletedModules((prev) =>
+      prev.includes(moduleKey)
+        ? prev.filter((m) => m !== moduleKey)
+        : [...prev, moduleKey]
+    );
+  };
+
+  const getModuleStatus = (chapterId: number, moduleId: number) => {
+    const key = `${activeLevel}-ch${chapterId}-mod${moduleId}`;
+    return completedModules.includes(key);
+  };
+
+  const markModuleComplete = (chapterId: number, moduleId: number) => {
+    const key = `${activeLevel}-ch${chapterId}-mod${moduleId}`;
+    toggleModule(key);
+  };
+
+  const isModuleLocked = (chapterId: number, moduleId: number) => {
+    // First module is always unlocked, subsequent modules lock based on previous completion
+    if (moduleId === 1) return false;
+    const prevKey = `${activeLevel}-ch${chapterId}-mod${moduleId - 1}`;
+    return !completedModules.includes(prevKey);
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-8 font-sans text-slate-900">
-      <div className="mx-auto flex max-w-7xl flex-col gap-8">
-        <header className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-4">
-              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-slate-900 text-4xl font-bold text-white shadow-xl">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-8 md:px-6 font-sans text-slate-900">
+      <div className="mx-auto max-w-6xl">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl bg-white p-6 md:p-8 shadow-sm border border-slate-200 mb-8"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-sky-600 text-2xl md:text-3xl font-bold text-white shadow">
                 {userData?.nama ? userData.nama.charAt(0).toUpperCase() : "S"}
               </div>
               <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-slate-400">Selamat datang,</p>
-                <h1 className="mt-2 text-3xl font-semibold text-slate-950">{userData?.nama || 'Pelajar'}</h1>
-                <p className="mt-1 text-slate-500">Dashboard Murid Sejarah Score A+</p>
+                <p className="text-xs md:text-sm uppercase tracking-widest text-slate-500">Selamat datang,</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{userData?.nama || "Pelajar"}</h1>
+                <p className="text-sm text-slate-600">Laluan Pembelajaran Adaptif Sejarah A+</p>
               </div>
-            </div>
-
-            <div className="mt-6 flex items-center gap-3">
-              {tingkatan === '4' && (
-                <button className="px-4 py-2 rounded-lg bg-sky-600 text-white">Tingkatan 4</button>
-              )}
-              {tingkatan === '5' && (
-                <>
-                  <button className="px-4 py-2 rounded-lg bg-sky-600 text-white">Tingkatan 4</button>
-                  <button className="px-4 py-2 rounded-lg bg-emerald-600 text-white">Tingkatan 5</button>
-                </>
-              )}
-              {!tingkatan && <button className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700">Tingkatan 4</button>}
-            </div>
-            <div className="rounded-3xl bg-amber-50 p-5 text-amber-950 shadow-inner shadow-amber-100/70">
-              <div className="flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.18em]">
-                <Sparkles className="h-5 w-5 text-amber-500" />
-                Skor Terkini
-              </div>
-              <p className="mt-3 text-5xl font-bold">92%</p>
-              <p className="text-sm text-slate-600">Keceriaan & kemajuan tinggi</p>
             </div>
           </div>
-        </header>
+        </motion.div>
 
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
+        {/* Level Tabs */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm"
+          transition={{ delay: 0.1 }}
+          className="mb-8 flex gap-3"
         >
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm uppercase tracking-[0.24em] text-slate-400">Menu Pantas</p>
-              <h2 className="mt-3 text-2xl font-semibold text-slate-950">Akses Bahan Sejarah</h2>
-            </div>
-            <Sparkles className="h-6 w-6 text-amber-500" />
-          </div>
+          {["t4", "t5"].map((level) => (
+            <button
+              key={level}
+              onClick={() => {
+                setActiveLevel(level as "t4" | "t5");
+                setExpandedChapter(null);
+              }}
+              className={`px-6 py-3 rounded-xl font-semibold transition ${
+                activeLevel === level
+                  ? "bg-gradient-to-r from-sky-600 to-sky-500 text-white shadow-lg"
+                  : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              Tingkatan {level === "t4" ? "4" : "5"}
+            </button>
+          ))}
+        </motion.div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            {[
-              { label: "Buku Teks & Nota", href: "https://drive.google.com/drive/folders/1EZQiDtdESNHk2g79hNEYJMkz9gXVfSIr?usp=drive_link" },
-              { label: "Soalan Percubaan", href: "https://drive.google.com/drive/folders/1EZQiDtdESNHk2g79hNEYJMkz9gXVfSIr?usp=drive_link" },
-            ].map((item) => (
-              <motion.a
-                key={item.label}
-                href={item.href}
-                target="_blank"
-                rel="noreferrer"
-                whileHover={{ y: -3 }}
-                className="group rounded-[28px] border border-slate-200 bg-slate-50 px-6 py-6 text-left shadow-sm transition duration-200 hover:border-sky-300 hover:bg-white"
+        {/* Chapters List */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="space-y-4"
+        >
+          {currentChapters.map((chapter, index) => (
+            <motion.div
+              key={chapter.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+            >
+              <button
+                onClick={() => toggleChapter(chapter.id)}
+                className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition"
               >
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.24em] text-slate-400">Akses Segera</p>
-                    <h3 className="mt-3 text-xl font-semibold text-slate-950">{item.label}</h3>
-                  </div>
-                  <BookOpen className="h-6 w-6 text-sky-500" />
+                <div className="text-left flex-1">
+                  <h3 className="font-bold text-slate-900">{chapter.title}</h3>
+                  <p className="text-sm text-slate-600 mt-1">{chapter.desc}</p>
                 </div>
-                <p className="mt-4 text-sm text-slate-500">Buka bahan sila rujuk Google Drive guru untuk silibus Sejarah SPM.</p>
-              </motion.a>
-            ))}
-          </div>
-        </motion.section>
-
-        <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <article className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-slate-400">Radar Kemahiran</p>
-                <h2 className="mt-3 text-2xl font-semibold text-slate-950">Prestasi Sejarah</h2>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700">
-                <Trophy className="h-4 w-4 text-amber-500" /> Top 14%
-              </div>
-            </div>
-            <div className="mt-8 h-[340px]">
-              <ResponsiveContainer width="100%" height={340}>
-                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                  <PolarGrid stroke="#cbd5e1" />
-                  <PolarAngleAxis dataKey="subject" stroke="#475569" />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} />
-                  <Radar name="Skor" dataKey="A" stroke="#0f172a" fill="#0f172a" fillOpacity={0.4} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          </article>
-
-          <aside className="space-y-6 rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-3xl bg-slate-100 p-4 text-slate-700 shadow-sm">
-                <Map className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-slate-400">Peta Laluan</p>
-                <h2 className="text-2xl font-semibold text-slate-950">Mastery Path</h2>
-              </div>
-            </div>
-            <div className="space-y-4">
-              {masteryPath.map((item) => (
                 <motion.div
-                  key={item.step}
-                  whileHover={{ y: -2 }}
-                  className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm"
+                  animate={{ rotate: expandedChapter === chapter.id ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="ml-4 flex-shrink-0"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{item.step}</p>
-                      <p className="mt-1 text-sm text-slate-500">{item.subtitle}</p>
-                    </div>
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${item.variant === "emerald" ? "bg-emerald-100 text-emerald-700" : item.variant === "sky" ? "bg-sky-100 text-sky-700" : "bg-slate-200 text-slate-700"}`}>
-                      {item.progress}
-                    </span>
-                  </div>
+                  <ChevronDown className="w-5 h-5 text-slate-400" />
                 </motion.div>
-              ))}
-            </div>
-            <div className="rounded-3xl bg-slate-950 p-6 text-slate-50 shadow-lg">
-              <div className="flex items-center gap-3">
-                <BookOpen className="h-5 w-5 text-cyan-300" />
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-200">Cadangan seterusnya</p>
-              </div>
-              <p className="mt-4 text-sm leading-7 text-slate-200">
-                Baca nota bab Kemerdekaan dan lengkapkan kuiz mini untuk naik tahap penguasaan. Skor tambahan akan membantu anda mencapai status A+.
-              </p>
-              <div className="mt-6 flex items-center gap-2 text-sm text-slate-300">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                <span>Tambah kepada rutin pembelajaran harian</span>
-              </div>
-            </div>
-          </aside>
-        </section>
+              </button>
+
+              {/* Modules Accordion */}
+              <AnimatePresence>
+                {expandedChapter === chapter.id && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="border-t border-slate-200 bg-gradient-to-b from-slate-50 to-white p-6"
+                  >
+                    <div className="space-y-3">
+                      {modules.map((module, idx) => {
+                        const Icon = module.icon;
+                        const isLocked = isModuleLocked(chapter.id, module.id);
+                        const isCompleted = getModuleStatus(chapter.id, module.id);
+
+                        return (
+                          <motion.button
+                            key={module.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.05 }}
+                            onClick={() => {
+                              if (!isLocked) markModuleComplete(chapter.id, module.id);
+                            }}
+                            disabled={isLocked}
+                            className={`w-full px-4 py-4 rounded-lg flex items-start gap-4 transition ${
+                              isLocked
+                                ? "bg-slate-100 opacity-50 cursor-not-allowed"
+                                : isCompleted
+                                ? "bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200"
+                                : "bg-white border border-slate-200 hover:border-sky-400 hover:bg-sky-50"
+                            }`}
+                          >
+                            <div className={`flex-shrink-0 p-2 rounded-lg ${
+                              isLocked
+                                ? "bg-slate-300 text-slate-500"
+                                : isCompleted
+                                ? `bg-emerald-100 text-emerald-600`
+                                : `bg-${module.color}-100 text-${module.color}-600`
+                            }`}>
+                              {isLocked ? (
+                                <Lock className="w-5 h-5" />
+                              ) : (
+                                <Icon className="w-5 h-5" />
+                              )}
+                            </div>
+                            <div className="flex-1 text-left">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold text-slate-900">{module.name}</h4>
+                                {isCompleted && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                              </div>
+                              {module.note && <p className="text-xs text-slate-600 mt-1">{module.note}</p>}
+                            </div>
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* Footer CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mt-12 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 p-6 md:p-8 text-white shadow-lg"
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <Medal className="w-6 h-6" />
+            <h3 className="text-xl font-bold">Teruskan Pembelajaran!</h3>
+          </div>
+          <p className="text-amber-50 text-sm md:text-base">
+            Siapkan semua modul untuk mendapatkan lencana penguasaan dan naik ke tahap berikutnya. Kecilkan modul untuk melihat laluan lengkap anda.
+          </p>
+        </motion.div>
       </div>
     </div>
   );
