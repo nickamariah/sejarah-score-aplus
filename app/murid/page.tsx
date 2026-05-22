@@ -72,6 +72,13 @@ export default function MuridDashboard() {
   const [showIframe, setShowIframe] = useState(false);
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  // Quiz state
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [quizScore, setQuizScore] = useState(0);
+  const [showQuizResult, setShowQuizResult] = useState(false);
+  const [selectedChapterForQuiz, setSelectedChapterForQuiz] = useState<number | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type });
@@ -111,6 +118,12 @@ export default function MuridDashboard() {
   }, [activeLevel]);
 
   const openModule = (chapterId: number, moduleId: number) => {
+    // Pre Test: open quiz
+    if (moduleId === 2) {
+      fetchQuizQuestions(chapterId);
+      return;
+    }
+    // Other modules: open iframe
     const key = `${activeLevel}-ch${chapterId}-mod${moduleId}`;
     const url = moduleLinks[key];
     if (url) {
@@ -119,6 +132,82 @@ export default function MuridDashboard() {
     } else {
       window.alert('Bahan belum dimuat naik oleh guru');
     }
+  };
+
+  const fetchQuizQuestions = async (chapterId: number) => {
+    try {
+      const endpoint = "https://script.google.com/macros/s/AKfycbzeGCohq7mGAcQ7igJryYX7Nba3SkZPLDluj44K-Cps1CwWuOEpNdxAGkL4RwBc1nfjLQ/exec";
+      const tingkatan = activeLevel === 't5' ? '5' : '4';
+      const body = { action: 'GET_SOALAN', tingkatan, bab: chapterId, kategori: 'Pre Test' };
+      const res = await fetch(endpoint, { method: 'POST', body: JSON.stringify(body) });
+      const text = await res.text();
+      const data = JSON.parse(text);
+      if (data && Array.isArray(data)) {
+        setQuizQuestions(data);
+        setCurrentQuestionIndex(0);
+        setQuizScore(0);
+        setShowQuizResult(false);
+        setSelectedChapterForQuiz(chapterId);
+        setIsQuizOpen(true);
+      } else {
+        showToast('Tiada soalan ditemui', 'error');
+      }
+    } catch (err) {
+      showToast('Ralat memuatkan soalan', 'error');
+    }
+  };
+
+  const handleAnswerSubmit = (answer: string) => {
+    const current = quizQuestions[currentQuestionIndex];
+    let isCorrect = false;
+    
+    // Check if answer matches skema
+    if (current.skema) {
+      isCorrect = answer.toLowerCase() === current.skema.toLowerCase();
+    }
+    
+    if (isCorrect) {
+      setQuizScore(quizScore + 1);
+    }
+
+    // Move to next question or end quiz
+    if (currentQuestionIndex < quizQuestions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    } else {
+      // Quiz ended
+      endQuiz();
+    }
+  };
+
+  const endQuiz = () => {
+    const percentage = Math.round((quizScore / quizQuestions.length) * 100);
+    
+    // Determine adaptive path
+    let adaptiveScore = 0;
+    let adaptiveMsg = '';
+    
+    if (percentage >= 70) {
+      adaptiveScore = 85;
+      adaptiveMsg = 'Tahniah! Anda Cemerlang & Kuasai Bab Ini!';
+    } else if (percentage >= 50) {
+      adaptiveScore = 60;
+      adaptiveMsg = 'Pencapaian Sederhana. Mari kita gilap lagi!';
+    } else {
+      adaptiveScore = 30;
+      adaptiveMsg = 'Jangan putus asa! Mari mulakan bimbingan RAG.';
+    }
+    
+    setSimulasiSkor(adaptiveScore);
+    setShowQuizResult(true);
+  };
+
+  const closeQuiz = () => {
+    setIsQuizOpen(false);
+    setQuizQuestions([]);
+    setCurrentQuestionIndex(0);
+    setQuizScore(0);
+    setShowQuizResult(false);
+    setSelectedChapterForQuiz(null);
   };
 
   const closeIframe = () => {
@@ -401,6 +490,70 @@ export default function MuridDashboard() {
               </div>
               <div className="w-full h-full">
                 <iframe src={iframeUrl} className="w-full h-full" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quiz Modal */}
+        {isQuizOpen && quizQuestions.length > 0 && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="bg-white w-[95%] md:w-[85%] lg:w-2/3 max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-sky-500 to-sky-600 p-6 text-white">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold">Pre Test</h2>
+                  <button onClick={closeQuiz} className="text-white hover:bg-white/20 p-2 rounded">✕</button>
+                </div>
+                {!showQuizResult && (
+                  <div className="w-full bg-white/20 rounded-full h-2">
+                    <div className="bg-white h-2 rounded-full" style={{ width: `${((currentQuestionIndex + 1) / quizQuestions.length) * 100}%` }} />
+                  </div>
+                )}
+                {!showQuizResult && <p className="mt-2 text-sm">Soalan {currentQuestionIndex + 1} daripada {quizQuestions.length}</p>}
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-8">
+                {!showQuizResult ? (
+                  <div>
+                    <h3 className="text-xl font-semibold mb-8 text-slate-900">{quizQuestions[currentQuestionIndex]?.soalan}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {['pilihanA', 'pilihanB', 'pilihanC', 'pilihanD'].map((pilihan) => {
+                        const label = pilihan.replace('pilihan', '');
+                        const text = quizQuestions[currentQuestionIndex]?.[pilihan];
+                        return (
+                          <button
+                            key={pilihan}
+                            onClick={() => handleAnswerSubmit(label)}
+                            className="p-4 rounded-lg border-2 border-slate-300 hover:border-sky-500 hover:bg-sky-50 transition text-left font-medium text-slate-900"
+                          >
+                            <span className="inline-block w-8 h-8 rounded-full bg-sky-100 text-sky-700 text-center mr-3">{label}</span>
+                            {text}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="mb-6">
+                      <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-emerald-100">
+                        <span className="text-4xl font-bold text-emerald-600">{Math.round((quizScore / quizQuestions.length) * 100)}%</span>
+                      </div>
+                    </div>
+                    <h4 className="text-2xl font-bold text-slate-900 mb-4">
+                      {simulasiSkor >= 70 ? '🎉 Tahniah! Anda Cemerlang & Kuasai Bab Ini!' : simulasiSkor >= 50 ? '👍 Pencapaian Sederhana. Mari kita gilap lagi!' : '💪 Jangan putus asa! Mari mulakan bimbingan RAG.'}
+                    </h4>
+                    <p className="text-slate-600 mb-8">Anda mendapat {quizScore} daripada {quizQuestions.length} soalan</p>
+                    <button
+                      onClick={closeQuiz}
+                      className="px-6 py-3 bg-sky-600 text-white rounded-lg font-semibold hover:bg-sky-700 transition"
+                    >
+                      Tutup & Terus Pembelajaran
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
