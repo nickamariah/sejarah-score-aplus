@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import MakmalDataKajian from "@/utils/MakmalDataKajian";
 import { LogOut, Plus, Edit3, Trash2, Download, ChartBar, Users, BookOpen, FileText } from "lucide-react";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
@@ -26,17 +27,19 @@ const chartData = [
   { name: "Bab 8", Pre: 58, Post: 70 },
 ];
 
-type TabKey = "murid" | "kandungan" | "analitik" | "upload";
+// TabKey simplified to plain string to avoid TS generic parsing issues in SWC build.
 
 export default function GuruDashboard() {
-  const [activeTab, setActiveTab] = useState<TabKey>("murid");
+  const [activeTab, setActiveTab] = useState("murid" as TabKey);
   const [students, setStudents] = useState(initialStudents);
   const [questionBank, setQuestionBank] = useState(initialQuestionBank);
-  const [uploadTingkatan, setUploadTingkatan] = useState<'4'|'5'>('4');
-  const [uploadBab, setUploadBab] = useState<number>(1);
-  const [uploadJenis, setUploadJenis] = useState<string>('Bahan Bacaan');
-  const [uploadUrl, setUploadUrl] = useState<string>('');
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [newStudent, setNewStudent] = useState({ name: '', tingkatan: '4', kelas: '' });
+  const [uploadTingkatan, setUploadTingkatan] = useState('4' as '4'|'5');
+  const [uploadBab, setUploadBab] = useState(1);
+  const [uploadJenis, setUploadJenis] = useState('Bahan Bacaan');
+  const [uploadUrl, setUploadUrl] = useState('');
+  const [toast, setToast] = useState(null as { message: string; type: 'success' | 'error' | 'info' } | null);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type });
@@ -50,6 +53,27 @@ export default function GuruDashboard() {
 
   const handleEditStudent = (id: number) => {
     showToast('Modul edit murid sedang dalam pembangunan.', 'info');
+  };
+
+  const handleSaveNewStudent = () => {
+    if (!newStudent.name.trim() || !newStudent.kelas.trim()) {
+      showToast('Sila lengkapkan Nama dan Kelas.', 'error');
+      return;
+    }
+
+    const newEntry = {
+      id: Date.now(),
+      name: newStudent.name.trim(),
+      tingkatan: newStudent.tingkatan,
+      kelas: newStudent.kelas.trim(),
+      skor: '0%',
+      status: 'Aktif',
+    };
+
+    setStudents((prev) => [newEntry, ...prev]);
+    setNewStudent({ name: '', tingkatan: '4', kelas: '' });
+    setShowAddStudentModal(false);
+    showToast('Murid baru berjaya ditambah.', 'success');
   };
 
   const handleViewQuestion = (id: number) => {
@@ -110,7 +134,7 @@ export default function GuruDashboard() {
                 return (
                   <button
                     key={tab.key}
-                    onClick={() => setActiveTab(tab.key as TabKey)}
+                    onClick={() => setActiveTab(tab.key)}
                     className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
                       activeTab === tab.key
                         ? 'bg-slate-700 text-white shadow-lg'
@@ -123,6 +147,7 @@ export default function GuruDashboard() {
                 );
               })}
             </nav>
+            </div>
           </aside>
 
           <main className="space-y-6">
@@ -149,7 +174,7 @@ export default function GuruDashboard() {
                     <h2 className="text-2xl font-semibold text-white">Pengurusan Murid</h2>
                     <p className="mt-2 text-slate-400">Tinjau senarai murid, status prestasi dan tindakan terpantas.</p>
                   </div>
-                  <button onClick={() => showToast('Tambah Murid baru dalam sistem akan datang.', 'info')} className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400">
+                  <button onClick={() => setShowAddStudentModal(true)} className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400">
                     <Plus className="h-4 w-4" /> Tambah Murid Baru
                   </button>
                 </div>
@@ -235,6 +260,10 @@ export default function GuruDashboard() {
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
+                </div>
+
+                <div className="rounded-[28px] border border-white/5 bg-slate-900 p-6 shadow-2xl">
+                  <MakmalDataKajian />
                 </div>
               </div>
             )}
@@ -332,6 +361,85 @@ export default function GuruDashboard() {
           </main>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showAddStudentModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ y: 30, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 30, opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-2xl overflow-hidden rounded-[32px] border border-white/10 bg-slate-900 p-6 shadow-2xl"
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.18em] text-amber-300">Tambah Murid Baru</p>
+                  <h2 className="mt-2 text-3xl font-semibold text-white">Maklumat Asas Murid</h2>
+                </div>
+                <button
+                  onClick={() => setShowAddStudentModal(false)}
+                  className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                >
+                  Tutup
+                </button>
+              </div>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm text-slate-300">
+                  Nama
+                  <input
+                    value={newStudent.name}
+                    onChange={(e) => setNewStudent((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="Nama penuh"
+                    className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  />
+                </label>
+                <label className="block text-sm text-slate-300">
+                  Tingkatan
+                  <select
+                    value={newStudent.tingkatan}
+                    onChange={(e) => setNewStudent((prev) => ({ ...prev, tingkatan: e.target.value }))}
+                    className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  >
+                    <option value="4">Tingkatan 4</option>
+                    <option value="5">Tingkatan 5</option>
+                  </select>
+                </label>
+                <label className="block text-sm text-slate-300 sm:col-span-2">
+                  Kelas
+                  <input
+                    value={newStudent.kelas}
+                    onChange={(e) => setNewStudent((prev) => ({ ...prev, kelas: e.target.value }))}
+                    placeholder="Contoh: 4 Alfa"
+                    className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  onClick={() => setShowAddStudentModal(false)}
+                  className="rounded-2xl border border-slate-800 bg-slate-800 px-6 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-700 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleSaveNewStudent}
+                  className="rounded-2xl bg-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 hover:bg-sky-400 transition"
+                >
+                  Simpan
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {toast && (
