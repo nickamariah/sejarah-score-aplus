@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2 } from "lucide-react";
+import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, ExternalLink } from "lucide-react";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import MakmalDataKajian from "../../utils/MakmalDataKajian";
 
@@ -16,18 +16,21 @@ type TabKey = "murid" | "kandungan" | "analitik" | "upload";
 
 export default function GuruDashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>("murid");
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // --- STATE MURID ---
   const [students, setStudents] = useState<any[]>([]);
   const [loadingMurid, setLoadingMurid] = useState(true);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-
-  // --- STATE UNTUK BORANG MURID BARU ---
   const [newNama, setNewNama] = useState('');
   const [newTingkatan, setNewTingkatan] = useState('4');
   const [newKelas, setNewKelas] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- STATE UNTUK UPLOAD BAHAN MODUL ---
+  // --- STATE MODUL & UPLOAD ---
+  const [modulList, setModulList] = useState<any[]>([]);
+  const [loadingModul, setLoadingModul] = useState(true);
+  
   const [uploadTingkatan, setUploadTingkatan] = useState('4');
   const [uploadBab, setUploadBab] = useState('1');
   const [uploadJenis, setUploadJenis] = useState('Bahan Bacaan');
@@ -35,7 +38,7 @@ export default function GuruDashboard() {
   const [isUploading, setIsUploading] = useState(false);
 
   // =====================================================================
-  // TUKAR URL INI DENGAN URL GOOGLE APPS SCRIPT ANDA
+  // TUKAR URL INI DENGAN URL GOOGLE APPS SCRIPT ANDA SEBELUM SAVE
   // =====================================================================
   const GAS_URL = "https://script.google.com/macros/s/AKfycbzeGCohq7mGAcQ7igJryYX7Nba3SkZPLDluj44K-Cps1CwWuOEpNdxAGkL4RwBc1nfjLQ/exec";
 
@@ -56,9 +59,32 @@ export default function GuruDashboard() {
     }
   };
 
+  // --- FUNGSI TARIK DATA SENARAI MODUL ---
+  const tarikDataModul = async () => {
+    setLoadingModul(true);
+    try {
+      const response = await fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "GET_MODUL" }),
+      });
+      const result = await response.json();
+      if (result.status === "success") setModulList(result.data);
+    } catch (error) {
+      console.error("Gagal menarik data modul:", error);
+    } finally {
+      setLoadingModul(false);
+    }
+  };
+
+  // --- RUN BILA DASHBOARD DIBUKA ---
   useEffect(() => {
-    if (GAS_URL.startsWith("http")) tarikDataMurid();
-    else setLoadingMurid(false);
+    if (GAS_URL.startsWith("http")) {
+      tarikDataMurid();
+      tarikDataModul();
+    } else {
+      setLoadingMurid(false);
+      setLoadingModul(false);
+    }
   }, []);
 
   // --- FUNGSI TAMBAH MURID ---
@@ -78,7 +104,7 @@ export default function GuruDashboard() {
         showToastMessage("Murid berjaya didaftarkan!", "success");
         setShowAddStudentModal(false);
         setNewNama(''); setNewKelas('');
-        tarikDataMurid();
+        tarikDataMurid(); // Auto refresh jadual murid
       } else {
         showToastMessage("Gagal menambah murid.", "error");
       }
@@ -107,7 +133,9 @@ export default function GuruDashboard() {
       const result = await response.json();
       if (result.status === "success") {
         showToastMessage("Bahan berjaya disimpan ke pangkalan data!", "success");
-        setUploadUrl(''); // Kosongkan URL selepas berjaya
+        setUploadUrl(''); 
+        tarikDataModul(); // Auto refresh jadual senarai modul
+        setActiveTab("kandungan"); // Auto lompat ke tab senarai modul lepas upload
       } else {
         showToastMessage("Gagal menyimpan bahan.", "error");
       }
@@ -137,6 +165,7 @@ export default function GuruDashboard() {
           </div>
           <nav className="space-y-2">
             <button onClick={() => setActiveTab("murid")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "murid" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><Users size={20} /> Pengurusan Murid</button>
+            <button onClick={() => setActiveTab("kandungan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "kandungan" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><BookOpen size={20} /> Bank Soalan & Modul</button>
             <button onClick={() => setActiveTab("upload")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "upload" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><FileText size={20} /> Tambah Bahan Baru</button>
             <button onClick={() => setActiveTab("analitik")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "analitik" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><ChartBar size={20} /> Makmal Data Kajian</button>
           </nav>
@@ -151,7 +180,7 @@ export default function GuruDashboard() {
         </header>
 
         <main>
-          {/* TAB: PENGURUSAN MURID */}
+          {/* TAB 1: PENGURUSAN MURID */}
           {activeTab === "murid" && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-[#1e293b] p-6 rounded-2xl border border-slate-800 gap-4">
@@ -204,7 +233,63 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB: TAMBAH BAHAN BARU */}
+          {/* TAB 2: BANK SOALAN & MODUL (SENARAI BAHAN YANG DAH UPLOAD) */}
+          {activeTab === "kandungan" && (
+            <div className="space-y-6">
+              <div className="bg-[#1e293b] p-6 rounded-2xl border border-slate-800">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-1">Bank Soalan & Modul</h3>
+                    <p className="text-slate-400 text-sm">Senarai semua bahan yang telah dimuat naik ke pangkalan data.</p>
+                  </div>
+                  <button onClick={() => setActiveTab("upload")} className="text-sm bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <Plus size={16} className="mr-2" /> Upload Bahan
+                  </button>
+                </div>
+
+                <div className="bg-[#0f172a] rounded-xl border border-slate-700 overflow-hidden">
+                  {loadingModul ? (
+                    <div className="p-12 text-center text-slate-400 animate-pulse">Menarik senarai bahan modul... ⏳</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse min-w-max">
+                        <thead>
+                          <tr className="border-b border-slate-700 bg-slate-800/50">
+                            <th className="p-4 font-semibold text-sm text-slate-300">Tingkatan</th>
+                            <th className="p-4 font-semibold text-sm text-slate-300">Bab</th>
+                            <th className="p-4 font-semibold text-sm text-slate-300">Jenis Bahan</th>
+                            <th className="p-4 font-semibold text-sm text-slate-300">Pautan (URL)</th>
+                            <th className="p-4 font-semibold text-sm text-slate-300">Tindakan</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {modulList.length > 0 ? modulList.map((modul, idx) => (
+                            <tr key={idx} className="border-b border-slate-800 hover:bg-slate-800/30">
+                              <td className="p-4 text-amber-400 font-medium">Tingkatan {modul.tingkatan}</td>
+                              <td className="p-4 text-slate-200">Bab {modul.bab}</td>
+                              <td className="p-4 text-cyan-400">{modul.jenis}</td>
+                              <td className="p-4">
+                                <a href={modul.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 flex items-center gap-1 hover:underline">
+                                  Buka Link <ExternalLink size={14} />
+                                </a>
+                              </td>
+                              <td className="p-4 flex gap-3">
+                                <button className="text-slate-500 hover:text-red-400 transition-colors"><Trash2 size={18} /></button>
+                              </td>
+                            </tr>
+                          )) : (
+                            <tr><td colSpan={5} className="p-8 text-center text-slate-500">Tiada bahan modul ditemui. Sila upload bahan baru.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: TAMBAH BAHAN BARU */}
           {activeTab === "upload" && (
             <div className="bg-[#1e293b] p-6 rounded-2xl border border-slate-800 max-w-2xl">
               <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
@@ -260,7 +345,7 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB: MAKMAL DATA KAJIAN */}
+          {/* TAB 4: MAKMAL DATA KAJIAN */}
           {activeTab === "analitik" && ( <MakmalDataKajian /> )}
         </main>
       </div>
