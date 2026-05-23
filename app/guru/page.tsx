@@ -6,10 +6,7 @@ import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loade
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import MakmalDataKajian from "../../utils/MakmalDataKajian";
 
-const initialQuestionBank = [
-  { id: 1, jenis: "Bahan Bacaan", tingkatan: "4", bab: 1, tajuk: "Warisan Negara Bangsa", status: "Muat Naik" }
-];
-
+// --- DATA OLAHAN (DUMMY DATA UNTUK CARTA) ---
 const chartData = [
   { name: "Bab 1", Pre: 72, Post: 88 },
   { name: "Bab 3", Pre: 65, Post: 79 }
@@ -21,9 +18,7 @@ export default function GuruDashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>("murid");
   const [students, setStudents] = useState<any[]>([]);
   const [loadingMurid, setLoadingMurid] = useState(true);
-  const [questionBank, setQuestionBank] = useState(initialQuestionBank);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
-  const [uploadUrl, setUploadUrl] = useState<string>('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // --- STATE UNTUK BORANG MURID BARU ---
@@ -32,12 +27,19 @@ export default function GuruDashboard() {
   const [newKelas, setNewKelas] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // --- STATE UNTUK UPLOAD BAHAN MODUL ---
+  const [uploadTingkatan, setUploadTingkatan] = useState('4');
+  const [uploadBab, setUploadBab] = useState('1');
+  const [uploadJenis, setUploadJenis] = useState('Bahan Bacaan');
+  const [uploadUrl, setUploadUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+
   // =====================================================================
   // TUKAR URL INI DENGAN URL GOOGLE APPS SCRIPT ANDA
   // =====================================================================
   const GAS_URL = "https://script.google.com/macros/s/AKfycbzeGCohq7mGAcQ7igJryYX7Nba3SkZPLDluj44K-Cps1CwWuOEpNdxAGkL4RwBc1nfjLQ/exec";
 
-  // --- FUNGSI TARIK DATA (DIPANGGIL MASA MULA-MULA BUKA) ---
+  // --- FUNGSI TARIK DATA MURID ---
   const tarikDataMurid = async () => {
     setLoadingMurid(true);
     try {
@@ -46,9 +48,7 @@ export default function GuruDashboard() {
         body: JSON.stringify({ action: "GET_SENARAI_MURID" }),
       });
       const result = await response.json();
-      if (result.status === "success") {
-        setStudents(result.data);
-      }
+      if (result.status === "success") setStudents(result.data);
     } catch (error) {
       console.error("Gagal menarik data:", error);
     } finally {
@@ -61,36 +61,60 @@ export default function GuruDashboard() {
     else setLoadingMurid(false);
   }, []);
 
-  // --- FUNGSI HANTAR DATA MURID BARU KEPADA GAS ---
+  // --- FUNGSI TAMBAH MURID ---
   const handleSimpanMurid = async () => {
     if (!newNama || !newKelas) {
       showToastMessage("Sila isikan Nama dan Kelas!", "error");
       return;
     }
-    
     setIsSubmitting(true);
     try {
       const response = await fetch(GAS_URL, {
         method: "POST",
-        body: JSON.stringify({
-          action: "TAMBAH_MURID",
-          payload: { nama: newNama, tingkatan: newTingkatan, kelas: newKelas }
-        }),
+        body: JSON.stringify({ action: "TAMBAH_MURID", payload: { nama: newNama, tingkatan: newTingkatan, kelas: newKelas } }),
       });
       const result = await response.json();
-      
       if (result.status === "success") {
         showToastMessage("Murid berjaya didaftarkan!", "success");
         setShowAddStudentModal(false);
-        setNewNama(''); setNewKelas(''); // Kosongkan borang
-        tarikDataMurid(); // Refresh jadual secara automatik
+        setNewNama(''); setNewKelas('');
+        tarikDataMurid();
       } else {
         showToastMessage("Gagal menambah murid.", "error");
       }
     } catch (error) {
-      showToastMessage("Ralat sistem. Sila cuba lagi.", "error");
+      showToastMessage("Ralat sistem.", "error");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // --- FUNGSI UPLOAD BAHAN BARU (NOTA/KUIZ) ---
+  const handleSimpanBahan = async () => {
+    if (!uploadUrl) {
+      showToastMessage("Sila masukkan URL bahan!", "error");
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const response = await fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "SAVE_MODUL",
+          payload: { tingkatan: uploadTingkatan, bab: uploadBab, jenis: uploadJenis, url: uploadUrl }
+        }),
+      });
+      const result = await response.json();
+      if (result.status === "success") {
+        showToastMessage("Bahan berjaya disimpan ke pangkalan data!", "success");
+        setUploadUrl(''); // Kosongkan URL selepas berjaya
+      } else {
+        showToastMessage("Gagal menyimpan bahan.", "error");
+      }
+    } catch (error) {
+      showToastMessage("Ralat sistem semasa menyimpan.", "error");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -104,6 +128,7 @@ export default function GuruDashboard() {
   return (
     <div className="flex h-screen bg-[#0f172a] text-slate-200 font-sans overflow-hidden">
       
+      {/* --- SIDEBAR --- */}
       <div className="w-72 bg-[#1e293b] border-r border-slate-800 p-6 flex flex-col justify-between z-10">
         <div>
           <div className="mb-10">
@@ -112,9 +137,8 @@ export default function GuruDashboard() {
           </div>
           <nav className="space-y-2">
             <button onClick={() => setActiveTab("murid")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "murid" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><Users size={20} /> Pengurusan Murid</button>
-            <button onClick={() => setActiveTab("kandungan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "kandungan" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><BookOpen size={20} /> Bank Soalan & Modul</button>
-            <button onClick={() => setActiveTab("analitik")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "analitik" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><ChartBar size={20} /> Makmal Data Kajian</button>
             <button onClick={() => setActiveTab("upload")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "upload" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><FileText size={20} /> Tambah Bahan Baru</button>
+            <button onClick={() => setActiveTab("analitik")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "analitik" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><ChartBar size={20} /> Makmal Data Kajian</button>
           </nav>
         </div>
         <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors mt-auto"><LogOut size={20} /> Log Keluar</button>
@@ -127,6 +151,7 @@ export default function GuruDashboard() {
         </header>
 
         <main>
+          {/* TAB: PENGURUSAN MURID */}
           {activeTab === "murid" && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-[#1e293b] p-6 rounded-2xl border border-slate-800 gap-4">
@@ -179,9 +204,64 @@ export default function GuruDashboard() {
             </div>
           )}
 
+          {/* TAB: TAMBAH BAHAN BARU */}
+          {activeTab === "upload" && (
+            <div className="bg-[#1e293b] p-6 rounded-2xl border border-slate-800 max-w-2xl">
+              <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                <FileText className="text-cyan-500" /> Muat Naik Bahan Modul (Kajian)
+              </h3>
+              
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Tingkatan</label>
+                    <select value={uploadTingkatan} onChange={e => setUploadTingkatan(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500">
+                      <option value="4">Tingkatan 4</option>
+                      <option value="5">Tingkatan 5</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Bab Berapa?</label>
+                    <select value={uploadBab} onChange={e => setUploadBab(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500">
+                      {[1,2,3,4,5,6,7,8,9,10].map(num => (
+                        <option key={num} value={num}>Bab {num}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Jenis Bahan</label>
+                  <select value={uploadJenis} onChange={e => setUploadJenis(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500">
+                    <option value="Bahan Bacaan">Bahan Bacaan (Nota)</option>
+                    <option value="Pre Test">Pre Test (Ujian Awal)</option>
+                    <option value="Post Test">Post Test (Ujian Akhir)</option>
+                    <option value="Pengukuhan">Modul Pengukuhan</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">URL Bahan / Pautan (Google Drive / Canva)</label>
+                  <input 
+                    type="text" 
+                    value={uploadUrl} 
+                    onChange={(e) => setUploadUrl(e.target.value)}
+                    className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500"
+                    placeholder="Contoh: https://drive.google.com/..."
+                  />
+                </div>
+
+                <div className="pt-4 border-t border-slate-800">
+                  <button onClick={handleSimpanBahan} disabled={isUploading} className="w-full bg-cyan-500 hover:bg-cyan-600 text-white px-6 py-3 rounded-lg font-bold transition-colors flex items-center justify-center">
+                    {isUploading ? <><Loader2 className="animate-spin mr-2" size={18} /> Menyimpan ke Database...</> : "Simpan Bahan ke Modul"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: MAKMAL DATA KAJIAN */}
           {activeTab === "analitik" && ( <MakmalDataKajian /> )}
-          {activeTab === "kandungan" && ( <div className="p-6 text-slate-400 text-center py-20"><BookOpen size={48} className="mx-auto mb-4 opacity-50" /><h3>Sistem Bank Soalan</h3></div> )}
-          {activeTab === "upload" && ( <div className="p-6 text-slate-400 text-center py-20">Sistem Upload Bahan</div> )}
         </main>
       </div>
 
@@ -191,32 +271,28 @@ export default function GuruDashboard() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }} className="bg-[#1e293b] p-8 rounded-3xl border border-slate-700 w-full max-w-md shadow-2xl">
               <h3 className="text-2xl font-bold text-white mb-2">Tambah Murid Baru</h3>
-              <p className="text-slate-400 mb-6">Daftar murid baharu ke pangkalan data.</p>
-              
-              <div className="space-y-4">
+              <div className="space-y-4 mt-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Nama Penuh</label>
-                  <input value={newNama} onChange={e => setNewNama(e.target.value)} type="text" placeholder="Contoh: Ali bin Abu" className="w-full bg-[#0f172a] text-white border border-slate-700 rounded-xl p-3 focus:border-cyan-500 focus:outline-none" />
+                  <input value={newNama} onChange={e => setNewNama(e.target.value)} type="text" className="w-full bg-[#0f172a] text-white border border-slate-700 rounded-xl p-3" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">Tingkatan</label>
-                    <select value={newTingkatan} onChange={e => setNewTingkatan(e.target.value)} className="w-full bg-[#0f172a] text-white border border-slate-700 rounded-xl p-3 focus:border-cyan-500 focus:outline-none">
-                      <option value="4">4</option>
-                      <option value="5">5</option>
+                    <select value={newTingkatan} onChange={e => setNewTingkatan(e.target.value)} className="w-full bg-[#0f172a] text-white border border-slate-700 rounded-xl p-3">
+                      <option value="4">4</option><option value="5">5</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">Kelas</label>
-                    <input value={newKelas} onChange={e => setNewKelas(e.target.value)} type="text" placeholder="Contoh: Alfa" className="w-full bg-[#0f172a] text-white border border-slate-700 rounded-xl p-3 focus:border-cyan-500 focus:outline-none" />
+                    <input value={newKelas} onChange={e => setNewKelas(e.target.value)} type="text" className="w-full bg-[#0f172a] text-white border border-slate-700 rounded-xl p-3" />
                   </div>
                 </div>
               </div>
-              
               <div className="flex justify-end gap-3 mt-8">
-                <button onClick={() => setShowAddStudentModal(false)} disabled={isSubmitting} className="px-5 py-2.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition-colors">Batal</button>
-                <button onClick={handleSimpanMurid} disabled={isSubmitting} className="px-5 py-2.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl transition-colors flex items-center">
-                  {isSubmitting ? <><Loader2 className="animate-spin mr-2" size={18} /> Menyimpan...</> : "Simpan Data"}
+                <button onClick={() => setShowAddStudentModal(false)} disabled={isSubmitting} className="px-5 py-2.5 text-slate-300 hover:text-white">Batal</button>
+                <button onClick={handleSimpanMurid} disabled={isSubmitting} className="px-5 py-2.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl flex items-center">
+                  {isSubmitting ? <Loader2 className="animate-spin mr-2" size={18} /> : null} Simpan
                 </button>
               </div>
             </motion.div>
@@ -224,11 +300,11 @@ export default function GuruDashboard() {
         )}
       </AnimatePresence>
 
+      {/* TOAST */}
       <AnimatePresence>
         {toast && (
-          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed bottom-6 right-6 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl border border-slate-700 flex items-center gap-3 z-50">
-            <div className={`w-3 h-3 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : toast.type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`}></div>
-            {toast.message}
+          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed bottom-6 right-6 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-50">
+            <div className={`w-3 h-3 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>{toast.message}
           </motion.div>
         )}
       </AnimatePresence>
