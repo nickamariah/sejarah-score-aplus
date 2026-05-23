@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, Plus, Edit3, Trash2, Download, ChartBar, Users, BookOpen, FileText } from "lucide-react";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import MakmalDataKajian from "@/utils/MakmalDataKajian";
+import MakmalDataKajian from "../../utils/MakmalDataKajian";
 
 // --- DATA OLAHAN (DUMMY DATA) ---
 const initialQuestionBank = [
