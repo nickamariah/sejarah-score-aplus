@@ -24,10 +24,7 @@ const chartData = [
 // TabKey simplified to plain string to avoid TS generic parsing issues in SWC build.
 type TabKey = "murid" | "kandungan" | "analitik" | "upload";
 
-export default function GuruDashboard() {
-   const [activeTab, setActiveTab] = useState("murid" as TabKey);
-   // ...
-   
+
 export default function GuruDashboard() {
   const [activeTab, setActiveTab] = useState("murid" as TabKey);
   const [students, setStudents] = useState(initialStudents);
