@@ -2,22 +2,20 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Plus, Edit3, Trash2, Download, ChartBar, Users, BookOpen, FileText } from "lucide-react";
+import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText } from "lucide-react";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import MakmalDataKajian from "../../utils/MakmalDataKajian";
 
-// --- DATA OLAHAN (DUMMY DATA) ---
+// --- DATA OLAHAN (DUMMY DATA UNTUK CARTA & BANK SOALAN) ---
 const initialQuestionBank = [
   { id: 1, jenis: "Bahan Bacaan", tingkatan: "4", bab: 1, tajuk: "Warisan Negara Bangsa", status: "Muat Naik" },
-  { id: 2, jenis: "Pre Test", tingkatan: "4", bab: 3, tajuk: "Konflik Dunia & Pendudukan Jepun", status: "Muat Naik" },
-  { id: 3, jenis: "Post Test", tingkatan: "5", bab: 5, tajuk: "Pembentukan Malaysia", status: "Muat Naik" }
+  { id: 2, jenis: "Pre Test", tingkatan: "4", bab: 3, tajuk: "Konflik Dunia & Pendudukan Jepun", status: "Muat Naik" }
 ];
 
 const chartData = [
   { name: "Bab 1", Pre: 72, Post: 88 },
   { name: "Bab 3", Pre: 65, Post: 79 },
-  { name: "Bab 5", Pre: 80, Post: 92 },
-  { name: "Bab 8", Pre: 58, Post: 70 },
+  { name: "Bab 5", Pre: 80, Post: 92 }
 ];
 
 type TabKey = "murid" | "kandungan" | "analitik" | "upload";
@@ -29,16 +27,15 @@ export default function GuruDashboard() {
   const [loadingMurid, setLoadingMurid] = useState(true);
   const [questionBank, setQuestionBank] = useState(initialQuestionBank);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
-  
   const [uploadUrl, setUploadUrl] = useState<string>('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // =====================================================================
-  // PENTING: TUKAR URL INI DENGAN URL GOOGLE APPS SCRIPT ANDA YANG SEBENAR
+  // TUKAR URL INI DENGAN URL GOOGLE APPS SCRIPT ANDA YANG SEBENAR
   // =====================================================================
   const GAS_URL = "https://script.google.com/macros/s/AKfycbzeGCohq7mGAcQ7igJryYX7Nba3SkZPLDluj44K-Cps1CwWuOEpNdxAGkL4RwBc1nfjLQ/exec";
 
-  // --- FUNGSI TARIK DATA MURID ---
+  // --- FUNGSI TARIK DATA MURID DARI DATABASE ---
   useEffect(() => {
     const tarikDataMurid = async () => {
       try {
@@ -64,11 +61,13 @@ export default function GuruDashboard() {
     }
   }, []);
 
+  // --- FUNGSI NOTIFIKASI TOAST ---
   const showToastMessage = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
+  // --- FUNGSI LOGOUT KEMBALI KE HALAMAN UTAMA ---
   const handleLogout = () => {
     window.location.href = '/';
   };
@@ -76,7 +75,7 @@ export default function GuruDashboard() {
   return (
     <div className="flex h-screen bg-[#0f172a] text-slate-200 font-sans overflow-hidden">
       
-      {/* --- SIDEBAR MENU --- */}
+      {/* --- SIDEBAR MENU (MENU TEPI KIRI) --- */}
       <div className="w-72 bg-[#1e293b] border-r border-slate-800 p-6 flex flex-col justify-between z-10">
         <div>
           <div className="mb-10">
@@ -100,12 +99,13 @@ export default function GuruDashboard() {
           </nav>
         </div>
 
+        {/* BUTANG LOG KELUAR DI BAWAH SEKALI */}
         <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors mt-auto">
           <LogOut size={20} /> Log Keluar
         </button>
       </div>
 
-      {/* --- MAIN CONTENT AREA --- */}
+      {/* --- KAWASAN KANDUNGAN UTAMA (KANAN) --- */}
       <div className="flex-1 overflow-y-auto p-8 relative">
         <header className="mb-8 border-b border-slate-800 pb-6">
           <p className="text-amber-500 text-sm font-semibold tracking-wider uppercase mb-1">Makmal Penyelidikan</p>
@@ -133,7 +133,7 @@ export default function GuruDashboard() {
               <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden">
                 {loadingMurid ? (
                   <div className="p-12 text-center text-slate-400 animate-pulse">
-                    Memuatkan pangkalan data kajian... ⏳
+                    Memuatkan pangkalan data kajian dari Google Sheet... ⏳
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -162,7 +162,7 @@ export default function GuruDashboard() {
                             </td>
                           </tr>
                         )) : (
-                          <tr><td colSpan={6} className="p-8 text-center text-slate-500">Tiada rekod murid ditemui. Sila tambah murid baru.</td></tr>
+                          <tr><td colSpan={6} className="p-8 text-center text-slate-500">Tiada rekod murid ditemui di pangkalan data.</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -205,7 +205,7 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 4: UPLOAD */}
+          {/* TAB 4: TAMBAH BAHAN BARU */}
           {activeTab === "upload" && (
             <div className="bg-[#1e293b] p-6 rounded-2xl border border-slate-800 max-w-2xl">
               <h3 className="text-xl font-bold text-white mb-6">Tambah Bahan Baru</h3>
@@ -226,3 +226,80 @@ export default function GuruDashboard() {
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* --- MODAL (POPUP) TAMBAH MURID --- */}
+      <AnimatePresence>
+        {showAddStudentModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          >
+            <motion.div 
+              initial={{ y: 30, opacity: 0, scale: 0.95 }} 
+              animate={{ y: 0, opacity: 1, scale: 1 }} 
+              exit={{ y: 30, opacity: 0, scale: 0.95 }}
+              className="bg-[#1e293b] p-8 rounded-3xl border border-slate-700 w-full max-w-md shadow-2xl relative"
+            >
+              <h3 className="text-2xl font-bold text-white mb-2">Tambah Murid Baru</h3>
+              <p className="text-slate-400 mb-6">Daftar murid baharu ke dalam pangkalan data.</p>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Nama Penuh</label>
+                  <input type="text" placeholder="Contoh: Ali bin Abu" className="w-full bg-[#0f172a] text-white border border-slate-700 rounded-xl p-3 focus:border-cyan-500 focus:outline-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Tingkatan</label>
+                    <select className="w-full bg-[#0f172a] text-white border border-slate-700 rounded-xl p-3 focus:border-cyan-500 focus:outline-none">
+                      <option>4</option>
+                      <option>5</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Kelas</label>
+                    <input type="text" placeholder="Contoh: Alfa" className="w-full bg-[#0f172a] text-white border border-slate-700 rounded-xl p-3 focus:border-cyan-500 focus:outline-none" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3 mt-8">
+                <button onClick={() => setShowAddStudentModal(false)} className="px-5 py-2.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition-colors">
+                  Batal
+                </button>
+                <button onClick={() => {
+                  setShowAddStudentModal(false);
+                  showToastMessage("Data murid akan dihantar ke Google Sheet!", "success");
+                }} className="px-5 py-2.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl transition-colors shadow-lg shadow-cyan-500/20 font-medium">
+                  Simpan Data
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --- NOTIFIKASI POPUP KECIL (TOAST) --- */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-6 right-6 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl border border-slate-700 flex items-center gap-3 z-50"
+          >
+            <div className={`w-3 h-3 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-blue-500'}`}></div>
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+    </div>
+  );
+}
