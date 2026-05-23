@@ -1,18 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import MakmalDataKajian from "@/utils/MakmalDataKajian";
 import { LogOut, Plus, Edit3, Trash2, Download, ChartBar, Users, BookOpen, FileText } from "lucide-react";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
-const initialStudents = [
-  { id: 1, name: "Amina Rahman", tingkatan: "4", kelas: "4 Alfa", skor: "88%", status: "Aktif" },
-  { id: 2, name: "Faiz Hakim", tingkatan: "4", kelas: "4 Beta", skor: "73%", status: "Pemantauan" },
-  { id: 3, name: "Nur Syafiqah", tingkatan: "5", kelas: "5 Sigma", skor: "91%", status: "Cemerlang" },
-  { id: 4, name: "Haziq Iskandar", tingkatan: "5", kelas: "5 Delta", skor: "64%", status: "Penambahbaikan" },
-];
-
+const initialStudents: any[] = [];
 const initialQuestionBank = [
   { id: 1, jenis: "Bahan Bacaan", tingkatan: "4", bab: 1, tajuk: "Warisan Negara Bangsa", status: "Muat Naik" },
   { id: 2, jenis: "Pre Test", tingkatan: "4", bab: 3, tajuk: "Konflik Dunia & Pendudukan Jepun", status: "Terancang" },
@@ -40,11 +34,35 @@ export default function GuruDashboard() {
   const [uploadJenis, setUploadJenis] = useState('Bahan Bacaan');
   const [uploadUrl, setUploadUrl] = useState('');
   const [toast, setToast] = useState(null as { message: string; type: 'success' | 'error' | 'info' } | null);
+  const [loadingMurid, setLoadingMurid] = useState(true);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
+
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbzeGCohq7mGAcQ7igJryYX7Nba3SkZPLDluj44K-Cps1CwWuOEpNdxAGkL4RwBc1nfjLQ/exec";
+
+  useEffect(() => {
+    const fetchMurid = async () => {
+      try {
+        const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'GET_SENARAI_MURID' }) });
+        const text = await res.text();
+        const result = JSON.parse(text);
+        if (result && result.status === 'success' && Array.isArray(result.data)) {
+          setStudents(result.data);
+        } else {
+          showToast('Gagal memuatkan murid dari server.', 'error');
+        }
+      } catch (err) {
+        showToast('Ralat sambungan memuatkan murid.', 'error');
+      } finally {
+        setLoadingMurid(false);
+      }
+    };
+
+    fetchMurid();
+  }, []);
 
   const handleDeleteStudent = (id: number) => {
     setStudents((prev) => prev.filter((student) => student.id !== id));
@@ -120,6 +138,7 @@ export default function GuruDashboard() {
   };
 
   return (
+    <>
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-7xl px-6 py-10">
         <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
@@ -147,7 +166,6 @@ export default function GuruDashboard() {
                 );
               })}
             </nav>
-            </div>
           </aside>
 
           <main className="space-y-6">
@@ -169,51 +187,57 @@ export default function GuruDashboard() {
 
             {activeTab === 'murid' && (
               <div className="space-y-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between rounded-[28px] border border-white/5 bg-slate-900 p-6 shadow-lg">
-                  <div>
-                    <h2 className="text-2xl font-semibold text-white">Pengurusan Murid</h2>
-                    <p className="mt-2 text-slate-400">Tinjau senarai murid, status prestasi dan tindakan terpantas.</p>
-                  </div>
-                  <button onClick={() => setShowAddStudentModal(true)} className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400">
-                    <Plus className="h-4 w-4" /> Tambah Murid Baru
-                  </button>
-                </div>
+                {loadingMurid ? (
+                  <div className="rounded-[28px] border border-white/5 bg-slate-900 p-6 text-center text-slate-300">Memuatkan data murid...</div>
+                ) : (
+                  <>
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between rounded-[28px] border border-white/5 bg-slate-900 p-6 shadow-lg">
+                      <div>
+                        <h2 className="text-2xl font-semibold text-white">Pengurusan Murid</h2>
+                        <p className="mt-2 text-slate-400">Tinjau senarai murid, status prestasi dan tindakan terpantas.</p>
+                      </div>
+                      <button onClick={() => setShowAddStudentModal(true)} className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400">
+                        <Plus className="h-4 w-4" /> Tambah Murid Baru
+                      </button>
+                    </div>
 
-                <div className="overflow-hidden rounded-[28px] border border-white/5 bg-slate-900 shadow-2xl">
-                  <table className="min-w-full divide-y divide-slate-800 text-left text-sm">
-                    <thead className="bg-slate-950/90 text-slate-300">
-                      <tr>
-                        <th className="px-6 py-4">Nama Murid</th>
-                        <th className="px-6 py-4">Tingkatan</th>
-                        <th className="px-6 py-4">Kelas</th>
-                        <th className="px-6 py-4">Skor</th>
-                        <th className="px-6 py-4">Status</th>
-                        <th className="px-6 py-4">Tindakan</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800 bg-slate-900">
-                      {students.map((student) => (
-                        <tr key={student.id} className="hover:bg-slate-800/80">
-                          <td className="px-6 py-4 text-white">{student.name}</td>
-                          <td className="px-6 py-4 text-slate-300">{student.tingkatan}</td>
-                          <td className="px-6 py-4 text-slate-300">{student.kelas}</td>
-                          <td className="px-6 py-4 text-emerald-300">{student.skor}</td>
-                          <td className="px-6 py-4 text-slate-300">{student.status}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <button onClick={() => handleEditStudent(student.id)} className="rounded-full bg-slate-800 p-2 text-slate-300 hover:bg-slate-700">
-                                <Edit3 className="h-4 w-4" />
-                              </button>
-                              <button onClick={() => handleDeleteStudent(student.id)} className="rounded-full bg-slate-800 p-2 text-rose-300 hover:bg-slate-700">
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    <div className="overflow-hidden rounded-[28px] border border-white/5 bg-slate-900 shadow-2xl">
+                      <table className="min-w-full divide-y divide-slate-800 text-left text-sm">
+                        <thead className="bg-slate-950/90 text-slate-300">
+                          <tr>
+                            <th className="px-6 py-4">Nama Murid</th>
+                            <th className="px-6 py-4">Tingkatan</th>
+                            <th className="px-6 py-4">Kelas</th>
+                            <th className="px-6 py-4">Skor</th>
+                            <th className="px-6 py-4">Status</th>
+                            <th className="px-6 py-4">Tindakan</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800 bg-slate-900">
+                          {students.map((student) => (
+                            <tr key={student.id} className="hover:bg-slate-800/80">
+                              <td className="px-6 py-4 text-white">{student.name}</td>
+                              <td className="px-6 py-4 text-slate-300">{student.tingkatan}</td>
+                              <td className="px-6 py-4 text-slate-300">{student.kelas}</td>
+                              <td className="px-6 py-4 text-emerald-300">{student.skor}</td>
+                              <td className="px-6 py-4 text-slate-300">{student.status}</td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2">
+                                  <button onClick={() => handleEditStudent(student.id)} className="rounded-full bg-slate-800 p-2 text-slate-300 hover:bg-slate-700">
+                                    <Edit3 className="h-4 w-4" />
+                                  </button>
+                                  <button onClick={() => handleDeleteStudent(student.id)} className="rounded-full bg-slate-800 p-2 text-rose-300 hover:bg-slate-700">
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -456,5 +480,6 @@ export default function GuruDashboard() {
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 }
