@@ -60,7 +60,7 @@ export default function Home() {
           <div className="w-full md:w-1/2">
             <div className="rounded-xl p-6" style={{ background: "#f8fbff" }}>
               <form onSubmit={handleLogin}>
-                <label className="block text-sm font-medium text-sky-800">ID Murid</label>
+                <label className="block text-sm font-medium text-sky-800">ID Murid/Guru</label>
                 <input
                   value={idMurid}
                   onChange={(e) => setIdMurid(e.target.value)}
