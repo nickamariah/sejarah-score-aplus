@@ -20,6 +20,10 @@ export default function Home() {
         "https://script.google.com/macros/s/AKfycbzeGCohq7mGAcQ7igJryYX7Nba3SkZPLDluj44K-Cps1CwWuOEpNdxAGkL4RwBc1nfjLQ/exec",
         {
           method: "POST",
+           redirect: "follow", // Wajib ada untuk ikut laluan Google
+           headers: {
+            "Content-Type": "text/plain;charset=utf-8", // Tipu browser supaya anggap ini text biasa, bukan JSON ketat
+          },
           body: JSON.stringify({ action: "LOGIN", id: idMurid, password: kataLaluan }),
         }
       );
