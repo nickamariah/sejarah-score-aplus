@@ -54,7 +54,7 @@ const response = await fetch(
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold leading-tight text-sky-700">
               HUB I-RAGS
             </h1>
-            <p className="mt-3 text-sm text-sky-600">Hab Inkuiri Adaptif Berasaskan Retrieval-Augmented Generation dan Sokongan Berperingkat</p>
+            <p className="mt-3 text-sm text-sky-600">"AI-Powered Adaptive History Learning System" Hab Inkuiri Adaptif Berasaskan Retrieval-Augmented Generation dan Sokongan Berperingkat</p>
           </div>
 
           <div className="w-full md:w-1/2">
