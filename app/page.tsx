@@ -52,9 +52,9 @@ const response = await fetch(
         <div className="flex flex-col md:flex-row items-center gap-8">
           <div className="flex-1">
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold leading-tight text-sky-700">
-              SEJARAH SCORE A+ SMART LEARNING
+              HUB I-RAGS
             </h1>
-            <p className="mt-3 text-sm text-sky-600">Pembelajaran pintar untuk murid cemerlang.</p>
+            <p className="mt-3 text-sm text-sky-600">Hab Inkuiri Adaptif Berasaskan Retrieval-Augmented Generation dan Sokongan Berperingkat</p>
           </div>
 
           <div className="w-full md:w-1/2">
