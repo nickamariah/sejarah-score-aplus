@@ -20,10 +20,7 @@ const response = await fetch(
         "https://script.google.com/macros/s/AKfycbzeGCohq7mGAcQ7igJryYX7Nba3SkZPLDluj44K-Cps1CwWuOEpNdxAGkL4RwBc1nfjLQ/exec",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "text/plain;charset=utf-8",
-          },
-          body: JSON.stringify({ action: "LOGIN", id: idMurid, password: kataLaluan }),
+          body: JSON.stringify({ action: "LOGIN", id: idMurid, password: kataLaluan })
         }
       );
 
