@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 export default function Home() {
   const [idMurid, setIdMurid] = useState("");
@@ -11,38 +13,46 @@ export default function Home() {
   const router = useRouter();
 
   async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
+  e.preventDefault();
+  setLoading(true);
+  setError("");
 
-    try {
-const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbzeGCohq7mGAcQ7igJryYX7Nba3SkZPLDluj44K-Cps1CwWuOEpNdxAGkL4RwBc1nfjLQ/exec",
-        {
-          method: "POST",
-          body: JSON.stringify({ action: "LOGIN", id: idMurid, password: kataLaluan })
-        }
-      );
+  try {
+    const userRef = doc(db, "users", idMurid);
+    const userSnap = await getDoc(userRef);
 
-      const textResult = await response.text();
-      const result = JSON.parse(textResult);
-
-      if (result.success) {
-        localStorage.setItem("currentUser", JSON.stringify(result.user));
-        if (result.user.role === "guru") {
-          window.location.href = "/guru";
-        } else {
-          window.location.href = "/murid";
-        }
-      } else {
-        setError(result.error || "ID atau kata laluan salah");
-      }
-    } catch (err: any) {
-      setError("Ralat: " + (err?.message || "sila cuba lagi"));
-    } finally {
-      setLoading(false);
+    if (!userSnap.exists()) {
+      setError("ID tidak dijumpai");
+      return;
     }
+
+    const user = userSnap.data();
+
+    if (user["Kata Laluan"] !== kataLaluan) {
+      setError("Kata laluan salah");
+      return;
+    }
+
+    localStorage.setItem(
+      "currentUser",
+      JSON.stringify(user)
+    );
+
+    if (user.role === "guru") {
+      router.push("/guru");
+    } else {
+      router.push("/murid");
+    }
+
+  } catch (err: any) {
+    setError("Ralat sambungan");
+    console.log(err);
+
+  } finally {
+    setLoading(false);
   }
+}
+  
   return (
     <div
       className="min-h-screen flex items-center justify-center"
