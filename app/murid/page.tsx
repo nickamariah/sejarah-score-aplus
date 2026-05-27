@@ -54,12 +54,11 @@ const chapters = {
 };
 
 const modules = [
-  { id: 1, name: "Bahan Bacaan", icon: BookOpen, color: "sky", note: "" },
-  { id: 2, name: "Ujian Diagnostik", icon: Zap, color: "amber", note: "Skor cemerlang akan melangkau Bahan Bacaan & Pengukuhan" },
-  { id: 3, name: "Modul Pengukuhan", icon: Sparkles, color: "purple", note: "Latihan RAG & Scaffolding AI" },
-  { id: 4, name: "Post Test", icon: CheckCircle2, color: "emerald", note: "" },
-  { id: 5, name: "Games", icon: Gamepad2, color: "pink", note: "" },
-  { id: 6, name: "Status Kuasai", icon: Trophy, color: "amber", note: "" },
+  { id: 1, name: "Ujian Diagnostik", icon: Zap, color: "amber", note: "Ujian penentu aras kelayakan." },
+  { id: 2, name: "Bimbingan AI (RAG)", icon: Sparkles, color: "purple", note: "Sesi bimbingan pintar berdasarkan aras anda." },
+  { id: 3, name: "Post Test", icon: CheckCircle2, color: "emerald", note: "Ujian pengesahan kefahaman." },
+  { id: 4, name: "Games Pengukuhan", icon: Gamepad2, color: "pink", note: "Ganjaran main sambil belajar." },
+  { id: 5, name: "Status Kuasai", icon: Trophy, color: "amber", note: "Lencana pencapaian bab." },
 ];
 
 export default function MuridDashboard() {
@@ -119,26 +118,15 @@ export default function MuridDashboard() {
   }, [activeLevel]);
 
   const openModule = (chapterId: number, moduleId: number) => {
-    // Hantar Telemetri Modul Dibuka
-    hantarTelemetri("BUKA_MODUL", `Membuka Bab ${chapterId}, Modul ${moduleId}`);
-
-    // Jika murid tekan Modul 2 (Ujian Diagnostik)
-    if (moduleId === 2) {
-      // Kita hantar murid ke halaman Firebase beserta nombor Bab & Tingkatan
+    // Jika murid tekan Modul 1 (Ujian Diagnostik)
+    if (moduleId === 1) {
       const aras = activeLevel === "t4" ? "4" : "5";
       router.push(`/ujian?tingkatan=${aras}&bab=Bab ${chapterId}`);
       return;
     }
     
-    // Other modules: open iframe
-    const key = `${activeLevel}-ch${chapterId}-mod${moduleId}`;
-    const url = moduleLinks[key];
-    if (url) {
-      setIframeUrl(url);
-      setShowIframe(true);
-    } else {
-      window.alert('Bahan belum dimuat naik oleh guru');
-    }
+    // Untuk modul lain (AI, Games) - kita akan buat fungsinya nanti
+    window.alert(`Modul ${moduleId} sedang dibangunkan (Fasa Seterusnya).`);
   };
 
   const fetchQuizQuestions = async (chapterId: number) => {
@@ -246,25 +234,24 @@ export default function MuridDashboard() {
     window.alert(msg + ` (Skor: ${skor}%)`);
   };
 
-  const getAdaptiveMeta = (chapterId: number, moduleId: number) => {
-    // returns { hidden, adaptiveLocked, displayName }
+ const getAdaptiveMeta = (chapterId: number, moduleId: number) => {
     const meta: { hidden: boolean; adaptiveLocked: boolean; displayName?: string } = { hidden: false, adaptiveLocked: false };
-    const skor = simulasiSkor;
+    const skor = simulasiSkor; // (Nanti kita akan tarik skor ni dari Firebase)
 
     if (skor === null) {
-      // before pre-test: lock modules 3,4,5
-      if ([3, 4, 5].includes(moduleId)) meta.adaptiveLocked = true;
-    } else if (skor >= 70) {
-      // excellent: hide 3 & 4, unlock 5 & 6
-      if ([3, 4].includes(moduleId)) meta.hidden = true;
-      if ([5, 6].includes(moduleId)) meta.adaptiveLocked = false;
+      // Jika belum jawab Diagnostik: Kunci semua modul KECUALI Ujian Diagnostik (Modul 1)
+      if (moduleId !== 1) meta.adaptiveLocked = true;
+    } else if (skor >= 80) {
+      // LALUAN CEMERLANG: Sembunyikan Bimbingan AI & Post Test (Modul 2 & 3). Buka Games (Modul 4 & 5).
+      if ([2, 3].includes(moduleId)) meta.hidden = true;
+      if ([4, 5].includes(moduleId)) meta.adaptiveLocked = false;
     } else if (skor >= 50) {
-      // moderate: unlock 3 (simple), lock 4 & 5
-      if (moduleId === 3) meta.displayName = 'Modul Pengukuhan (Laluan Sederhana)';
+      // LALUAN SEDERHANA: Kunci Games. Buka AI & Post Test.
+      if (moduleId === 2) meta.displayName = 'Bimbingan AI (Aras Sederhana)';
       if ([4, 5].includes(moduleId)) meta.adaptiveLocked = true;
     } else {
-      // low: unlock 3 (detailed), lock 4 & 5
-      if (moduleId === 3) meta.displayName = 'Modul Pengukuhan (Bimbingan Terperinci RAG)';
+      // LALUAN BIMBINGAN (LEMAH): Kunci Games. Buka AI dengan Bimbingan Penuh.
+      if (moduleId === 2) meta.displayName = 'Bimbingan AI (Aras Bimbingan Penuh)';
       if ([4, 5].includes(moduleId)) meta.adaptiveLocked = true;
     }
 
