@@ -161,9 +161,20 @@ function KandunganUjian() {
           </span>
         </div>
 
-        <h2 className="text-2xl font-semibold text-slate-800 mb-8 leading-relaxed">
+        <h2 className="text-2xl font-semibold text-slate-800 mb-8 leading-relaxed whitespace-pre-wrap">
           {semasa.soalan}
         </h2>
+
+        {/* LOGIK UNTUK PAPAR GAMBAR JIKA WUJUD DALAM FIREBASE */}
+        {semasa.imageUrl && semasa.imageUrl.trim() !== "" && (
+          <div className="mb-8 flex justify-center bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <img 
+              src={semasa.imageUrl} 
+              alt="Rajah Soalan" 
+              className="max-h-96 w-auto object-contain rounded-lg shadow-sm"
+            />
+          </div>
+        )}
 
         {jenisSoalan === "objektif" ? (
           <div className="grid gap-4">
