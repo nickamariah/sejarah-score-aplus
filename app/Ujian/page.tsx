@@ -25,7 +25,7 @@ export default function UjianDiagnostik() {
         // Firebase akan tarik soalan mengikut Bab yang diklik oleh murid!
         const q = query(
           collection(db, "questionBank"),
-          where("tingkata", "==", tingkatan), // Ejaan ikut database Dr. Nic
+          where("tingkatan", "==", tingkatan), // Ejaan ikut database Dr. Nic
           where("bab", "==", bab)
         );
 
