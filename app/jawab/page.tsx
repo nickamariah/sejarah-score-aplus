@@ -5,12 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { collection, query, where, getDocs, doc, setDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
-
 // ==========================================
 // 1. KOMPONEN KANDUNGAN UJIAN (Isi Sebenar)
 // ==========================================
 function KandunganUjian() {
-  // 👇 KUNCI RAHSIA: Halang Next.js dari crash di Server
   const [isClient, setIsClient] = useState(false);
   useEffect(() => {
     setIsClient(true);
@@ -29,8 +27,8 @@ function KandunganUjian() {
   const [loading, setLoading] = useState(true);
   const [jawapanTeks, setJawapanTeks] = useState(""); 
 
+  // TARIK SOALAN DARI FIREBASE
   useEffect(() => {
-    // Jika belum masuk browser, jangan jalankan Firebase!
     if (!isClient) return;
 
     const tarikSoalan = async () => {
@@ -48,9 +46,7 @@ function KandunganUjian() {
           soalanData.push({ id: doc.id, ...doc.data() });
         });
 
-        // Susun soalan A-Z (B1Q001, B1Q002...)
         soalanData.sort((a, b) => a.id.localeCompare(b.id));
-
         setSoalanSenarai(soalanData);
       } catch (error) {
         console.error("Ralat tarik soalan:", error);
@@ -62,7 +58,7 @@ function KandunganUjian() {
     tarikSoalan();
   }, [tingkatan, bab, isClient]);
 
-// Simpan markah ke Firebase bila tamat ujian
+  // SIMPAN MARKAH KE FIREBASE
   useEffect(() => {
     if (!isClient) return;
 
@@ -70,13 +66,12 @@ function KandunganUjian() {
       if (tamat && soalanSenarai.length > 0) {
         const peratus = Math.round((skor / soalanSenarai.length) * 100);
         
-        // Dapatkan maklumat murid yang sedang Login
         const rawUser = localStorage.getItem("currentUser");
         if (rawUser) {
           const user = JSON.parse(rawUser);
           
           try {
-            // Ini akan AUTOMATIK cipta table 'skor_murid' di Firebase!
+            // Automatik cipta jadual skor_murid di Firebase
             const docId = `${user.id}_t${tingkatan}_${bab}`;
             await setDoc(doc(db, "skor_murid", docId), {
               idMurid: user.id,
@@ -88,8 +83,17 @@ function KandunganUjian() {
             });
             console.log("Markah berjaya disimpan di Firebase!");
           } catch (error) {
-            console.error("Ralat simpan markah ke Firebase:", error);
+            console.error("Ralat simpan markah:", error);
           }
+        }
+
+        // Tandakan selesai untuk Dashboard
+        const chapterId = bab.replace("Bab ", "");
+        const modKey = `t${tingkatan}-ch${chapterId}-mod1`;
+        const completed = JSON.parse(localStorage.getItem("completedModules") || "[]");
+        if (!completed.includes(modKey)) {
+          completed.push(modKey);
+          localStorage.setItem("completedModules", JSON.stringify(completed));
         }
       }
     };
@@ -97,9 +101,32 @@ function KandunganUjian() {
     simpanMarkahFirebase();
   }, [tamat, skor, soalanSenarai.length, tingkatan, bab, isClient]);
 
-  // Paparan pelindung semasa Server sedang memproses
-  if (!isClient) return <div className="min-h-screen flex items-center justify-center font-bold text-sky-600">Sistem Memulakan Ujian...</div>;
+  // FUNGSI JAWAB SOALAN
+  const jawabSoalan = (jawapanMurid: string) => {
+    const soalanSemasa = soalanSenarai[indexSemasa];
+    
+    if (soalanSemasa.jenis === "objektif") {
+      if (jawapanMurid === soalanSemasa.jawapan) {
+        setSkor(prev => prev + 1);
+      }
+    } else {
+      console.log(`Jawapan Esei Murid untuk soalan ${soalanSemasa.id}:`, jawapanMurid);
+    }
 
+    setJawapanTeks("");
+
+    if (indexSemasa + 1 < soalanSenarai.length) {
+      setIndexSemasa(indexSemasa + 1);
+    } else {
+      setTamat(true);
+    }
+  };
+
+
+  // ==========================================
+  // PAPARAN ANTARAMUKA (UI)
+  // ==========================================
+  if (!isClient) return <div className="min-h-screen flex items-center justify-center font-bold text-sky-600">Sistem Memulakan Ujian...</div>;
   if (loading) return <div className="min-h-screen flex items-center justify-center text-sky-700 font-semibold">Memuatkan Soalan Firebase...</div>;
   
   if (soalanSenarai.length === 0) return (
@@ -149,6 +176,7 @@ function KandunganUjian() {
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4">
       <div className="max-w-3xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-lg border border-slate-100">
+        
         <div className="flex justify-between items-center mb-8 border-b pb-4">
           <div>
             <h1 className="text-xl font-bold text-slate-800">{bab}</h1>
@@ -159,13 +187,11 @@ function KandunganUjian() {
           </span>
         </div>
 
-        {/* BAHAGIAN SOALAN & MARKAH */}
+        {/* SOALAN DAN MARKAH */}
         <div className="mb-8 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <h2 className="text-2xl font-semibold text-slate-800 leading-relaxed whitespace-pre-wrap flex-1">
             {semasa.soalan}
           </h2>
-          
-          {/* LOGIK PAPAR MARKAH: Hanya keluar jika Dr. Nic letak 'markah' dalam Firebase */}
           {semasa.markah && (
             <span className="shrink-0 bg-amber-100 text-amber-800 border border-amber-200 px-4 py-2 rounded-lg text-sm font-bold shadow-sm">
               [ {semasa.markah} Markah ]
@@ -173,7 +199,7 @@ function KandunganUjian() {
           )}
         </div>
 
-        {/* LOGIK UNTUK PAPAR GAMBAR (Dikekalkan di sini) */}
+        {/* GAMBAR RAJAH (JIKA ADA) */}
         {semasa.imageUrl && semasa.imageUrl.trim() !== "" && (
           <div className="mb-8 flex justify-center bg-slate-50 p-4 rounded-xl border border-slate-200">
             <img 
@@ -184,8 +210,7 @@ function KandunganUjian() {
           </div>
         )}
 
-        
-
+        {/* PILIHAN JAWAPAN (Objektif) ATAU KOTAK ESEI (Struktur) */}
         {jenisSoalan === "objektif" ? (
           <div className="grid gap-4">
             {semasa.pilihan && Object.entries(semasa.pilihan)
@@ -227,7 +252,7 @@ function KandunganUjian() {
 }
 
 // ==========================================
-// 2. KOMPONEN UTAMA (Yang dibungkus dengan Suspense)
+// 2. KOMPONEN UTAMA
 // ==========================================
 export default function UjianDiagnostik() {
   return (
