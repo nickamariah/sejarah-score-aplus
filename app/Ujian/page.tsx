@@ -117,9 +117,34 @@ function KandunganUjian() {
             <p className="text-sm font-medium text-sky-600">{semasa.topik}</p>
           </div>
           <span className="bg-sky-100 text-sky-800 px-4 py-2 rounded-lg text-sm font-bold shadow-sm">
-            Soa
+            Soalan {indexSemasa + 1} / {soalanSenarai.length}
+          </span>
+        </div>
 
-            // ==========================================
+        <h2 className="text-2xl font-semibold text-slate-800 mb-8 leading-relaxed">
+          {semasa.soalan}
+        </h2>
+
+        <div className="grid gap-4">
+          {Object.entries(semasa.pilihan).map(([kunci, teks]) => (
+            <button
+              key={kunci}
+              onClick={() => jawabSoalan(kunci)}
+              className="w-full text-left p-5 rounded-xl border-2 border-slate-200 hover:border-sky-500 hover:bg-sky-50 transition-all font-medium text-slate-700 flex gap-4 items-center group"
+            >
+              <span className="w-10 h-10 rounded-lg bg-slate-100 group-hover:bg-sky-500 group-hover:text-white transition-colors flex items-center justify-center font-bold text-slate-600 shadow-sm shrink-0">
+                {kunci}
+              </span>
+              <span className="text-lg">{teks as string}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
 // 2. KOMPONEN UTAMA (Yang dibungkus dengan Suspense)
 // ==========================================
 export default function UjianDiagnostik() {
