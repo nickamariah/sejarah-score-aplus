@@ -16,6 +16,8 @@ import {
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../../lib/firebase"; // Pastikan path ini betul ikut fail Dr. Nic
 
 const radarData = [
   { subject: "Pemahaman", A: 88, fullMark: 100 },
@@ -87,24 +89,43 @@ export default function MuridDashboard() {
   }, []); // <--- (Kurungan kosong: Run sekali sahaja)
 
 
-  // ===============================================================
-  // 2. TARIK MARKAH & STATUS (Run setiap kali butang Tingkatan ditekan)
+// ===============================================================
+  // 2. TARIK MARKAH DARI FIREBASE (Setiap kali tukar Tingkatan)
   // ===============================================================
   useEffect(() => {
-    // Tarik modul yang telah siap
-    const savedCompleted = JSON.parse(localStorage.getItem("completedModules") || "[]");
-    setCompletedModules(savedCompleted);
+    const tarikMarkahFirebase = async () => {
+      const rawUser = localStorage.getItem("currentUser");
+      if (!rawUser) return;
+      const user = JSON.parse(rawUser);
 
-    // Tarik markah ujian dari Firebase (yang disimpan di LocalStorage)
-    const loadedScores: Record<number, number> = {};
-    const tingkatan = activeLevel === "t4" ? "4" : "5";
-    
-    for (let i = 1; i <= 10; i++) {
-      const skor = localStorage.getItem(`skor_${tingkatan}_Bab ${i}`);
-      if (skor) loadedScores[i] = parseInt(skor);
-    }
-    setSkorBab(loadedScores);
-  }, [activeLevel]); // <--- (Hanya run bila butang tingkatan ditekan)
+      try {
+        const tingkatanSemasa = activeLevel === "t4" ? "4" : "5";
+        
+        // Tarik markah KHAS untuk murid ini sahaja dari jadual 'skor_murid'
+        const q = query(
+          collection(db, "skor_murid"),
+          where("idMurid", "==", user.id),
+          where("tingkatan", "==", tingkatanSemasa)
+        );
+
+        const querySnapshot = await getDocs(q);
+        const loadedScores: Record<number, number> = {};
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          // Tukar "Bab 1" jadi nombor 1
+          const babNum = parseInt(data.bab.replace("Bab ", ""));
+          loadedScores[babNum] = data.skor;
+        });
+
+        setSkorBab(loadedScores);
+      } catch (error) {
+        console.error("Ralat tarik markah dari Firebase:", error);
+      }
+    };
+
+    tarikMarkahFirebase();
+  }, [activeLevel]);
 
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
@@ -288,16 +309,24 @@ export default function MuridDashboard() {
                                 ) : <div />}
                                 
                                 <button 
-                                  onClick={() => openModule(chapter.id, module.id)}
-                                  disabled={isButtonDisabled}
-                                  className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
-                                    isButtonDisabled 
-                                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                                      : 'bg-sky-600 text-white hover:bg-sky-700 shadow border border-sky-700'
-                                  }`}
-                                >
-                                  {adaptive.adaptiveLocked ? 'Terkunci 🔒' : isModul1Completed ? 'Telah Dijawab ✅' : module.id === 1 ? 'Jawab Ujian 📝' : 'Buka Modul 🚀'}
-                                </button>
+                                      onClick={() => openModule(chapter.id, module.id)}
+                                      disabled={isButtonDisabled}
+                                      className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+                                        isButtonDisabled 
+                                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                                          : 'bg-sky-600 text-white hover:bg-sky-700 shadow border border-sky-700'
+                                      }`}
+                                    >
+                                      {adaptive.adaptiveLocked 
+                                        ? 'Terkunci 🔒' 
+                                        : isModul1Completed 
+                                        ? 'Telah Dijawab ✅' 
+                                        : module.id === 1 
+                                        ? 'Jawab Ujian 📝' 
+                                        : module.id === 4 
+                                        ? 'Mula Permainan 🎮' 
+                                        : 'Buka Modul 🚀'}
+                                    </button>
                               </div>
                             </div>
                           </div>

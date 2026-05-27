@@ -2,8 +2,9 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, setDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
+
 
 // ==========================================
 // 1. KOMPONEN KANDUNGAN UJIAN (Isi Sebenar)
@@ -61,43 +62,40 @@ function KandunganUjian() {
     tarikSoalan();
   }, [tingkatan, bab, isClient]);
 
-  // Simpan markah ke LocalStorage bila tamat ujian
+// Simpan markah ke Firebase bila tamat ujian
   useEffect(() => {
     if (!isClient) return;
 
-    if (tamat && soalanSenarai.length > 0) {
-      const peratus = Math.round((skor / soalanSenarai.length) * 100);
-      localStorage.setItem(`skor_${tingkatan}_${bab}`, peratus.toString());
-      
-      const chapterId = bab.replace("Bab ", "");
-      const modKey = `t${tingkatan}-ch${chapterId}-mod1`;
-      const completed = JSON.parse(localStorage.getItem("completedModules") || "[]");
-      if (!completed.includes(modKey)) {
-        completed.push(modKey);
-        localStorage.setItem("completedModules", JSON.stringify(completed));
+    const simpanMarkahFirebase = async () => {
+      if (tamat && soalanSenarai.length > 0) {
+        const peratus = Math.round((skor / soalanSenarai.length) * 100);
+        
+        // Dapatkan maklumat murid yang sedang Login
+        const rawUser = localStorage.getItem("currentUser");
+        if (rawUser) {
+          const user = JSON.parse(rawUser);
+          
+          try {
+            // Ini akan AUTOMATIK cipta table 'skor_murid' di Firebase!
+            const docId = `${user.id}_t${tingkatan}_${bab}`;
+            await setDoc(doc(db, "skor_murid", docId), {
+              idMurid: user.id,
+              namaMurid: user.name || user.nama,
+              tingkatan: tingkatan,
+              bab: bab,
+              skor: peratus,
+              tarikh: new Date().toISOString()
+            });
+            console.log("Markah berjaya disimpan di Firebase!");
+          } catch (error) {
+            console.error("Ralat simpan markah ke Firebase:", error);
+          }
+        }
       }
-    }
+    };
+
+    simpanMarkahFirebase();
   }, [tamat, skor, soalanSenarai.length, tingkatan, bab, isClient]);
-
-  const jawabSoalan = (jawapanMurid: string) => {
-    const soalanSemasa = soalanSenarai[indexSemasa];
-    
-    if (soalanSemasa.jenis === "objektif") {
-      if (jawapanMurid === soalanSemasa.jawapan) {
-        setSkor(prev => prev + 1);
-      }
-    } else {
-      console.log(`Jawapan Esei Murid untuk soalan ${soalanSemasa.id}:`, jawapanMurid);
-    }
-
-    setJawapanTeks("");
-
-    if (indexSemasa + 1 < soalanSenarai.length) {
-      setIndexSemasa(indexSemasa + 1);
-    } else {
-      setTamat(true);
-    }
-  };
 
   // Paparan pelindung semasa Server sedang memproses
   if (!isClient) return <div className="min-h-screen flex items-center justify-center font-bold text-sky-600">Sistem Memulakan Ujian...</div>;
