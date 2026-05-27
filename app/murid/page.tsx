@@ -118,14 +118,17 @@ export default function MuridDashboard() {
   }, [activeLevel]);
 
   const openModule = (chapterId: number, moduleId: number) => {
-    // Jika murid tekan Modul 1 (Ujian Diagnostik)
+    console.log("Murid klik Modul:", moduleId, "Bab:", chapterId); // Untuk jejak (debug)
+
+    // Jika murid tekan Ujian Diagnostik (Modul 1)
     if (moduleId === 1) {
       const aras = activeLevel === "t4" ? "4" : "5";
-      router.push(`/ujian?tingkatan=${aras}&bab=Bab ${chapterId}`);
+      // Kita guna window.location supaya ia 'paksa' browser berpindah! 100% berkesan.
+      window.location.href = `/ujian?tingkatan=${aras}&bab=Bab ${chapterId}`;
       return;
     }
     
-    // Untuk modul lain (AI, Games) - kita akan buat fungsinya nanti
+    // Untuk modul lain (AI, Games)
     window.alert(`Modul ${moduleId} sedang dibangunkan (Fasa Seterusnya).`);
   };
 
@@ -418,15 +421,15 @@ export default function MuridDashboard() {
                                   <h4 className="font-semibold text-slate-900">{displayName}</h4>
                                   {module.note && <p className="text-xs text-slate-600 mt-1">{module.note}</p>}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  {isCompleted ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : null}
-                                  <div className="flex items-center gap-2">
-                                    <button onClick={() => { if (!isLocked) openModule(chapter.id, module.id); }} disabled={isLocked} className={`text-sm font-semibold px-3 py-1 rounded ${isLocked ? 'text-slate-500' : 'text-sky-700 hover:bg-sky-50'}`}>
-                                      {isCompleted ? 'Buka' : isLocked ? 'Terkunci' : 'Buka'}
-                                    </button>
-                                    <button onClick={() => { if (!isLocked) markModuleComplete(chapter.id, module.id); }} disabled={isLocked} className={`text-xs px-2 py-1 rounded bg-slate-100 text-slate-700 ${isCompleted ? 'line-through' : ''}`}>Tandakan Selesai</button>
-                                  </div>
-                                </div>
+                               <div className="flex items-center gap-2">
+  {isCompleted ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : null}
+  <div className="flex items-center gap-2">
+    <button onClick={() => { if (!isLocked) openModule(chapter.id, module.id); }} disabled={isLocked} className={`text-sm font-semibold px-3 py-1 rounded ${isLocked ? 'text-slate-500' : 'text-sky-700 hover:bg-sky-50'}`}>
+      {isCompleted ? 'Buka' : isLocked ? 'Terkunci' : 'Buka'}
+    </button>
+    <button onClick={() => { if (!isLocked) markModuleComplete(chapter.id, module.id); }} disabled={isLocked} className={`text-xs px-2 py-1 rounded bg-slate-100 text-slate-700 ${isCompleted ? 'line-through' : ''}`}>Tandakan Selesai</button>
+  </div>
+</div>
                               </div>
 
                               {/* Pre-Test mock buttons for module 2 */}
