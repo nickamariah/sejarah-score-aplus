@@ -67,17 +67,30 @@ export default function MuridDashboard() {
   const [completedModules, setCompletedModules] = useState<string[]>([]);
   const [skorBab, setSkorBab] = useState<Record<number, number>>({});
 
+ // ===============================================================
+  // 1. TARIK DATA MURID (Hanya run SEKALI masa mula-mula masuk)
+  // ===============================================================
   useEffect(() => {
-    // Tarik data User
     try {
       const raw = localStorage.getItem("currentUser");
       if (raw) {
         const user = JSON.parse(raw);
         setUserData(user);
-        if (user.tingkatan === "5") setActiveLevel("t5");
+        // Tetapkan tab aktif ikut tingkatan murid masa mula-mula login
+        if (user.tingkatan?.toString() === "5") {
+          setActiveLevel("t5");
+        } else {
+          setActiveLevel("t4");
+        }
       }
     } catch (e) {}
+  }, []); // <--- (Kurungan kosong: Run sekali sahaja)
 
+
+  // ===============================================================
+  // 2. TARIK MARKAH & STATUS (Run setiap kali butang Tingkatan ditekan)
+  // ===============================================================
+  useEffect(() => {
     // Tarik modul yang telah siap
     const savedCompleted = JSON.parse(localStorage.getItem("completedModules") || "[]");
     setCompletedModules(savedCompleted);
@@ -91,7 +104,7 @@ export default function MuridDashboard() {
       if (skor) loadedScores[i] = parseInt(skor);
     }
     setSkorBab(loadedScores);
-  }, [activeLevel]);
+  }, [activeLevel]); // <--- (Hanya run bila butang tingkatan ditekan)
 
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
