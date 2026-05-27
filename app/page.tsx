@@ -23,7 +23,7 @@ export default function Home() {
       const inputPass = kataLaluan.trim();
 
       // 1. MENCARI PENGGUNA DI FIREBASE (Koleksi 'users')
-      let userData = null;
+      let userData: any = null;
 
       // Cuba cari menggunakan inputId sebagai Document ID (Contoh: Doc ID "M002")
       const userDocRef = doc(db, "users", inputId);
