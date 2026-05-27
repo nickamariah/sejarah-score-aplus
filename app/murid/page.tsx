@@ -76,7 +76,8 @@ export default function MuridDashboard() {
   const openModule = (chapterId: number, moduleId: number) => {
     if (moduleId === 1) {
       const aras = activeLevel === "t4" ? "4" : "5";
-      window.location.href = `/ujian?tingkatan=${aras}&bab=Bab ${chapterId}`;
+      // Kita tukar pautan ke folder 'jawab' yang baru
+      window.location.href = `/jawab?tingkatan=${aras}&bab=Bab ${chapterId}`;
       return;
     }
     window.alert(`Modul ${moduleId} sedang dibangunkan (Fasa Seterusnya).`);
@@ -177,13 +178,34 @@ export default function MuridDashboard() {
                                   </span>
                                 ) : <div />}
                                 
-                                <button 
-                                  onClick={() => openModule(chapter.id, module.id)}
-                                  disabled={adaptive.adaptiveLocked}
-                                  className={`px-4 py-2 text-sm font-bold rounded-lg transition ${adaptive.adaptiveLocked ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-sky-600 text-white hover:bg-sky-700 shadow-md'}`}
-                                >
-                                  {adaptive.adaptiveLocked ? 'Terkunci 🔒' : 'Buka Modul 🚀'}
-                                </button>
+                                {/* LOGIK BUTANG PINTAR */}
+                                {(() => {
+                                  // Semak jika Modul 1 (Diagnostik) dah dijawab
+                                  const isModul1Completed = module.id === 1 && skorBab[chapter.id] !== undefined;
+                                  // Butang akan dikunci jika ia AdaptiveLocked ATAU jika Modul 1 dah siap
+                                  const isButtonDisabled = adaptive.adaptiveLocked || isModul1Completed;
+
+                                  return (
+                                    <button 
+                                      onClick={() => openModule(chapter.id, module.id)}
+                                      disabled={isButtonDisabled}
+                                      className={`px-4 py-2 text-sm font-bold rounded-lg transition ${
+                                        isButtonDisabled 
+                                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
+                                          : 'bg-sky-600 text-white hover:bg-sky-700 shadow-md'
+                                      }`}
+                                    >
+                                      {adaptive.adaptiveLocked 
+                                        ? 'Terkunci 🔒' 
+                                        : isModul1Completed 
+                                        ? 'Telah Dijawab ✅' 
+                                        : module.id === 1 
+                                        ? 'Jawab Ujian 📝' 
+                                        : 'Buka Modul 🚀'}
+                                    </button>
+                                  );
+                                })()}
+
                               </div>
                             </div>
                           </div>
