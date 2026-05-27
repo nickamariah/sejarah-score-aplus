@@ -1,31 +1,38 @@
+"use client";
+
 import { useState, useEffect } from "react";
-// Import Firestore dan db yang kita setup di Langkah 1
+import { useRouter, useSearchParams } from "next/navigation";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase"; // Ubah mengikut lokasi fail firebase Dr. Nic
+import { db } from "@/lib/firebase";
 
 export default function UjianDiagnostik() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Baca parameter dari URL yang dihantar dari Dashboard
+  const tingkatan = searchParams.get("tingkatan") || "4";
+  const bab = searchParams.get("bab") || "Bab 1";
+
   const [soalanSenarai, setSoalanSenarai] = useState<any[]>([]);
   const [indexSemasa, setIndexSemasa] = useState(0);
   const [skor, setSkor] = useState(0);
   const [tamat, setTamat] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Fungsi Tarik Soalan Dari Firebase
   useEffect(() => {
     const tarikSoalan = async () => {
       try {
-        // Kita nak tarik soalan Tingkatan 4, Bab 1 sahaja dulu sebagai ujian
+        // Firebase akan tarik soalan mengikut Bab yang diklik oleh murid!
         const q = query(
           collection(db, "questionBank"),
-          where("tingkata", "==", "4"), // Guna ejaan exact dari Firestore
-          where("bab", "==", "Bab 1")
+          where("tingkata", "==", tingkatan), // Ejaan ikut database Dr. Nic
+          where("bab", "==", bab)
         );
 
         const querySnapshot = await getDocs(q);
         const soalanData: any[] = [];
         
         querySnapshot.forEach((doc) => {
-          // doc.data() akan bawa masuk semua soalan, jawapan, pilihan
           soalanData.push({ id: doc.id, ...doc.data() });
         });
 
@@ -38,81 +45,98 @@ export default function UjianDiagnostik() {
     };
 
     tarikSoalan();
-  }, []);
+  }, [tingkatan, bab]);
 
-  // Fungsi Bila Murid Jawab
   const jawabSoalan = (jawapanMurid: string) => {
     const soalanSemasa = soalanSenarai[indexSemasa];
     
-    // Semak betul ke tak (Contoh: "A" === "D")
     if (jawapanMurid === soalanSemasa.jawapan) {
-      setSkor(skor + 1);
+      setSkor(prev => prev + 1);
     }
 
-    // Pergi soalan seterusnya atau tamatkan
     if (indexSemasa + 1 < soalanSenarai.length) {
       setIndexSemasa(indexSemasa + 1);
     } else {
       setTamat(true);
-      // Di sini kita akan jalankan logik Adaptif (Cemerlang/Sederhana)
-      // Contoh: TentukanLaluanAdaptif(skorAkhir)
     }
   };
 
-  if (loading) return <div className="p-10 text-center">Memuatkan Ujian Diagnostik...</div>;
-  if (soalanSenarai.length === 0) return <div className="p-10 text-center">Tiada soalan dijumpai.</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-sky-700 font-semibold">Memuatkan Soalan Firebase...</div>;
+  
+  if (soalanSenarai.length === 0) return (
+    <div className="min-h-screen flex flex-col items-center justify-center">
+      <div className="p-8 bg-white rounded-xl shadow-md text-center max-w-md">
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Soalan Belum Tersedia</h2>
+        <p className="text-slate-600 mb-6">Guru belum memasukkan soalan untuk Tingkatan {tingkatan}, {bab}.</p>
+        <button onClick={() => router.push('/murid')} className="bg-sky-600 text-white px-6 py-2 rounded-lg hover:bg-sky-700">
+          Kembali ke Dashboard
+        </button>
+      </div>
+    </div>
+  );
 
-  // PAPARAN KUIZ TAMAT & LOGIK ADAPTIF
   if (tamat) {
     const peratus = Math.round((skor / soalanSenarai.length) * 100);
     return (
-      <div className="max-w-2xl mx-auto mt-10 p-8 bg-white rounded-xl shadow text-center">
-        <h2 className="text-3xl font-bold mb-4">Ujian Diagnostik Tamat</h2>
-        <p className="text-xl mb-4">Skor Anda: {peratus}%</p>
-        
-        {peratus >= 80 ? (
-          <div className="bg-green-100 text-green-800 p-4 rounded-lg">
-            🔥 TAHNIAH! Anda berada di Aras Cemerlang. Nota dilangkau (skipped). Mari terus ke Bab seterusnya!
-          </div>
-        ) : (
-          <div className="bg-amber-100 text-amber-800 p-4 rounded-lg">
-            📚 Anda berada di Aras Bimbingan. Mari kita baca nota dan dibimbing oleh AI.
-          </div>
-        )}
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="max-w-2xl w-full p-8 bg-white rounded-2xl shadow-xl text-center border-t-8 border-sky-500">
+          <h2 className="text-3xl font-extrabold mb-4 text-slate-800">Ujian Diagnostik Tamat</h2>
+          <p className="text-lg text-slate-600 mb-2">{bab} | Tingkatan {tingkatan}</p>
+          <div className="text-5xl font-black text-sky-600 mb-8">{peratus}%</div>
+          
+          {peratus >= 80 ? (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-6 rounded-xl mb-6">
+              🔥 <strong>TAHNIAH! LALUAN CEMERLANG.</strong><br/>
+              Anda telah menguasai bab ini. Modul Bacaan dilangkau.
+            </div>
+          ) : (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-xl mb-6">
+              📚 <strong>LALUAN BIMBINGAN (SCAFFOLDING).</strong><br/>
+              Mari kita baca nota dan kukuhkan pemahaman anda bersama AI.
+            </div>
+          )}
+
+          <button onClick={() => router.push('/murid')} className="w-full sm:w-auto bg-slate-800 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-700 transition">
+            Kembali ke Laluan Pembelajaran
+          </button>
+        </div>
       </div>
     );
   }
 
-  // PAPARAN SOALAN SEMASA
   const semasa = soalanSenarai[indexSemasa];
 
   return (
-    <div className="max-w-3xl mx-auto mt-10 p-6 bg-white rounded-xl shadow-lg border border-sky-100">
-      <div className="flex justify-between items-center mb-6">
-        <span className="text-sm font-semibold text-sky-600 uppercase tracking-wider">{semasa.topik}</span>
-        <span className="bg-sky-100 text-sky-800 px-3 py-1 rounded-full text-sm font-bold">
-          Soalan {indexSemasa + 1} / {soalanSenarai.length}
-        </span>
-      </div>
+    <div className="min-h-screen bg-slate-50 py-12 px-4">
+      <div className="max-w-3xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-lg border border-slate-100">
+        <div className="flex justify-between items-center mb-8 border-b pb-4">
+          <div>
+            <h1 className="text-xl font-bold text-slate-800">{bab}</h1>
+            <p className="text-sm font-medium text-sky-600">{semasa.topik}</p>
+          </div>
+          <span className="bg-sky-100 text-sky-800 px-4 py-2 rounded-lg text-sm font-bold shadow-sm">
+            Soalan {indexSemasa + 1} / {soalanSenarai.length}
+          </span>
+        </div>
 
-      <h2 className="text-xl font-medium text-slate-800 mb-8 leading-relaxed">
-        {semasa.soalan}
-      </h2>
+        <h2 className="text-2xl font-semibold text-slate-800 mb-8 leading-relaxed">
+          {semasa.soalan}
+        </h2>
 
-      <div className="grid gap-3">
-        {/* Kita pusingkan (map) pilihan A, B, C, D dari Firestore */}
-        {Object.entries(semasa.pilihan).map(([kunci, teks]) => (
-          <button
-            key={kunci}
-            onClick={() => jawabSoalan(kunci)}
-            className="w-full text-left p-4 rounded-lg border-2 border-slate-100 hover:border-sky-400 hover:bg-sky-50 transition-all font-medium text-slate-700 flex gap-4 items-center"
-          >
-            <span className="w-8 h-8 rounded bg-white shadow flex items-center justify-center font-bold text-sky-700">
-              {kunci}
-            </span>
-            <span>{teks as string}</span>
-          </button>
-        ))}
+        <div className="grid gap-4">
+          {Object.entries(semasa.pilihan).map(([kunci, teks]) => (
+            <button
+              key={kunci}
+              onClick={() => jawabSoalan(kunci)}
+              className="w-full text-left p-5 rounded-xl border-2 border-slate-200 hover:border-sky-500 hover:bg-sky-50 transition-all font-medium text-slate-700 flex gap-4 items-center group"
+            >
+              <span className="w-10 h-10 rounded-lg bg-slate-100 group-hover:bg-sky-500 group-hover:text-white transition-colors flex items-center justify-center font-bold text-slate-600 shadow-sm shrink-0">
+                {kunci}
+              </span>
+              <span className="text-lg">{teks as string}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

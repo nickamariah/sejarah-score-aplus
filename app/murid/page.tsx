@@ -1,5 +1,5 @@
 "use client";
-
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -55,7 +55,7 @@ const chapters = {
 
 const modules = [
   { id: 1, name: "Bahan Bacaan", icon: BookOpen, color: "sky", note: "" },
-  { id: 2, name: "Pre Test", icon: Zap, color: "amber", note: "Skor cemerlang akan melangkau Pengukuhan & Post Test" },
+  { id: 2, name: "Ujian Diagnostik", icon: Zap, color: "amber", note: "Skor cemerlang akan melangkau Bahan Bacaan & Pengukuhan" },
   { id: 3, name: "Modul Pengukuhan", icon: Sparkles, color: "purple", note: "Latihan RAG & Scaffolding AI" },
   { id: 4, name: "Post Test", icon: CheckCircle2, color: "emerald", note: "" },
   { id: 5, name: "Games", icon: Gamepad2, color: "pink", note: "" },
@@ -79,6 +79,7 @@ export default function MuridDashboard() {
   const [quizScore, setQuizScore] = useState(0);
   const [showQuizResult, setShowQuizResult] = useState(false);
   const [selectedChapterForQuiz, setSelectedChapterForQuiz] = useState<number | null>(null);
+  const router = useRouter(); // <--- TAMBAH KOD INI DI SINI
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type });
@@ -118,11 +119,17 @@ export default function MuridDashboard() {
   }, [activeLevel]);
 
   const openModule = (chapterId: number, moduleId: number) => {
-    // Pre Test: open quiz
+    // Hantar Telemetri Modul Dibuka
+    hantarTelemetri("BUKA_MODUL", `Membuka Bab ${chapterId}, Modul ${moduleId}`);
+
+    // Jika murid tekan Modul 2 (Ujian Diagnostik)
     if (moduleId === 2) {
-      fetchQuizQuestions(chapterId);
+      // Kita hantar murid ke halaman Firebase beserta nombor Bab & Tingkatan
+      const aras = activeLevel === "t4" ? "4" : "5";
+      router.push(`/ujian?tingkatan=${aras}&bab=Bab ${chapterId}`);
       return;
     }
+    
     // Other modules: open iframe
     const key = `${activeLevel}-ch${chapterId}-mod${moduleId}`;
     const url = moduleLinks[key];
