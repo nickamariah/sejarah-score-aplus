@@ -9,20 +9,29 @@ import { db } from "../../lib/firebase";
 // 1. KOMPONEN KANDUNGAN UJIAN (Isi Sebenar)
 // ==========================================
 function KandunganUjian() {
+  // 👇 KUNCI RAHSIA: Halang Next.js dari crash di Server
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Baca parameter dari URL
-  const tingkatan = searchParams.get("tingkatan") || "4";
-  const bab = searchParams.get("bab") || "Bab 1";
+  const tingkatan = searchParams?.get("tingkatan") || "4";
+  const bab = searchParams?.get("bab") || "Bab 1";
 
   const [soalanSenarai, setSoalanSenarai] = useState<any[]>([]);
   const [indexSemasa, setIndexSemasa] = useState(0);
   const [skor, setSkor] = useState(0);
   const [tamat, setTamat] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [jawapanTeks, setJawapanTeks] = useState(""); 
 
   useEffect(() => {
+    // Jika belum masuk browser, jangan jalankan Firebase!
+    if (!isClient) return;
+
     const tarikSoalan = async () => {
       try {
         const q = query(
@@ -38,6 +47,9 @@ function KandunganUjian() {
           soalanData.push({ id: doc.id, ...doc.data() });
         });
 
+        // Susun soalan A-Z (B1Q001, B1Q002...)
+        soalanData.sort((a, b) => a.id.localeCompare(b.id));
+
         setSoalanSenarai(soalanData);
       } catch (error) {
         console.error("Ralat tarik soalan:", error);
@@ -47,14 +59,38 @@ function KandunganUjian() {
     };
 
     tarikSoalan();
-  }, [tingkatan, bab]);
+  }, [tingkatan, bab, isClient]);
+
+  // Simpan markah ke LocalStorage bila tamat ujian
+  useEffect(() => {
+    if (!isClient) return;
+
+    if (tamat && soalanSenarai.length > 0) {
+      const peratus = Math.round((skor / soalanSenarai.length) * 100);
+      localStorage.setItem(`skor_${tingkatan}_${bab}`, peratus.toString());
+      
+      const chapterId = bab.replace("Bab ", "");
+      const modKey = `t${tingkatan}-ch${chapterId}-mod1`;
+      const completed = JSON.parse(localStorage.getItem("completedModules") || "[]");
+      if (!completed.includes(modKey)) {
+        completed.push(modKey);
+        localStorage.setItem("completedModules", JSON.stringify(completed));
+      }
+    }
+  }, [tamat, skor, soalanSenarai.length, tingkatan, bab, isClient]);
 
   const jawabSoalan = (jawapanMurid: string) => {
     const soalanSemasa = soalanSenarai[indexSemasa];
     
-    if (jawapanMurid === soalanSemasa.jawapan) {
-      setSkor(prev => prev + 1);
+    if (soalanSemasa.jenis === "objektif") {
+      if (jawapanMurid === soalanSemasa.jawapan) {
+        setSkor(prev => prev + 1);
+      }
+    } else {
+      console.log(`Jawapan Esei Murid untuk soalan ${soalanSemasa.id}:`, jawapanMurid);
     }
+
+    setJawapanTeks("");
 
     if (indexSemasa + 1 < soalanSenarai.length) {
       setIndexSemasa(indexSemasa + 1);
@@ -62,6 +98,9 @@ function KandunganUjian() {
       setTamat(true);
     }
   };
+
+  // Paparan pelindung semasa Server sedang memproses
+  if (!isClient) return <div className="min-h-screen flex items-center justify-center font-bold text-sky-600">Sistem Memulakan Ujian...</div>;
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-sky-700 font-semibold">Memuatkan Soalan Firebase...</div>;
   
@@ -107,6 +146,7 @@ function KandunganUjian() {
   }
 
   const semasa = soalanSenarai[indexSemasa];
+  const jenisSoalan = semasa.jenis ? semasa.jenis.toLowerCase() : "objektif"; 
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4">
@@ -125,20 +165,41 @@ function KandunganUjian() {
           {semasa.soalan}
         </h2>
 
-        <div className="grid gap-4">
-          {Object.entries(semasa.pilihan).map(([kunci, teks]) => (
+        {jenisSoalan === "objektif" ? (
+          <div className="grid gap-4">
+            {semasa.pilihan && Object.entries(semasa.pilihan)
+              .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+              .map(([kunci, teks]) => (
+              <button
+                key={kunci}
+                onClick={() => jawabSoalan(kunci)}
+                className="w-full text-left p-5 rounded-xl border-2 border-slate-200 hover:border-sky-500 hover:bg-sky-50 transition-all font-medium text-slate-700 flex gap-4 items-center group"
+              >
+                <span className="w-10 h-10 rounded-lg bg-slate-100 group-hover:bg-sky-500 group-hover:text-white transition-colors flex items-center justify-center font-bold text-slate-600 shadow-sm shrink-0">
+                  {kunci}
+                </span>
+                <span className="text-lg">{teks as string}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <textarea
+              value={jawapanTeks}
+              onChange={(e) => setJawapanTeks(e.target.value)}
+              placeholder="Sila taip jawapan anda di sini..."
+              className="w-full p-5 border-2 border-slate-200 rounded-xl focus:border-sky-500 focus:ring-2 focus:ring-sky-200 focus:outline-none resize-y min-h-[150px] text-lg text-slate-700"
+            ></textarea>
+            
             <button
-              key={kunci}
-              onClick={() => jawabSoalan(kunci)}
-              className="w-full text-left p-5 rounded-xl border-2 border-slate-200 hover:border-sky-500 hover:bg-sky-50 transition-all font-medium text-slate-700 flex gap-4 items-center group"
+              onClick={() => jawabSoalan(jawapanTeks)}
+              disabled={jawapanTeks.trim() === ""}
+              className="mt-4 bg-sky-600 text-white font-bold py-4 px-8 rounded-xl hover:bg-sky-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all"
             >
-              <span className="w-10 h-10 rounded-lg bg-slate-100 group-hover:bg-sky-500 group-hover:text-white transition-colors flex items-center justify-center font-bold text-slate-600 shadow-sm shrink-0">
-                {kunci}
-              </span>
-              <span className="text-lg">{teks as string}</span>
+              Hantar Jawapan
             </button>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
