@@ -161,11 +161,21 @@ function KandunganUjian() {
           </span>
         </div>
 
-        <h2 className="text-2xl font-semibold text-slate-800 mb-8 leading-relaxed whitespace-pre-wrap">
-          {semasa.soalan}
-        </h2>
+        {/* BAHAGIAN SOALAN & MARKAH */}
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <h2 className="text-2xl font-semibold text-slate-800 leading-relaxed whitespace-pre-wrap flex-1">
+            {semasa.soalan}
+          </h2>
+          
+          {/* LOGIK PAPAR MARKAH: Hanya keluar jika Dr. Nic letak 'markah' dalam Firebase */}
+          {semasa.markah && (
+            <span className="shrink-0 bg-amber-100 text-amber-800 border border-amber-200 px-4 py-2 rounded-lg text-sm font-bold shadow-sm">
+              [ {semasa.markah} Markah ]
+            </span>
+          )}
+        </div>
 
-        {/* LOGIK UNTUK PAPAR GAMBAR JIKA WUJUD DALAM FIREBASE */}
+        {/* LOGIK UNTUK PAPAR GAMBAR (Dikekalkan di sini) */}
         {semasa.imageUrl && semasa.imageUrl.trim() !== "" && (
           <div className="mb-8 flex justify-center bg-slate-50 p-4 rounded-xl border border-slate-200">
             <img 
@@ -175,6 +185,8 @@ function KandunganUjian() {
             />
           </div>
         )}
+
+        
 
         {jenisSoalan === "objektif" ? (
           <div className="grid gap-4">
