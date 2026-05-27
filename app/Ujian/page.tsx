@@ -118,3 +118,14 @@ function KandunganUjian() {
           </div>
           <span className="bg-sky-100 text-sky-800 px-4 py-2 rounded-lg text-sm font-bold shadow-sm">
             Soa
+
+            // ==========================================
+// 2. KOMPONEN UTAMA (Yang dibungkus dengan Suspense)
+// ==========================================
+export default function UjianDiagnostik() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-bold text-sky-600">Sistem Sedang Memuatkan Ujian...</div>}>
+      <KandunganUjian />
+    </Suspense>
+  );
+}
