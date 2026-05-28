@@ -91,11 +91,11 @@ export default function Home() {
       <div className="w-full max-w-2xl px-6 py-12 rounded-2xl shadow-xl" style={{ background: "white" }}>
         <div className="flex flex-col md:flex-row items-center gap-8">
           <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold leading-tight text-sky-700">
-              SEJARAH SCORE A+ SMART LEARNING
+           <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold leading-tight text-sky-700">
+            HUB I-RAGS
             </h1>
-            <p className="mt-3 text-sm text-sky-600">Pembelajaran pintar untuk murid cemerlang.</p>
-          </div>
+            <p className="mt-3 text-sm text-sky-600">Model Pembelajaran Inkuiri Adaptif Berasaskan RAG & Scaffolding</p>
+            </div>
 
           <div className="w-full md:w-1/2">
             <div className="rounded-xl p-6" style={{ background: "#f8fbff" }}>

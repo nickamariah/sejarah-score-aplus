@@ -184,7 +184,7 @@ export default function MuridDashboard() {
               <div>
                 <p className="text-xs md:text-sm uppercase tracking-widest text-slate-500">Selamat datang,</p>
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{userData?.name || userData?.nama || "Pelajar Pintar"}</h1>
-                <p className="text-sm text-slate-600">Laluan Pembelajaran Adaptif Sejarah A+</p>
+                <p className="text-sm text-slate-600">Pusat Pembelajaran HUB I-RAGS</p>
                 <div className="mt-2 flex items-center gap-3">
                   <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-700 text-xs font-semibold">🔥 Streak: 7</span>
                   <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-sky-700 text-xs font-semibold">XP: 1240</span>
