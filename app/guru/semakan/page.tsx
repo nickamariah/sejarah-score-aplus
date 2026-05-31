@@ -2,18 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
-import { db } from "../../../lib/firebase"; 
+import { db } from "../../../lib/firebase";
 
 export default function SemakanGuruPage() {
   const [senaraiPelajar, setSenaraiPelajar] = useState<any[]>([]);
-  
-  // 1. KEMAS KINI: Simpan kedua-dua teks soalan & markah penuh
   const [soalanBank, setSoalanBank] = useState<Record<string, { soalan: string, markahPenuh: number }>>({}); 
-  
   const [loading, setLoading] = useState(true);
   const [pelajarPilihan, setPelajarPilihan] = useState<any | null>(null);
-  
-  // State untuk markah (boleh terima nombor atau string kosong jika guru tekan backspace)
   const [markahInput, setMarkahInput] = useState<Record<string, number | string>>({});
 
   useEffect(() => {
@@ -23,20 +18,14 @@ export default function SemakanGuruPage() {
   const tarikData = async () => {
     setLoading(true);
     try {
-      // Tarik senarai soalan dan markahnya
       const soalanSnapshot = await getDocs(collection(db, "questionBank"));
       const soalanTemp: Record<string, { soalan: string, markahPenuh: number }> = {};
-      
       soalanSnapshot.forEach((doc) => {
         const data = doc.data();
-        soalanTemp[doc.id] = {
-          soalan: data.soalan,
-          markahPenuh: Number(data.markah) || 0 // Pastikan markah penuh ditarik
-        };
+        soalanTemp[doc.id] = { soalan: data.soalan, markahPenuh: Number(data.markah) || 0 };
       });
       setSoalanBank(soalanTemp);
 
-      // Tarik senarai jawapan murid
       const markahSnapshot = await getDocs(collection(db, "skor_murid"));
       const senaraiTemp: any[] = [];
       markahSnapshot.forEach((doc) => {
@@ -55,68 +44,52 @@ export default function SemakanGuruPage() {
 
   const bukaPaparanSemakan = (pelajar: any) => {
     setPelajarPilihan(pelajar);
-    setMarkahInput({}); 
+    
+    // KEMAS KINI PENTING: AUTO-ISI MARKAH DARI AI KE DALAM KOTAK GURU
+    const markahAwal: Record<string, number> = {};
+    if (pelajar.ulasanAI) {
+      Object.keys(pelajar.ulasanAI).forEach(soalanId => {
+        markahAwal[soalanId] = pelajar.ulasanAI[soalanId].markahAI || 0;
+      });
+    }
+    setMarkahInput(markahAwal); 
   };
 
-  // 2. KEMAS KINI: Fungsi Sekatan Logik Markah Lebih Had
   const handleUbahMarkah = (soalanId: string, value: string, markahPenuh: number) => {
-    // Jika guru tekan backspace sampai kosong
     if (value === "") {
       setMarkahInput(prev => ({ ...prev, [soalanId]: "" }));
       return;
     }
-
     let markah = parseInt(value);
-
-    // Halang markah lebih dari markah penuh
     if (markah > markahPenuh) {
       alert(`Maaf, markah maksimum untuk soalan ini ialah ${markahPenuh}.`);
-      markah = markahPenuh; // Automatik tukar jadi markah penuh
-    } 
-    // Halang markah negatif
-    else if (markah < 0) {
+      markah = markahPenuh; 
+    } else if (markah < 0) {
       markah = 0;
     }
-
-    setMarkahInput(prev => ({
-      ...prev,
-      [soalanId]: markah
-    }));
+    setMarkahInput(prev => ({ ...prev, [soalanId]: markah }));
   };
 
   const simpanMarkah = async () => {
     if (!pelajarPilihan) return;
-
     try {
-      // 1. Kira jumlah markah Esei/Struktur
       const jumlahMarkahStruktur = Object.values(markahInput).reduce((a, b) => Number(a) + (Number(b) || 0), 0);
-      
-      // 2. Tarik markah objektif sedia ada
       const markahObjektif = Number(pelajarPilihan.skorObjektif) || 0;
-      
-      // 3. Campurkan kedua-duanya (Dapat 16)
       const jumlahKeseluruhan = Number(markahObjektif) + Number(jumlahMarkahStruktur);
-
-      // 4. PENGIRAAN PERATUSAN (UPDATE TERBARU)
-      // Tarik markah penuh ujian dari Firebase (contoh: 18). Jika tiada, kita letak default 18 untuk ujian ini.
       const markahPenuhUjian = Number(pelajarPilihan.markahPenuhUjian) || 18; 
-      const peratusBaru = Math.round((jumlahKeseluruhan / markahPenuhUjian) * 100); // 16/18 * 100 = 89%
+      const peratusBaru = Math.round((jumlahKeseluruhan / markahPenuhUjian) * 100);
 
       const docRef = doc(db, "skor_murid", pelajarPilihan.idDoc);
-
-      // 5. Kemas kini ke Firebase
       await updateDoc(docRef, {
         markahStruktur: jumlahMarkahStruktur,
         skorAkhir: jumlahKeseluruhan, 
-        skor: peratusBaru, // <-- SISTEM KEMAS KINI PERATUS (89%)
+        skor: peratusBaru,
         statusPermarkahanEsei: "disemak_oleh_guru"
       });
 
       alert(`Berjaya! Jumlah Markah: ${jumlahKeseluruhan}/${markahPenuhUjian} (${peratusBaru}%)`);
-      
       setPelajarPilihan(null);
       tarikData();
-
     } catch (error) {
       console.error("Ralat menyimpan markah:", error);
     }
@@ -127,7 +100,6 @@ export default function SemakanGuruPage() {
   return (
     <div className="min-h-screen bg-slate-50 py-10 px-4">
       <div className="max-w-5xl mx-auto">
-        
         {!pelajarPilihan ? (
           <div className="bg-white p-8 rounded-2xl shadow-lg border border-slate-100">
             <h1 className="text-3xl font-bold text-slate-800 mb-6">👨‍🏫 Dashboard Semakan Guru</h1>
@@ -150,11 +122,15 @@ export default function SemakanGuruPage() {
                       <td className="p-4 font-medium text-slate-800">{pelajar.namaMurid}</td>
                       <td className="p-4 text-slate-600">Ting. {pelajar.tingkatan} | {pelajar.bab}</td>
                       <td className="p-4">
+                        {/* KEMAS KINI: BADGE STATUS "DISEMAK OLEH AI" */}
+                        {pelajar.statusPermarkahanEsei === "disemak_oleh_AI" && (
+                          <span className="bg-sky-100 text-sky-800 px-3 py-1 rounded-full text-xs font-bold shadow-sm">🤖 Selesai Ditanda AI</span>
+                        )}
                         {pelajar.statusPermarkahanEsei === "menunggu_permarkahan_AI" && (
-                          <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-bold">Perlu Semakan</span>
+                          <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-bold">Perlu Semakan AI</span>
                         )}
                         {pelajar.statusPermarkahanEsei === "disemak_oleh_guru" && (
-                          <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold">Selesai Disemak</span>
+                          <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold">Selesai Disahkan Guru</span>
                         )}
                         {pelajar.statusPermarkahanEsei === "tiada_esei" && (
                           <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold">Objektif Sahaja</span>
@@ -168,7 +144,7 @@ export default function SemakanGuruPage() {
                         {pelajar.statusPermarkahanEsei !== "tiada_esei" && (
                           <button 
                             onClick={() => bukaPaparanSemakan(pelajar)}
-                            className="bg-sky-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-sky-700"
+                            className="bg-sky-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-sky-700 shadow"
                           >
                             Semak Jawapan
                           </button>
@@ -176,18 +152,11 @@ export default function SemakanGuruPage() {
                       </td>
                     </tr>
                   ))}
-                  
-                  {senaraiPelajar.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="p-8 text-center text-slate-500">Tiada rekod pelajar dijumpai.</td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
           </div>
         ) : (
-          
           <div className="bg-white p-8 rounded-2xl shadow-lg border border-slate-100">
             <button 
               onClick={() => setPelajarPilihan(null)}
@@ -197,9 +166,9 @@ export default function SemakanGuruPage() {
             </button>
 
             <div className="border-b pb-6 mb-6">
-              <h2 className="text-2xl font-bold text-slate-800">Semakan Jawapan Esei</h2>
+              <h2 className="text-2xl font-bold text-slate-800">Semakan Jawapan Esei (Sokongan AI)</h2>
               <p className="text-slate-600 mt-2">
-                Murid: <strong>{pelajarPilihan.namaMurid}</strong> ({pelajarPilihan.idMurid})<br/>
+                Murid: <strong>{pelajarPilihan.namaMurid}</strong><br/>
                 Topik: Tingkatan {pelajarPilihan.tingkatan} | {pelajarPilihan.bab}
               </p>
             </div>
@@ -207,38 +176,47 @@ export default function SemakanGuruPage() {
             {pelajarPilihan.jawapanStruktur && Object.entries(pelajarPilihan.jawapanStruktur).length > 0 ? (
               <div className="space-y-8">
                 {Object.entries(pelajarPilihan.jawapanStruktur).map(([soalanId, jawapanMurid], index) => {
-                  // 3. KEMAS KINI: Tarik Data Soalan & Markah Penuh
                   const detailSoalan = soalanBank[soalanId] || { soalan: "Teks soalan tidak ditemui.", markahPenuh: 0 };
+                  const ulasanAI = pelajarPilihan.ulasanAI?.[soalanId];
 
                   return (
                     <div key={soalanId} className="p-6 bg-slate-50 border border-slate-200 rounded-xl">
                       <div className="mb-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                         <div>
-                          <span className="bg-slate-200 text-slate-700 px-3 py-1 rounded text-xs font-bold mr-2">Soalan {index + 1} ({soalanId})</span>
+                          <span className="bg-slate-200 text-slate-700 px-3 py-1 rounded text-xs font-bold mr-2">Soalan {index + 1}</span>
                           <p className="mt-2 font-semibold text-slate-800">{detailSoalan.soalan}</p>
                         </div>
-                        {/* PAPARKAN MARKAH PENUH SOALAN KEPADA GURU */}
                         <span className="shrink-0 bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1 rounded-lg text-sm font-bold shadow-sm">
                           [{detailSoalan.markahPenuh} Markah]
                         </span>
                       </div>
                       
-                      <div className="bg-white p-4 border-l-4 border-sky-500 rounded-r shadow-sm mb-4">
-                        <p className="text-sm text-sky-600 font-bold mb-1">Jawapan Murid:</p>
+                      {/* JAWAPAN MURID */}
+                      <div className="bg-white p-4 border-l-4 border-slate-400 rounded-r shadow-sm mb-4">
+                        <p className="text-sm text-slate-500 font-bold mb-1">Jawapan Murid:</p>
                         <p className="text-slate-700 whitespace-pre-wrap">{jawapanMurid as string}</p>
                       </div>
 
-                      <div className="flex items-center gap-4 mt-4 bg-white p-4 rounded-lg shadow-sm">
-                        <label className="font-semibold text-slate-700">Berikan Markah (Max: {detailSoalan.markahPenuh}):</label>
+                      {/* ULASAN AI (JIKA ADA) */}
+                      {ulasanAI && (
+                        <div className="bg-blue-50 p-4 border-l-4 border-blue-500 rounded-r shadow-sm mb-4">
+                          <p className="text-sm text-blue-700 font-bold mb-1">🤖 Ulasan Gemini AI (Cadangan Markah: {ulasanAI.markahAI}):</p>
+                          <p className="text-blue-900 text-sm whitespace-pre-wrap">{ulasanAI.komenAI}</p>
+                        </div>
+                      )}
+
+                      {/* RUANG SEMAKAN GURU (AUTO-ISI DARI AI) */}
+                      <div className="flex items-center gap-4 mt-4 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                        <label className="font-semibold text-slate-700">Keputusan Guru (Max: {detailSoalan.markahPenuh}):</label>
                         <input 
                           type="number" 
                           min="0"
-                          max={detailSoalan.markahPenuh} // Had pada antaramuka HTML
-                          placeholder="0"
+                          max={detailSoalan.markahPenuh} 
                           className="border border-slate-300 rounded p-2 w-24 text-center font-bold focus:ring-2 focus:ring-sky-500 focus:outline-none"
                           value={markahInput[soalanId] ?? ""}
                           onChange={(e) => handleUbahMarkah(soalanId, e.target.value, detailSoalan.markahPenuh)}
                         />
+                        <span className="text-sm text-slate-500 italic">*Anda boleh ubah markah cadangan AI ini jika tidak bersetuju.</span>
                       </div>
                     </div>
                   );
@@ -247,9 +225,9 @@ export default function SemakanGuruPage() {
                 <div className="pt-6 border-t border-slate-200 flex justify-end">
                   <button 
                     onClick={simpanMarkah}
-                    className="bg-emerald-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-emerald-700 transition"
+                    className="bg-emerald-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-emerald-700 transition shadow-lg"
                   >
-                    Simpan Markah
+                    Sahkan & Simpan Markah
                   </button>
                 </div>
               </div>
