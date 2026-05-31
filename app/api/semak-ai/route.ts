@@ -39,12 +39,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json(aiData);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Ralat AI:", error);
-    // Jika masih ralat, kita hantar mesej amaran ini supaya cikgu tahu apa yang berlaku
+    
+    // KITA TANGKAP MESEJ RALAT SEBENAR DAN HANTAR KE DASHBOARD GURU
     return NextResponse.json({ 
         markahDicadangkan: 0, 
-        komen: "Ralat! AI gagal menanda soalan ini. Sila semak terminal kod (VS Code) cikgu untuk butiran ralat." 
+        komen: `SISTEM AI GAGAL. Punca sebenar Google Gemini: ${error.message || error}` 
     });
   }
 }
