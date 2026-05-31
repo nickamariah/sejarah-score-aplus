@@ -11,8 +11,8 @@ export async function POST(req: Request) {
     const data = await req.json();
     const { soalan, jawapanMurid, markahPenuh, skemaJawapan } = data;
 
-    // 🌟 INI PENYELESAIANNYA: KITA GUNA MODEL GOOGLE PALING LATEST 🌟
-    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+    // Kita cuba model standard
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `
       Anda adalah pemeriksa kertas Sejarah.
@@ -35,19 +35,22 @@ export async function POST(req: Request) {
     let cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
     const startIndex = cleanJson.indexOf('{');
     const endIndex = cleanJson.lastIndexOf('}');
-    
-    if (startIndex !== -1 && endIndex !== -1) {
-        cleanJson = cleanJson.substring(startIndex, endIndex + 1);
-    }
+    if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
 
     const aiData = JSON.parse(cleanJson);
     return NextResponse.json(aiData);
 
   } catch (error: any) {
     console.error("RALAT KRONIK AI:", error);
-    return NextResponse.json({ 
-        markahDicadangkan: 0, 
-        komen: `SISTEM AI GAGAL! Punca: ${error.message || error}` 
-    });
-  }
-}
+    
+    // 🕵️‍♂️ TAKTIK DETEKTIF: Tarik senarai model dari Google secara paksa!
+    let senaraiModelBolehGuna = "Gagal dikesan";
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
+      const dataModel = await res.json();
+      if (dataModel.models) {
+        // Tapis model yang hanya menyokong tugasan menanda (generateContent)
+        const modelGenerateContent = dataModel.models.filter((m: any) => 
+            m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent")
+        );
+        senaraiModelBolehGuna = modelGenerateContent.m
