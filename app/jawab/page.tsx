@@ -29,6 +29,8 @@ function KandunganUjian() {
   // STATE JAWAPAN
   const [jawapanTeks, setJawapanTeks] = useState(""); // Input teks semasa
   const [jawapanStruktur, setJawapanStruktur] = useState<Record<string, string>>({}); // Kumpulkan semua jawapan struktur
+  const [telahDisimpan, setTelahDisimpan] = useState(false); // Elak AI tanda 2 kali
+  const [menganalisisAI, setMenganalisisAI] = useState(false); // Untuk paparan loading AI
 
   // TARIK SOALAN DARI FIREBASE
   useEffect(() => {
@@ -61,24 +63,60 @@ function KandunganUjian() {
     tarikSoalan();
   }, [tingkatan, bab, isClient]);
 
-  // SIMPAN MARKAH & JAWAPAN ESEI KE FIREBASE
+  
+  // SIMPAN MARKAH & JAWAPAN ESEI KE FIREBASE (BERSAMA AI AUTO-MARKING)
   useEffect(() => {
     if (!isClient) return;
 
     const simpanMarkahFirebase = async () => {
-      if (tamat && soalanSenarai.length > 0) {
-        // Nota: Peratus ini sekarang merujuk kepada % objektif (boleh dilaras nanti)
-        const peratus = Math.round((skor / soalanSenarai.length) * 100);
+      // Kita tambah sekatan !telahDisimpan supaya sistem tak hantar 2 kali ke AI
+      if (tamat && soalanSenarai.length > 0 && !telahDisimpan) {
+        setTelahDisimpan(true); 
+        setMenganalisisAI(true); // Hidupkan paparan "AI Sedang Menganalisis"
         
         const rawUser = localStorage.getItem("currentUser");
         if (rawUser) {
           const user = JSON.parse(rawUser);
           
           try {
+            let jumlahMarkahStrukturAI = 0;
+            let ulasanAIPenuh: Record<string, any> = {};
+
+            // PANGGIL AI UNTUK TANDA SETIAP SOALAN ESEI SATU PERSATU
+            for (const [soalanId, jawapanMurid] of Object.entries(jawapanStruktur)) {
+                const detailSoalan = soalanSenarai.find(s => s.id === soalanId);
+                
+                if (detailSoalan) {
+                    console.log(`Menghantar soalan ${soalanId} ke AI Gemini...`);
+                    const res = await fetch("/api/semak-ai", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            soalan: detailSoalan.soalan,
+                            jawapanMurid: jawapanMurid,
+                            markahPenuh: Number(detailSoalan.markah) || 0
+                        })
+                    });
+                    
+                    const aiData = await res.json();
+                    
+                    // Kumpulkan hasil jawapan dari AI
+                    ulasanAIPenuh[soalanId] = {
+                        markahAI: Number(aiData.markahDicadangkan) || 0,
+                        komenAI: aiData.komen || "Tiada ulasan."
+                    };
+                    // Tambahkan markah AI ke jumlah keseluruhan
+                    jumlahMarkahStrukturAI += (Number(aiData.markahDicadangkan) || 0);
+                }
+            }
+
+            // SELESAI AI MENANDA! SEKARANG BARU SIMPAN SEMUANYA KE FIREBASE
             const docId = `${user.id}_t${tingkatan}_${bab}`;
-            
-            // Semak jika ada jawapan struktur yang dijawab
             const adaSoalanStruktur = Object.keys(jawapanStruktur).length > 0;
+            
+            // Pengiraan Markah Keseluruhan
+            const peratus = Math.round((skor / soalanSenarai.length) * 100); 
+            const skorAkhir = skor + jumlahMarkahStrukturAI; // Objektif + Markah AI
 
             await setDoc(doc(db, "skor_murid", docId), {
               idMurid: user.id,
@@ -86,24 +124,28 @@ function KandunganUjian() {
               tingkatan: tingkatan,
               bab: bab,
               
-              // Data Markah Sedia Ada
               skorObjektif: skor,
               skor: peratus, 
               
-              // DATA BARU: Fasa AI Auto-Marking
+              // DATA AI YANG TELAH SIAP DITANDA
               jawapanStruktur: jawapanStruktur, 
-              statusPermarkahanEsei: adaSoalanStruktur ? "menunggu_permarkahan_AI" : "tiada_esei",
-              markahStruktur: 0, // Akan diupdate oleh AI nanti
+              ulasanAI: ulasanAIPenuh, // Komen AI simpan di sini
+              markahStruktur: jumlahMarkahStrukturAI, // Markah dari AI terus masuk sini!
+              skorAkhir: skorAkhir, 
+              
+              // Status ditukar supaya Guru tahu AI dah tolong tandakan
+              statusPermarkahanEsei: adaSoalanStruktur ? "disemak_oleh_AI" : "tiada_esei",
               
               tarikh: new Date().toISOString()
             });
-            console.log("Markah dan Jawapan berjaya disimpan di Firebase!");
+            
+            console.log("Markah, Jawapan, dan Ulasan AI berjaya disimpan!");
           } catch (error) {
-            console.error("Ralat simpan data:", error);
+            console.error("Ralat simpan data atau AI:", error);
           }
         }
 
-        // Tandakan selesai untuk Dashboard
+        // Tandakan selesai untuk Dashboard (Kod sedia ada)
         const chapterId = bab.replace("Bab ", "");
         const modKey = `t${tingkatan}-ch${chapterId}-mod1`;
         const completed = JSON.parse(localStorage.getItem("completedModules") || "[]");
@@ -111,11 +153,15 @@ function KandunganUjian() {
           completed.push(modKey);
           localStorage.setItem("completedModules", JSON.stringify(completed));
         }
+        
+        setMenganalisisAI(false); // Matikan loading
       }
     };
 
     simpanMarkahFirebase();
-  }, [tamat, skor, soalanSenarai.length, tingkatan, bab, isClient, jawapanStruktur]);
+  }, [tamat, skor, soalanSenarai.length, tingkatan, bab, isClient, jawapanStruktur, telahDisimpan, soalanSenarai]);
+
+     
 
   // FUNGSI JAWAB SOALAN
   const jawabSoalan = (jawapanMurid: string) => {
@@ -162,6 +208,19 @@ function KandunganUjian() {
   );
 
   if (tamat) {
+
+    // PAPARAN KETIKA AI SEDANG MENANDA JAWAPAN
+  if (menganalisisAI) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-sky-600 mb-6"></div>
+        <h2 className="text-3xl font-bold text-sky-700">Sistem AI Sedang Menyemak...</h2>
+        <p className="text-slate-500 mt-2 max-w-md">
+          Sila tunggu sebentar. Guru AI (Google Gemini) sedang membaca, menganalisis, dan memberikan markah untuk jawapan esei anda.
+        </p>
+      </div>
+    );
+  }
     const peratus = Math.round((skor / soalanSenarai.length) * 100);
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
