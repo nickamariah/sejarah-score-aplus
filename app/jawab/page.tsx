@@ -22,10 +22,13 @@ function KandunganUjian() {
 
   const [soalanSenarai, setSoalanSenarai] = useState<any[]>([]);
   const [indexSemasa, setIndexSemasa] = useState(0);
-  const [skor, setSkor] = useState(0);
+  const [skor, setSkor] = useState(0); // Markah Objektif
   const [tamat, setTamat] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [jawapanTeks, setJawapanTeks] = useState(""); 
+  
+  // STATE JAWAPAN
+  const [jawapanTeks, setJawapanTeks] = useState(""); // Input teks semasa
+  const [jawapanStruktur, setJawapanStruktur] = useState<Record<string, string>>({}); // Kumpulkan semua jawapan struktur
 
   // TARIK SOALAN DARI FIREBASE
   useEffect(() => {
@@ -58,12 +61,13 @@ function KandunganUjian() {
     tarikSoalan();
   }, [tingkatan, bab, isClient]);
 
-  // SIMPAN MARKAH KE FIREBASE
+  // SIMPAN MARKAH & JAWAPAN ESEI KE FIREBASE
   useEffect(() => {
     if (!isClient) return;
 
     const simpanMarkahFirebase = async () => {
       if (tamat && soalanSenarai.length > 0) {
+        // Nota: Peratus ini sekarang merujuk kepada % objektif (boleh dilaras nanti)
         const peratus = Math.round((skor / soalanSenarai.length) * 100);
         
         const rawUser = localStorage.getItem("currentUser");
@@ -71,19 +75,31 @@ function KandunganUjian() {
           const user = JSON.parse(rawUser);
           
           try {
-            // Automatik cipta jadual skor_murid di Firebase
             const docId = `${user.id}_t${tingkatan}_${bab}`;
+            
+            // Semak jika ada jawapan struktur yang dijawab
+            const adaSoalanStruktur = Object.keys(jawapanStruktur).length > 0;
+
             await setDoc(doc(db, "skor_murid", docId), {
               idMurid: user.id,
               namaMurid: user.name || user.nama,
               tingkatan: tingkatan,
               bab: bab,
-              skor: peratus,
+              
+              // Data Markah Sedia Ada
+              skorObjektif: skor,
+              skor: peratus, 
+              
+              // DATA BARU: Fasa AI Auto-Marking
+              jawapanStruktur: jawapanStruktur, 
+              statusPermarkahanEsei: adaSoalanStruktur ? "menunggu_permarkahan_AI" : "tiada_esei",
+              markahStruktur: 0, // Akan diupdate oleh AI nanti
+              
               tarikh: new Date().toISOString()
             });
-            console.log("Markah berjaya disimpan di Firebase!");
+            console.log("Markah dan Jawapan berjaya disimpan di Firebase!");
           } catch (error) {
-            console.error("Ralat simpan markah:", error);
+            console.error("Ralat simpan data:", error);
           }
         }
 
@@ -99,7 +115,7 @@ function KandunganUjian() {
     };
 
     simpanMarkahFirebase();
-  }, [tamat, skor, soalanSenarai.length, tingkatan, bab, isClient]);
+  }, [tamat, skor, soalanSenarai.length, tingkatan, bab, isClient, jawapanStruktur]);
 
   // FUNGSI JAWAB SOALAN
   const jawabSoalan = (jawapanMurid: string) => {
@@ -110,10 +126,15 @@ function KandunganUjian() {
         setSkor(prev => prev + 1);
       }
     } else {
-      console.log(`Jawapan Esei Murid untuk soalan ${soalanSemasa.id}:`, jawapanMurid);
+      // SIMPAN JAWAPAN ESEI KE DALAM STATE jawapanStruktur
+      setJawapanStruktur(prev => ({
+        ...prev,
+        [soalanSemasa.id]: jawapanMurid
+      }));
+      console.log(`Menyimpan Esei [${soalanSemasa.id}]:`, jawapanMurid);
     }
 
-    setJawapanTeks("");
+    setJawapanTeks(""); // Kosongkan textarea untuk soalan seterusnya
 
     if (indexSemasa + 1 < soalanSenarai.length) {
       setIndexSemasa(indexSemasa + 1);
@@ -121,7 +142,6 @@ function KandunganUjian() {
       setTamat(true);
     }
   };
-
 
   // ==========================================
   // PAPARAN ANTARAMUKA (UI)
