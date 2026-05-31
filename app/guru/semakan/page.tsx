@@ -95,7 +95,7 @@ export default function SemakanGuruPage() {
       const markahObjektif = Number(pelajarPilihan.skorObjektif) || 0;
       
       // 3. Campurkan kedua-duanya
-      const jumlahKeseluruhan = markahObjektif + jumlahMarkahStruktur;
+     const jumlahKeseluruhan = Number(markahObjektif) + Number(jumlahMarkahStruktur);
 
       const docRef = doc(db, "skor_murid", pelajarPilihan.idDoc);
 
