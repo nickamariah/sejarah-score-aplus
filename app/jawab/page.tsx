@@ -94,7 +94,9 @@ function KandunganUjian() {
                         body: JSON.stringify({
                             soalan: detailSoalan.soalan,
                             jawapanMurid: jawapanMurid,
-                            markahPenuh: Number(detailSoalan.markah) || 0
+                            markahPenuh: Number(detailSoalan.markah) || 0,
+                            // TAMBAH BARIS INI:
+                            skemaJawapan: detailSoalan.skemaJawapan || "" 
                         })
                     });
                     
@@ -114,9 +116,16 @@ function KandunganUjian() {
             const docId = `${user.id}_t${tingkatan}_${bab}`;
             const adaSoalanStruktur = Object.keys(jawapanStruktur).length > 0;
             
-            // Pengiraan Markah Keseluruhan
-            const peratus = Math.round((skor / soalanSenarai.length) * 100); 
+            // PENGIRAAN MARKAH PENUH UJIAN YANG SEBENAR
+            let markahPenuhUjian = 0;
+            soalanSenarai.forEach(s => {
+              // Jika objektif (tiada medan markah), anggap 1 markah. Jika esei, ambil markah penuhnya.
+              markahPenuhUjian += Number(s.markah) || 1; 
+            });
+
+            // PENGIRAAN PERATUSAN BARU
             const skorAkhir = skor + jumlahMarkahStrukturAI; // Objektif + Markah AI
+            const peratus = Math.round((skorAkhir / markahPenuhUjian) * 100); 
 
             await setDoc(doc(db, "skor_murid", docId), {
               idMurid: user.id,
@@ -125,17 +134,16 @@ function KandunganUjian() {
               bab: bab,
               
               skorObjektif: skor,
-              skor: peratus, 
+              skor: peratus, // Peratusan yang lebih tepat!
+              markahPenuhUjian: markahPenuhUjian, // KITA SIMPAN MARKAH PENUH DALAM FIREBASE
               
               // DATA AI YANG TELAH SIAP DITANDA
               jawapanStruktur: jawapanStruktur, 
-              ulasanAI: ulasanAIPenuh, // Komen AI simpan di sini
-              markahStruktur: jumlahMarkahStrukturAI, // Markah dari AI terus masuk sini!
+              ulasanAI: ulasanAIPenuh, 
+              markahStruktur: jumlahMarkahStrukturAI, 
               skorAkhir: skorAkhir, 
               
-              // Status ditukar supaya Guru tahu AI dah tolong tandakan
               statusPermarkahanEsei: adaSoalanStruktur ? "disemak_oleh_AI" : "tiada_esei",
-              
               tarikh: new Date().toISOString()
             });
             

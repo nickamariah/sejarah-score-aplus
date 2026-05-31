@@ -94,19 +94,25 @@ export default function SemakanGuruPage() {
       // 2. Tarik markah objektif sedia ada
       const markahObjektif = Number(pelajarPilihan.skorObjektif) || 0;
       
-      // 3. Campurkan kedua-duanya
-     const jumlahKeseluruhan = Number(markahObjektif) + Number(jumlahMarkahStruktur);
+      // 3. Campurkan kedua-duanya (Dapat 16)
+      const jumlahKeseluruhan = Number(markahObjektif) + Number(jumlahMarkahStruktur);
+
+      // 4. PENGIRAAN PERATUSAN (UPDATE TERBARU)
+      // Tarik markah penuh ujian dari Firebase (contoh: 18). Jika tiada, kita letak default 18 untuk ujian ini.
+      const markahPenuhUjian = Number(pelajarPilihan.markahPenuhUjian) || 18; 
+      const peratusBaru = Math.round((jumlahKeseluruhan / markahPenuhUjian) * 100); // 16/18 * 100 = 89%
 
       const docRef = doc(db, "skor_murid", pelajarPilihan.idDoc);
 
-      // 4. Kemas kini ke Firebase
+      // 5. Kemas kini ke Firebase
       await updateDoc(docRef, {
         markahStruktur: jumlahMarkahStruktur,
-        skorAkhir: jumlahKeseluruhan, // <-- Sistem simpan jumlah penuh di sini
+        skorAkhir: jumlahKeseluruhan, 
+        skor: peratusBaru, // <-- SISTEM KEMAS KINI PERATUS (89%)
         statusPermarkahanEsei: "disemak_oleh_guru"
       });
 
-      alert(`Berjaya! Markah Esei: ${jumlahMarkahStruktur}. Jumlah Keseluruhan Murid: ${jumlahKeseluruhan}`);
+      alert(`Berjaya! Jumlah Markah: ${jumlahKeseluruhan}/${markahPenuhUjian} (${peratusBaru}%)`);
       
       setPelajarPilihan(null);
       tarikData();
