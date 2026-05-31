@@ -11,8 +11,8 @@ export async function POST(req: Request) {
     const data = await req.json();
     const { soalan, jawapanMurid, markahPenuh, skemaJawapan } = data;
 
-    // 1. KEMAS KINI NAMA MODEL KE "gemini-pro" (Paling stabil & pasti wujud)
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    // 🌟 INI PENYELESAIANNYA: KITA GUNA MODEL GOOGLE PALING LATEST 🌟
+    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
     const prompt = `
       Anda adalah pemeriksa kertas Sejarah.
@@ -32,7 +32,6 @@ export async function POST(req: Request) {
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     
-    // 2. SISTEM PENCUCI JSON YANG KEBAL (Tapis markdown & ambil JSON sahaja)
     let cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
     const startIndex = cleanJson.indexOf('{');
     const endIndex = cleanJson.lastIndexOf('}');
