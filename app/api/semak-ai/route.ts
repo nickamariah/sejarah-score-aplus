@@ -6,44 +6,45 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-    // KITA TAMBAH skemaJawapan DI SINI
     const { soalan, jawapanMurid, markahPenuh, skemaJawapan } = data;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // KEMAS KINI SUPER PENTING: Kita "kunci" model supaya wajib balas format JSON sahaja
+    const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        generationConfig: { responseMimeType: "application/json" } 
+    });
 
-    // PROMPT RAG: AI KINI DIKAWAL OLEH SKEMA JAWAPAN GURU
+    // PROMPT KEMAS KINI
     const prompt = `
-      Anda adalah seorang Guru Sejarah yang pakar dan tegas menanda kertas ujian.
-      Tugasan anda adalah untuk menyemak jawapan murid berdasarkan soalan dan SKEMA JAWAPAN RASMI berikut.
+      Anda adalah pemeriksa kertas Sejarah.
       
       Soalan: "${soalan}"
       Markah Penuh: ${markahPenuh}
-      Skema Jawapan Rasmi / Nota Buku Teks: "${skemaJawapan || 'Gunakan pengetahuan sejarah tingkatan 4 dan 5 KPM.'}"
-      
+      Skema Jawapan Rasmi: "${skemaJawapan || 'Gunakan pengetahuan sejarah yang tepat.'}"
       Jawapan Murid: "${jawapanMurid}"
       
-      ARAHAN PERMARKAHAN (SANGAT PENTING):
-      1. Berikan markah HANYA jika jawapan murid menepati atau membawa maksud yang sama dengan Skema Jawapan Rasmi.
-      2. Jangan berikan markah penuh jika jawapan murid tergantung.
-      3. Berikan markah dari 0 hingga ${markahPenuh} sahaja.
-      
-      Format balasan anda MESTILAH dalam format JSON yang ketat seperti di bawah, tanpa sebarang teks tambahan:
+      Berikan markah berdasarkan skema (0 hingga ${markahPenuh}).
+      Hasilkan output JSON menggunakan skema struktur di bawah:
       {
-        "markahDicadangkan": (masukkan angka sahaja),
-        "komen": "(Tuliskan ulasan pendek kenapa markah ini diberikan. Beritahu murid apa fakta yang betul dan apa fakta yang tertinggal berdasarkan skema.)"
+        "markahDicadangkan": (masukkan nombor sahaja),
+        "komen": "(Ulasan anda kenapa markah dipotong atau diberi)"
       }
     `;
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     
-    const cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
-    const aiData = JSON.parse(cleanJson);
+    // Memandangkan kita dah paksa JSON, kita boleh terus 'parse' dengan selamat
+    const aiData = JSON.parse(responseText);
 
     return NextResponse.json(aiData);
 
   } catch (error) {
     console.error("Ralat AI:", error);
-    return NextResponse.json({ ralat: "Gagal menyemak dengan AI" }, { status: 500 });
+    // Jika masih ralat, kita hantar mesej amaran ini supaya cikgu tahu apa yang berlaku
+    return NextResponse.json({ 
+        markahDicadangkan: 0, 
+        komen: "Ralat! AI gagal menanda soalan ini. Sila semak terminal kod (VS Code) cikgu untuk butiran ralat." 
+    });
   }
 }
