@@ -18,6 +18,7 @@ import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../lib/firebase"; // Pastikan path ini betul ikut fail Dr. Nic
+import Link from "next/link"; // Pastikan Link di-import di bahagian atas sekali fail
 
 const radarData = [
   { subject: "Pemahaman", A: 88, fullMark: 100 },
@@ -66,10 +67,13 @@ export default function MuridDashboard() {
   const [userData, setUserData] = useState<any>(null);
   const [activeLevel, setActiveLevel] = useState<"t4" | "t5">("t4");
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
+  
+  // SEMUA STATE HANYA DEKLARASI SEKALI DI SINI
   const [completedModules, setCompletedModules] = useState<string[]>([]);
   const [skorBab, setSkorBab] = useState<Record<number, number>>({});
+  const [docIds, setDocIds] = useState<Record<number, string>>({}); 
 
- // ===============================================================
+  // ===============================================================
   // 1. TARIK DATA MURID (Hanya run SEKALI masa mula-mula masuk)
   // ===============================================================
   useEffect(() => {
@@ -86,11 +90,10 @@ export default function MuridDashboard() {
         }
       }
     } catch (e) {}
-  }, []); // <--- (Kurungan kosong: Run sekali sahaja)
+  }, []); 
 
-
-// ===============================================================
-  // 2. TARIK MARKAH DARI FIREBASE (Setiap kali tukar Tingkatan)
+  // ===============================================================
+  // 2. TARIK MARKAH & ID DARI FIREBASE
   // ===============================================================
   useEffect(() => {
     const tarikMarkahFirebase = async () => {
@@ -101,7 +104,6 @@ export default function MuridDashboard() {
       try {
         const tingkatanSemasa = activeLevel === "t4" ? "4" : "5";
         
-        // Tarik markah KHAS untuk murid ini sahaja dari jadual 'skor_murid'
         const q = query(
           collection(db, "skor_murid"),
           where("idMurid", "==", user.id),
@@ -110,15 +112,17 @@ export default function MuridDashboard() {
 
         const querySnapshot = await getDocs(q);
         const loadedScores: Record<number, number> = {};
+        const loadedDocIds: Record<number, string> = {}; 
         
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          // Tukar "Bab 1" jadi nombor 1
           const babNum = parseInt(data.bab.replace("Bab ", ""));
           loadedScores[babNum] = data.skor;
+          loadedDocIds[babNum] = doc.id; 
         });
 
         setSkorBab(loadedScores);
+        setDocIds(loadedDocIds); 
       } catch (error) {
         console.error("Ralat tarik markah dari Firebase:", error);
       }
@@ -207,7 +211,7 @@ export default function MuridDashboard() {
                 text={`${masteryPercent}%`}
                 styles={buildStyles({
                   textSize: "18px",
-                  pathColor: `rgba(14, 165, 233, ${masteryPercent / 100 || 0.1})`, // Sky 500
+                  pathColor: `rgba(14, 165, 233, ${masteryPercent / 100 || 0.1})`, 
                   textColor: "#0f172a",
                   trailColor: "#f1f5f9",
                 })}
@@ -308,25 +312,36 @@ export default function MuridDashboard() {
                                   </span>
                                 ) : <div />}
                                 
-                                <button 
+                                <div className="flex gap-2">
+                                  {/* 🌟 JIKA MODUL 1 DAN SUDAH DIJAWAB, TUNJUK BUTANG LINK */}
+                                  {module.id === 1 && isModul1Completed ? (
+                                    <Link 
+                                      href={`/student/semakan-ujian/${docIds[chapter.id]}`} 
+                                      className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition shadow border border-indigo-200 flex items-center gap-2"
+                                    >
+                                      🔍 Lihat Semakan
+                                    </Link>
+                                  ) : (
+                                    /* 🌟 JIKA BELUM DIJAWAB ATAU MODUL LAIN, TUNJUK BUTANG BIASA */
+                                    <button 
                                       onClick={() => openModule(chapter.id, module.id)}
                                       disabled={isButtonDisabled}
-                                      className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+                                      className={`px-4 py-2 text-sm font-bold rounded-lg transition-all shadow border ${
                                         isButtonDisabled 
-                                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                                          : 'bg-sky-600 text-white hover:bg-sky-700 shadow border border-sky-700'
+                                          ? 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed' 
+                                          : 'bg-sky-600 text-white hover:bg-sky-700 border-sky-700'
                                       }`}
                                     >
                                       {adaptive.adaptiveLocked 
                                         ? 'Terkunci 🔒' 
-                                        : isModul1Completed 
-                                        ? 'Telah Dijawab ✅' 
                                         : module.id === 1 
                                         ? 'Jawab Ujian 📝' 
                                         : module.id === 4 
                                         ? 'Mula Permainan 🎮' 
                                         : 'Buka Modul 🚀'}
                                     </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
