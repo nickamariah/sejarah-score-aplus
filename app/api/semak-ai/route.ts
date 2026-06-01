@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+// TAMBAH IMPORT KESELAMATAN INI
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 
 export async function POST(req: Request) {
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
     const data = await req.json();
     const { soalan, jawapanMurid, markahPenuh, skemaJawapan } = data;
 
-    // MATIKAN PENAPIS KESELAMATAN
+    // MATIKAN PENAPIS KESELAMATAN (Supaya jawapan "membunuh" dibenarkan)
     const safetySettings = [
       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
       { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -19,61 +20,66 @@ export async function POST(req: Request) {
       { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE }
     ];
 
-    // GUNA MODEL gemini-2.0-flash (Paling stabil dalam senarai awak)
+    // GUNA MODEL DARI SENARAI AWAK & MASUKKAN SAFETY SETTINGS
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.0-flash", 
-        safetySettings: safetySettings,
-        generationConfig: { responseMimeType: "application/json" }
+        model: "gemini-2.5-flash", 
+        safetySettings: safetySettings 
     });
 
-    const prompt = `Anda adalah Pemeriksa Kertas Ujian Sejarah yang SANGAT TEGAS dan PANTAS.
+    // PROMPT TEGAS (SKEMA SAHAJA)
+    const prompt = `
+      Anda adalah pemeriksa kertas Sejarah yang SANGAT TEGAS.
+      Soalan: "${soalan}"
+      Markah Penuh: ${markahPenuh}
+      Skema Jawapan Rasmi: "${skemaJawapan || 'Tiada skema'}"
+      Jawapan Murid: "${jawapanMurid}"
       
-[MAKLUMAT SOALAN]
-Soalan: "${soalan}"
-Markah Penuh: ${markahPenuh}
-Jawapan Murid: "${jawapanMurid}"
-Skema Rasmi Cikgu: "${skemaJawapan || 'Tiada skema disediakan.'}"
+      ARAHAN:
+      1. Bandingkan Jawapan Murid dengan Skema Rasmi SAHAJA. Jangan guna pengetahuan am anda.
+      2. Jika jawapan murid membawa maksud yang sama dengan skema, berikan markah wajar (0 hingga ${markahPenuh}).
+      3. Jika jawapan salah atau tiada kaitan dengan skema, berikan markah 0.
+      
+      Hasilkan output dalam format JSON SAHAJA seperti di bawah:
+      {
+        "markahDicadangkan": (masukkan nombor),
+        "komen": "(Satu ayat pendek sahaja ulas kenapa markah diberi/dipotong)"
+      }
+    `;
 
-[ARAHAN KETAT]
-1. ANDA DILARANG MENGGUNAKAN PENGETAHUAN AM ANDA. Rujuk Skema Rasmi Cikgu SAHAJA.
-2. Jika Jawapan Murid membawa maksud yang sama atau fakta selari dengan Skema, ia MESTI DITERIMA.
-3. Berikan markah wajar (Maksimum: ${markahPenuh}).
-4. Jika tiada kaitan dengan Skema, markah 0.
-5. Berikan 1 AYAT PENDEK sahaja untuk komen.
-
-Hasilkan output format JSON SAHAJA seperti contoh ini:
-{"markahDicadangkan": 2, "komen": "Tepat sekali."}`;
-    
-    // CARA PALING RINGKAS MEMANGGIL AI
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
-
+    
     let cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
     const startIndex = cleanJson.indexOf('{');
     const endIndex = cleanJson.lastIndexOf('}');
-    if (startIndex !== -1 && endIndex !== -1) {
-      cleanJson = cleanJson.substring(startIndex, endIndex + 1);
-    }
-    
+    if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
+
     const aiData = JSON.parse(cleanJson);
-    
-    return NextResponse.json({
-        markahDicadangkan: aiData.markahDicadangkan,
-        komen: aiData.komen,
-        rujukan: "Skema Bank Soalan Sahaja"
-    });
+    return NextResponse.json(aiData);
 
   } catch (error: any) {
-    // 👇👇👇 INI BAHAGIAN PALING PENTING SEKARANG 👇👇👇
-    console.error("\n======================================");
-    console.error("🚨 RALAT KRONIK AI SEBENAR MUNCUL DI SINI:");
-    console.error(error);
-    console.error("======================================\n");
+    console.error("RALAT KRONIK AI:", error);
     
+    // 🕵️‍♂️ TAKTIK DETEKTIF: Tarik senarai model dari Google secara paksa!
+    let senaraiModelBolehGuna = "Gagal dikesan";
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
+      const dataModel = await res.json();
+      if (dataModel.models) {
+        // Tapis model yang hanya menyokong tugasan menanda (generateContent)
+        const modelGenerateContent = dataModel.models.filter((m: any) => 
+            m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent")
+        );
+        senaraiModelBolehGuna = modelGenerateContent.map((m: any) => m.name.replace('models/', '')).join(' | ');
+      }
+    } catch (err) {
+      console.error("Gagal tarik senarai model", err);
+    }
+
+    // Paparkan senarai model terus ke Dashboard Guru
     return NextResponse.json({ 
         markahDicadangkan: 0, 
-        komen: `SISTEM AI GAGAL. Sila lihat terminal VS Code untuk ralat sebenar.`,
-        rujukan: "Gagal"
+        komen: `SISTEM AI GAGAL (Model 404).\n\nNamun, ini adalah senarai Model Google yang SAH & DIBENARKAN untuk API Key cikgu:\n\n👉 [ ${senaraiModelBolehGuna} ]\n\nSila copy-paste salah satu nama di atas kepada AI supaya kita boleh guna model tersebut!` 
     });
   }
 }
