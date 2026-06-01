@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
 // PENTING: Ubah path ini mengikut lokasi fail config firebase anda
 import { db } from "@/lib/firebase"; 
@@ -29,12 +29,13 @@ interface SkorMuridData {
 
 export default function SemakanUjianMurid() {
   const params = useParams();
+  const router = useRouter(); // <-- Tambah baris ini
   const documentId = params.id as string; // Contoh: "M001_t4_Bab 1" (Dalam URL ia mungkin ada %20 untuk space)
 
   const [data, setData] = useState<SkorMuridData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 2. Fungsi untuk tarik data dari Firestore
+   // 2. Fungsi untuk tarik data dari Firestore
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -86,6 +87,14 @@ export default function SemakanUjianMurid() {
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6 bg-gray-50 min-h-screen">
       
+      {/* BUTANG KEMBALI */}
+      <button 
+        onClick={() => router.push('/student')} 
+        className="flex items-center text-gray-600 hover:text-blue-600 transition-colors font-medium"
+      >
+        <span className="mr-2">←</span> Kembali ke Dashboard
+      </button>
+
       {/* KAD MAKLUMAT PELAJAR */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
