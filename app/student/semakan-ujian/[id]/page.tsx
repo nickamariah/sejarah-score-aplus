@@ -22,6 +22,7 @@ interface SkorMuridData {
   skorObjektif: number; 
   markahStruktur: number;
   statusPermarkahanEsei: string;
+  namaGuru?: string; 
   tarikh: string;
   jawapanStruktur: Record<string, string>; 
   ulasanAI: Record<string, UlasanDetail>;
@@ -107,7 +108,9 @@ export default function SemakanUjianMurid() {
               ? 'bg-green-100 text-green-700 border border-green-300' 
               : 'bg-yellow-100 text-yellow-700 border border-yellow-300'
           }`}>
-            {data.statusPermarkahanEsei.replace(/_/g, ' ').toUpperCase()}
+            {data.statusPermarkahanEsei === 'disemak_oleh_guru' && data.namaGuru
+              ? `DISEMAK OLEH: ${data.namaGuru.toUpperCase()}`
+              : data.statusPermarkahanEsei.replace(/_/g, ' ').toUpperCase()}
           </span>
         </div>
 
