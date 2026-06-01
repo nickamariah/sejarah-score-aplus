@@ -53,4 +53,16 @@ export async function POST(req: Request) {
         const modelGenerateContent = dataModel.models.filter((m: any) => 
             m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent")
         );
-        senaraiModelBolehGuna = modelGenerateContent.m
+        senaraiModelBolehGuna = modelGenerateContent.map((m: any) => m.name.replace('models/', '')).join(' | ');
+      }
+    } catch (err) {
+      console.error("Gagal tarik senarai model", err);
+    }
+
+    // Paparkan senarai model terus ke Dashboard Guru
+    return NextResponse.json({ 
+        markahDicadangkan: 0, 
+        komen: `SISTEM AI GAGAL (Model 404).\n\nNamun, ini adalah senarai Model Google yang SAH & DIBENARKAN untuk API Key cikgu:\n\n👉 [ ${senaraiModelBolehGuna} ]\n\nSila copy-paste salah satu nama di atas kepada AI supaya kita boleh guna model tersebut!` 
+    });
+  }
+}
