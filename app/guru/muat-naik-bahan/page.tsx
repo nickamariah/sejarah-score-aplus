@@ -108,7 +108,13 @@ export default function MuatNaikBahanRujukan() {
               <option value="Bab 1">Bab 1</option>
               <option value="Bab 2">Bab 2</option>
               <option value="Bab 3">Bab 3</option>
-              <option value="Umum">Umum (Semua Bab)</option>
+              <option value="Bab 4">Bab 4</option>
+              <option value="Bab 5">Bab 5</option>
+              <option value="Bab 6">Bab 6</option>
+              <option value="Bab 1">Bab 7</option>
+              <option value="Bab 2">Bab 8</option>
+              <option value="Bab 3">Bab 9</option>
+              <option value="Umum">Bab 10</option>
             </select>
           </div>
 

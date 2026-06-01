@@ -1,5 +1,6 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage"; 
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -11,7 +12,11 @@ const firebaseConfig = {
   appId: "1:565322316779:web:2814ea2d8a25918d7f37ae"
 };
 
-const app = initializeApp(firebaseConfig);
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const db = getFirestore(app);
 
-export const db = getFirestore(app);
-export const auth = getAuth(app);
+// 2. PASTIKAN BARIS INI ADA
+const storage = getStorage(app); 
+
+// 3. PASTIKAN 'storage' DITULIS DI DALAM KURUNGAN EXPORT INI
+export { db, storage };
