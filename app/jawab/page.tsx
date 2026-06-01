@@ -95,8 +95,8 @@ function KandunganUjian() {
                             soalan: detailSoalan.soalan,
                             jawapanMurid: jawapanMurid,
                             markahPenuh: Number(detailSoalan.markah) || 0,
-                            // TAMBAH BARIS INI:
-                            skemaJawapan: detailSoalan.skemaJawapan || "" 
+                            skemaJawapan: detailSoalan.skemaJawapan || "", // <--- Mesti ada koma ( , )
+                            bab: bab  // <--- Guna 'bab' supaya ia automatik ikut bab yang murid sedang jawab
                         })
                     });
                     
