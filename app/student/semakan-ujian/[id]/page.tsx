@@ -122,8 +122,54 @@ export default function SemakanUjianMurid() {
       </div>
 
       {/* Placeholder untuk Senarai Jawapan (Akan dibuat di Langkah 2) */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-center text-gray-400">
-        Bahagian Senarai Jawapan & Ulasan AI akan dipaparkan di sini pada Langkah 2...
+      {/* BAHAGIAN 2: SENARAI JAWAPAN & ULASAN AI */}
+      <div className="mt-8 space-y-4">
+        <h2 className="text-xl font-bold text-gray-800 px-1">Semakan Terperinci & Bimbingan AI</h2>
+        
+        {/* Loop melalui jawapanStruktur (jika ada data) */}
+        {data.jawapanStruktur && Object.keys(data.jawapanStruktur).length > 0 ? (
+          Object.entries(data.jawapanStruktur).map(([soalanId, jawapanMurid], index) => {
+            
+            // Tarik komen AI berdasarkan ID soalan yang sama (cth: B1S001)
+            const ulasan = data.ulasanAI?.[soalanId]?.komenAI || "Tiada bimbingan AI untuk soalan ini.";
+
+            return (
+              <div key={soalanId} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                {/* ID Soalan (Nanti kita boleh ganti dengan teks soalan sebenar) */}
+                <div className="mb-4">
+                  <span className="font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-md text-sm border border-gray-200">
+                    Soalan: {soalanId}
+                  </span>
+                </div>
+
+                <div className="mb-4">
+                  {/* Jawapan Murid */}
+                  <div className="p-4 rounded-md border bg-gray-50 border-gray-200">
+                    <span className="text-xs font-semibold uppercase block mb-1 text-gray-500">Jawapan Anda:</span>
+                    <p className="font-medium text-gray-800">
+                      {jawapanMurid ? jawapanMurid : <span className="text-gray-400 italic">Tiada jawapan diberikan</span>}
+                    </p>
+                  </div>
+                </div>
+
+                {/* AI Scaffolding/Ulasan */}
+                <div className="bg-indigo-50 p-4 rounded-md border border-indigo-100 flex gap-4 items-start">
+                  <div className="text-2xl mt-1">🤖</div>
+                  <div className="flex-1">
+                    <span className="text-xs font-semibold uppercase block mb-1 text-indigo-600">Bimbingan AI (Scaffolding):</span>
+                    <p className="text-sm text-indigo-900 leading-relaxed whitespace-pre-wrap">
+                      {ulasan}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-center text-gray-500 italic">
+            Tiada rekod jawapan struktur dijumpai untuk ujian ini.
+          </div>
+        )}
       </div>
 
     </div>
