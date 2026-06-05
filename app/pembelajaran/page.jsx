@@ -1,22 +1,27 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-// IMPORT FUNGSI FIREBASE
-import { db } from "@/lib/firebase"; // Tukar path ini mengikut lokasi fail firebase.js anda
-import { 
-  collection, doc, setDoc, getDoc, addDoc, 
-  query, orderBy, onSnapshot, serverTimestamp 
-} from "firebase/firestore";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation"; 
+import { db } from "@/lib/firebase"; 
+import { collection, doc, setDoc, getDoc, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
 
-export default function SplitScreenLearning() {
+// ==========================================
+// KOMPONEN UTAMA (CHAT & PDF)
+// ==========================================
+function KomponenPembelajaran() {
+  const searchParams = useSearchParams();
+  const babDariURL = searchParams.get("bab") || "tingkatan4_bab1"; // Ambil bab dari pautan URL
+
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
-  // Maklumat simulasi murid (Dalam sistem sebenar, ambil dari sistem Login)
-  const studentId = "murid_001";
-  const chapterId = "sains_bab_2";
-  const sessionId = `${studentId}_${chapterId}`; // cth: murid_001_sains_bab_2
+  const studentId = "murid_001"; 
+  const chapterId = babDariURL; 
+  const sessionId = `${studentId}_${chapterId}`;
+
+  // Nama fail PDF akan mengikut URL
+  const pdfUrl = `/${chapterId}.pdf`; 
 
   const messagesEndRef = useRef(null);
 
@@ -25,9 +30,12 @@ export default function SplitScreenLearning() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ==========================================
-  // FUNGSI FIREBASE 1: LOAD SEJARAH PERBUALAN
-  // ==========================================
+  // Fungsi Cantikkan Tajuk (Cth: tingkatan4_bab1 -> Tingkatan 4 Bab 1)
+  const formatTajuk = (id) => {
+    return id.replace('tingkatan', 'Tingkatan ').replace('_bab', ' Bab ');
+  };
+
+  // Firebase: Load Sejarah Chat
   useEffect(() => {
     const sessionDocRef = doc(db, "chat_sessions", sessionId);
     const messagesCollectionRef = collection(sessionDocRef, "messages");
@@ -35,7 +43,6 @@ export default function SplitScreenLearning() {
     const inisialisasiSesi = async () => {
       const docSnap = await getDoc(sessionDocRef);
       if (!docSnap.exists()) {
-        // Jika murid belum pernah buka bab ini, cipta sesi baru
         await setDoc(sessionDocRef, {
           studentId: studentId,
           chapterId: chapterId,
@@ -44,10 +51,10 @@ export default function SplitScreenLearning() {
           startedAt: serverTimestamp(),
         });
 
-        // AI mulakan perbualan (Greeting)
+        // AI Mulakan Chat
         await addDoc(messagesCollectionRef, {
           role: "assistant",
-          content: "Hai! Saya I-RAGs 🤖. Jom kita uji kefahaman awak berdasarkan nota di sebelah kiri. Boleh beritahu saya, apakah proses tumbuhan membuat makanan sendiri?",
+          content: `Hai! Saya I-RAGs 🤖. Jom kita uji kefahaman untuk ${formatTajuk(chapterId).toUpperCase()}. Boleh kongsikan apa yang awak faham setakat ini?`,
           timestamp: serverTimestamp()
         });
       }
@@ -55,7 +62,7 @@ export default function SplitScreenLearning() {
 
     inisialisasiSesi();
 
-    // Dengar (Listen) secara real-time jika ada mesej baharu dalam database
+    // Dengar chat dari Firebase secara real-time
     const q = query(messagesCollectionRef, orderBy("timestamp", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedMessages = snapshot.docs.map((doc) => ({
@@ -65,14 +72,11 @@ export default function SplitScreenLearning() {
       setMessages(fetchedMessages);
     });
 
-    return () => unsubscribe(); // Tutup listener bila keluar halaman
-  }, []);
+    return () => unsubscribe();
+  }, [sessionId, chapterId, studentId]); // Ditambah dependency untuk elak warning
 
-
-  // ==========================================
-  // FUNGSI FIREBASE 2: HANTAR & SIMPAN MESEJ
-  // ==========================================
-const sendMessage = async (e) => {
+  // Fungsi Hantar Mesej
+  const sendMessage = async (e) => {
     e?.preventDefault();
     if (!input.trim()) return;
 
@@ -84,14 +88,14 @@ const sendMessage = async (e) => {
     const messagesCollectionRef = collection(sessionDocRef, "messages");
 
     try {
-      // 1. Simpan mesej Murid ke Firestore
+      // Simpan chat murid
       await addDoc(messagesCollectionRef, {
         role: "user",
         content: teksMurid,
         timestamp: serverTimestamp()
       });
 
-      // 2. Panggil API AI Sebenar (app/api/chat/route.js)
+      // Panggil API OpenAI
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -99,7 +103,6 @@ const sendMessage = async (e) => {
           studentId, 
           chapterId, 
           text: teksMurid,
-          // Boleh hantar 3-4 mesej terakhir supaya AI faham konteks perbualan
           previousMessages: messages.slice(-4).map(m => ({ role: m.role, content: m.content })) 
         })
       });
@@ -107,7 +110,7 @@ const sendMessage = async (e) => {
       const data = await response.json();
 
       if (data.reply) {
-        // 3. Simpan balasan AI (I-RAGs) ke Firestore
+        // Simpan balasan I-RAGs
         await addDoc(messagesCollectionRef, {
           role: "assistant",
           content: data.reply,
@@ -128,76 +131,100 @@ const sendMessage = async (e) => {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
       
-      {/* KIRI: PDF VIEWER (60%) */}
+      {/* BAHAGIAN KIRI: PDF VIEWER */}
       <div className="w-[60%] h-full p-4 flex flex-col">
-        <div className="bg-white rounded-t-xl p-3 shadow-sm border-b-2 border-blue-100 flex justify-between items-center">
-          <h2 className="text-lg font-bold text-gray-700 flex items-center gap-2">📄 Nota Rujukan: Sains Bab 2</h2>
+        <div className="bg-white rounded-t-xl p-4 shadow-sm border-b-2 border-blue-100 flex justify-between items-center">
+          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 capitalize">
+            📄 Nota Rujukan: {formatTajuk(chapterId)}
+          </h2>
         </div>
         <div className="flex-1 bg-gray-200 rounded-b-xl shadow-inner overflow-hidden relative">
-          <iframe src="/contoh-nota.pdf#toolbar=0" className="w-full h-full" title="PDF Viewer" />
-          <div className="absolute inset-0 flex items-center justify-center text-gray-500 -z-10 bg-gray-100">
-            [Ruang Pemapar PDF]
+          <iframe
+            src={`${pdfUrl}#toolbar=1&view=FitH`} 
+            className="w-full h-full z-10 relative bg-white"
+            title="PDF Viewer"
+          />
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 z-0 bg-gray-100">
+            <span className="text-4xl mb-3 animate-pulse">📄</span>
+            <span className="text-lg">Sistem sedang mencari fail: <b>{pdfUrl}</b></span>
           </div>
         </div>
       </div>
 
-      {/* KANAN: CHATBOT I-RAGs (40%) */}
+      {/* BAHAGIAN KANAN: CHATBOT */}
       <div className="w-[40%] h-full bg-white shadow-2xl flex flex-col border-l-4 border-blue-500">
-        
-        {/* Header */}
-        <div className="bg-blue-600 text-white p-5 flex items-center gap-3 shadow-md z-10">
-          <div className="text-4xl bg-white rounded-full p-1 shadow-sm">🤖</div>
+        <div className="bg-blue-600 text-white p-5 flex items-center gap-4 shadow-md z-10">
+          <div className="text-5xl bg-white rounded-full p-2 shadow-sm">🤖</div>
           <div>
-            <h2 className="font-extrabold text-xl">I-RAGs Tutor</h2>
-            <p className="text-blue-100 text-sm">Pembimbing Maya Anda</p>
+            <h2 className="font-extrabold text-2xl tracking-wide">I-RAGs Tutor</h2>
+            <p className="text-blue-100 text-base font-medium">Pembimbing Sejarah Anda</p>
           </div>
         </div>
 
-        {/* Ruang Chat */}
         <div className="flex-1 p-5 overflow-y-auto bg-[url('/bg-chat-pattern.png')] bg-blue-50/30">
           {messages.map((msg) => (
-            <div key={msg.id} className={`mb-4 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`p-4 rounded-2xl max-w-[85%] text-[15px] leading-relaxed shadow-sm ${
-                msg.role === "user" ? "bg-blue-500 text-white rounded-br-none" : "bg-white text-gray-800 border-2 border-blue-100 rounded-bl-none"
+            <div key={msg.id} className={`mb-5 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              {/* UI BUIH CHAT YANG DIBESARKAN */}
+              <div className={`p-5 rounded-3xl max-w-[85%] text-xl font-medium leading-relaxed shadow-md ${
+                msg.role === "user" ? "bg-blue-500 text-white rounded-br-none" : "bg-white text-gray-800 border-2 border-blue-200 rounded-bl-none"
               }`}>
                 {msg.content}
               </div>
             </div>
           ))}
           {isLoading && (
-            <div className="flex justify-start mb-4">
-              <div className="p-4 bg-white border-2 border-blue-100 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-2">
-                <span className="animate-bounce">💭</span>
-                <span className="text-gray-500 text-sm italic">I-RAGs sedang menaip...</span>
+            <div className="flex justify-start mb-5">
+              <div className="p-5 bg-white border-2 border-blue-200 rounded-3xl rounded-bl-none shadow-md flex items-center gap-3">
+                <span className="animate-bounce text-2xl">💭</span>
+                <span className="text-gray-500 text-lg italic font-medium">I-RAGs sedang berfikir...</span>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Butang Pantas */}
+        {/* UI BUTANG PANTAS (HINT) YANG DIBESARKAN */}
         {!isLoading && (
-          <div className="flex flex-wrap gap-2 px-4 py-2 bg-gray-50 border-t">
-            <button onClick={() => sendQuickPrompt("Saya tak tahu jawapannya.")} className="bg-orange-100 text-orange-700 text-xs px-3 py-1.5 rounded-full hover:bg-orange-200">🤷‍♂️ Saya tak tahu</button>
-            <button onClick={() => sendQuickPrompt("Boleh bagi petunjuk (hint)?")} className="bg-green-100 text-green-700 text-xs px-3 py-1.5 rounded-full hover:bg-green-200">💡 Beri saya hint</button>
+          <div className="flex flex-wrap gap-3 px-5 py-3 bg-gray-50 border-t-2 border-gray-200">
+            <button onClick={() => sendQuickPrompt("Saya tak tahu jawapannya.")} className="bg-orange-100 text-orange-700 text-base font-bold px-5 py-3 rounded-full hover:bg-orange-200 shadow-sm transition-all hover:scale-105">
+              🤷‍♂️ Saya tak tahu
+            </button>
+            <button onClick={() => sendQuickPrompt("Boleh bagi petunjuk (hint)?")} className="bg-green-100 text-green-700 text-base font-bold px-5 py-3 rounded-full hover:bg-green-200 shadow-sm transition-all hover:scale-105">
+              💡 Beri saya hint
+            </button>
           </div>
         )}
 
-        {/* Input */}
-        <form onSubmit={sendMessage} className="p-4 bg-white border-t-2 border-gray-100 flex gap-2">
+        {/* UI RUANG MENAIP YANG DIBESARKAN */}
+        <form onSubmit={sendMessage} className="p-5 bg-white border-t-2 border-gray-200 flex gap-3 items-center shadow-inner">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Taip jawapan awak di sini..."
-            className="flex-1 border-2 border-gray-200 rounded-full px-5 py-3 text-sm focus:outline-none focus:border-blue-500"
+            className="flex-1 border-2 border-gray-300 rounded-full px-6 py-4 text-xl font-medium focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm"
             disabled={isLoading}
           />
-          <button type="submit" className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-blue-700 hover:scale-105 disabled:opacity-50 shadow-md" disabled={isLoading || !input.trim()}>
+          <button 
+            type="submit" 
+            className="bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center hover:bg-blue-700 hover:scale-105 disabled:opacity-50 shadow-lg text-2xl transition-all" 
+            disabled={isLoading || !input.trim()}
+          >
             ➤
           </button>
         </form>
       </div>
     </div>
+  );
+}
+
+// ==========================================
+// FUNGSI UTAMA (Diperlukan oleh Next.js)
+// ==========================================
+export default function SplitScreenLearning() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center text-2xl font-bold text-blue-600 animate-pulse">Sistem I-RAGs sedang dimuatkan...</div>}>
+      <KomponenPembelajaran />
+    </Suspense>
   );
 }
