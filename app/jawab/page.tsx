@@ -29,6 +29,7 @@ function KandunganUjian() {
   // STATE JAWAPAN
   const [jawapanTeks, setJawapanTeks] = useState(""); // Input teks semasa
   const [jawapanStruktur, setJawapanStruktur] = useState<Record<string, string>>({}); // Kumpulkan semua jawapan struktur
+  const [jawapanObjektif, setJawapanObjektif] = useState<Record<string, string>>({});
   const [telahDisimpan, setTelahDisimpan] = useState(false); // Elak AI tanda 2 kali
   const [menganalisisAI, setMenganalisisAI] = useState(false); // Untuk paparan loading AI
 
@@ -109,6 +110,8 @@ function KandunganUjian() {
                     };
                     // Tambahkan markah AI ke jumlah keseluruhan
                     jumlahMarkahStrukturAI += (Number(aiData.markahDicadangkan) || 0);
+                    // 👇👇👇 TAMBAH SATU BARIS INI DI SINI 👇👇👇
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                 }
             }
 
@@ -134,6 +137,7 @@ function KandunganUjian() {
               bab: bab,
               
               skorObjektif: skor,
+              jawapanObjektif: jawapanObjektif, 
               skor: peratus, // Peratusan yang lebih tepat!
               markahPenuhUjian: markahPenuhUjian, // KITA SIMPAN MARKAH PENUH DALAM FIREBASE
               
@@ -172,20 +176,26 @@ function KandunganUjian() {
      
 
   // FUNGSI JAWAB SOALAN
-  const jawabSoalan = (jawapanMurid: string) => {
+    const jawabSoalan = (jawapanMurid: string) => {
     const soalanSemasa = soalanSenarai[indexSemasa];
     
     if (soalanSemasa.jenis === "objektif") {
+      // 🌟 REKOD APA YANG MURID TEKAN
+      setJawapanObjektif(prev => ({
+        ...prev,
+        [soalanSemasa.id]: jawapanMurid
+      }));
+
+      // KIRA MARKAH JIKA BETUL
       if (jawapanMurid === soalanSemasa.jawapan) {
         setSkor(prev => prev + 1);
       }
     } else {
-      // SIMPAN JAWAPAN ESEI KE DALAM STATE jawapanStruktur
+      // SIMPAN JAWAPAN ESEI
       setJawapanStruktur(prev => ({
         ...prev,
         [soalanSemasa.id]: jawapanMurid
       }));
-      console.log(`Menyimpan Esei [${soalanSemasa.id}]:`, jawapanMurid);
     }
 
     setJawapanTeks(""); // Kosongkan textarea untuk soalan seterusnya

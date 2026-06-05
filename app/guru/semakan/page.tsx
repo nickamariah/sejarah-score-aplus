@@ -45,7 +45,7 @@ export default function SemakanGuruPage() {
   const bukaPaparanSemakan = (pelajar: any) => {
     setPelajarPilihan(pelajar);
     
-    // KEMAS KINI PENTING: AUTO-ISI MARKAH DARI AI KE DALAM KOTAK GURU
+    // AUTO-ISI MARKAH DARI AI KE DALAM KOTAK GURU
     const markahAwal: Record<string, number> = {};
     if (pelajar.ulasanAI) {
       Object.keys(pelajar.ulasanAI).forEach(soalanId => {
@@ -70,6 +70,7 @@ export default function SemakanGuruPage() {
     setMarkahInput(prev => ({ ...prev, [soalanId]: markah }));
   };
 
+  // 🌟 INI FUNGSI YANG KITA BAIKI (PASTIKAN NAMA GURU & MARKAH GURU DISIMPAN)
   const simpanMarkah = async () => {
     if (!pelajarPilihan) return;
     try {
@@ -79,12 +80,20 @@ export default function SemakanGuruPage() {
       const markahPenuhUjian = Number(pelajarPilihan.markahPenuhUjian) || 18; 
       const peratusBaru = Math.round((jumlahKeseluruhan / markahPenuhUjian) * 100);
 
+      // Tarik nama guru dari sistem login (atau default Cikgu Nic)
+      const rawUser = localStorage.getItem("currentUser");
+      const guruSemasa = rawUser ? JSON.parse(rawUser) : { name: "Cikgu Nic" };
+
       const docRef = doc(db, "skor_murid", pelajarPilihan.idDoc);
+      
+      // MENGHANTAR SEMUA REKOD KE FIREBASE
       await updateDoc(docRef, {
         markahStruktur: jumlahMarkahStruktur,
         skorAkhir: jumlahKeseluruhan, 
         skor: peratusBaru,
-        statusPermarkahanEsei: "disemak_oleh_guru"
+        statusPermarkahanEsei: "disemak_oleh_guru",
+        namaGuru: guruSemasa.name || guruSemasa.nama || "Cikgu Nic",
+        markahGuru: markahInput // 🌟 BARIS PALING PENTING UNTUK PAPARAN MURID
       });
 
       alert(`Berjaya! Jumlah Markah: ${jumlahKeseluruhan}/${markahPenuhUjian} (${peratusBaru}%)`);
@@ -122,7 +131,6 @@ export default function SemakanGuruPage() {
                       <td className="p-4 font-medium text-slate-800">{pelajar.namaMurid}</td>
                       <td className="p-4 text-slate-600">Ting. {pelajar.tingkatan} | {pelajar.bab}</td>
                       <td className="p-4">
-                        {/* KEMAS KINI: BADGE STATUS "DISEMAK OLEH AI" */}
                         {pelajar.statusPermarkahanEsei === "disemak_oleh_AI" && (
                           <span className="bg-sky-100 text-sky-800 px-3 py-1 rounded-full text-xs font-bold shadow-sm">🤖 Selesai Ditanda AI</span>
                         )}
@@ -191,13 +199,11 @@ export default function SemakanGuruPage() {
                         </span>
                       </div>
                       
-                      {/* JAWAPAN MURID */}
                       <div className="bg-white p-4 border-l-4 border-slate-400 rounded-r shadow-sm mb-4">
                         <p className="text-sm text-slate-500 font-bold mb-1">Jawapan Murid:</p>
                         <p className="text-slate-700 whitespace-pre-wrap">{jawapanMurid as string}</p>
                       </div>
 
-                      {/* ULASAN AI (JIKA ADA) */}
                       {ulasanAI && (
                         <div className="bg-blue-50 p-4 border-l-4 border-blue-500 rounded-r shadow-sm mb-4">
                           <p className="text-sm text-blue-700 font-bold mb-1">🤖 Ulasan Gemini AI (Cadangan Markah: {ulasanAI.markahAI}):</p>
@@ -205,7 +211,6 @@ export default function SemakanGuruPage() {
                         </div>
                       )}
 
-                      {/* RUANG SEMAKAN GURU (AUTO-ISI DARI AI) */}
                       <div className="flex items-center gap-4 mt-4 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
                         <label className="font-semibold text-slate-700">Keputusan Guru (Max: {detailSoalan.markahPenuh}):</label>
                         <input 
@@ -216,7 +221,7 @@ export default function SemakanGuruPage() {
                           value={markahInput[soalanId] ?? ""}
                           onChange={(e) => handleUbahMarkah(soalanId, e.target.value, detailSoalan.markahPenuh)}
                         />
-                        <span className="text-sm text-slate-500 italic">*Anda boleh ubah markah cadangan AI ini jika tidak bersetuju.</span>
+                        <span className="text-sm text-slate-500 italic">*Ubah markah jika cikgu nak betulkan.</span>
                       </div>
                     </div>
                   );
