@@ -16,7 +16,7 @@ function KomponenPembelajaran() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
-  const studentId = "murid_001"; 
+  const studentId = "murid_003"; 
   const chapterId = babDariURL; 
   const sessionId = `${studentId}_${chapterId}`;
 
@@ -35,12 +35,19 @@ function KomponenPembelajaran() {
     return id.replace('tingkatan', 'Tingkatan ').replace('_bab', ' Bab ');
   };
 
+  // Pengawal supaya sapaan tak dihantar dua kali
+  const isInitializing = useRef(false);
+
   // Firebase: Load Sejarah Chat
   useEffect(() => {
     const sessionDocRef = doc(db, "chat_sessions", sessionId);
     const messagesCollectionRef = collection(sessionDocRef, "messages");
 
     const inisialisasiSesi = async () => {
+      // Jika dah pernah inisialisasi, jangan buat lagi
+      if (isInitializing.current) return; 
+      isInitializing.current = true;
+
       const docSnap = await getDoc(sessionDocRef);
       if (!docSnap.exists()) {
         await setDoc(sessionDocRef, {
@@ -51,7 +58,7 @@ function KomponenPembelajaran() {
           startedAt: serverTimestamp(),
         });
 
-        // AI Mulakan Chat
+        // AI Mulakan Chat (Hanya sekali!)
         await addDoc(messagesCollectionRef, {
           role: "assistant",
           content: `Hai! Saya I-RAGs 🤖. Jom kita uji kefahaman untuk ${formatTajuk(chapterId).toUpperCase()}. Boleh kongsikan apa yang awak faham setakat ini?`,
@@ -73,7 +80,7 @@ function KomponenPembelajaran() {
     });
 
     return () => unsubscribe();
-  }, [sessionId, chapterId, studentId]); // Ditambah dependency untuk elak warning
+  }, [sessionId, chapterId, studentId]);
 
   // Fungsi Hantar Mesej
   const sendMessage = async (e) => {
