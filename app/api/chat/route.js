@@ -6,47 +6,94 @@ const openai = new OpenAI({
 
 export async function POST(req) {
   try {
-    const { studentId, chapterId, text, previousMessages } = await req.json();
+    // Kita terima 'currentPhase' dari Frontend
+    const { studentId, chapterId, text, previousMessages, currentPhase } = await req.json();
 
+    // ==========================================
+    // 1. RAG DINAMIK: SUBTOPIK, BANK SOALAN & INKUIRI
+    // ==========================================
     let notaRujukan = "";
+    let soalanSebenar = "";
     
-    if (chapterId === "tingkatan4_bab1") {
+    // PEMBOLEH UBAH DINAMIK UNTUK SOALAN INKUIRI
+    let soalanTanya = "";
+    let soalanTeroka = "";
+    let soalanAnalisis = "";
+    let soalanRefleksi = "";
+
+    if (chapterId === "tingkatan4_bab1_sub1.1" || chapterId === "tingkatan4_bab1") {
       notaRujukan = `
-        Tingkatan 4 - Bab 1: Warisan Negara Bangsa.
-        Terdapat EMPAT ciri-ciri asas pembentukan negara bangsa bagi Kerajaan Alam Melayu:
-        1. Raja: Menjadi tonggak utama kerajaan dan dibantu oleh pembesar. Raja ditaati oleh rakyat.
-        2. Undang-undang: Dilaksanakan untuk memastikan kesejahteraan kerajaan.
-        3. Wilayah Pengaruh: Kawasan yang rakyatnya menerima dan memperakui pemerintahan raja.
-        4. Rakyat: Penduduk dalam sesebuah wilayah yang setia kepada raja.
+        Subtopik 1.1: Konsep Alam Melayu.
+        Kerajaan Alam Melayu mempunyai 4 ciri-ciri asas pembentukan negara bangsa: Raja, Undang-undang, Wilayah Pengaruh, dan Rakyat.
       `;
-    } else if (chapterId === "tingkatan5_bab1") {
+      soalanSebenar = `- Soalan SPM: Jelaskan ciri-ciri negara bangsa kerajaan Alam Melayu. (4 Markah)`;
+      
+      // SET INKUIRI SUBTOPIK 1.1
+      soalanTanya = "Mengapakah kerajaan Alam Melayu boleh dianggap sebagai sebuah negara bangsa?";
+      soalanTeroka = "Cuba cari dalam nota. Apakah bukti pertama yang anda temui?";
+      soalanAnalisis = "Antara raja dan undang-undang, yang manakah lebih penting dalam pembentukan negara bangsa? Mengapa?";
+      soalanRefleksi = "Jika sesebuah negara tiada undang-undang hari ini, adakah ia boleh kekal stabil seperti kerajaan dahulu?";
+    } 
+    else if (chapterId === "tingkatan4_bab1_sub1.2") {
       notaRujukan = `
-        Tingkatan 5 - Bab 1: Kedaulatan Negara.
-        Kedaulatan bermaksud kekuasaan tertinggi dan kewibawaan sesebuah negara yang bebas serta mempunyai hak untuk melaksanakan pemerintahan dan pentadbiran negara.
-        Terdapat 4 jenis kedaulatan: Kedaulatan Tradisional, Kedaulatan Moden, Kedaulatan Undang-undang, dan Kedaulatan Antarabangsa.
+        Subtopik 1.2: Ciri-ciri Negara Bangsa Kesultanan Melayu Melaka.
+        Kerajaan Melaka mempunyai ciri seperti kerajaan, rakyat, kedaulatan, wilayah pengaruh, undang-undang, dan lambang kebesaran.
       `;
-    } else {
-      notaRujukan = "Sila rujuk nota am sejarah di dalam buku teks.";
+      soalanSebenar = `- Soalan SPM: Nyatakan ciri negara bangsa Kesultanan Melayu Melaka. (4 Markah)`;
+      
+      // SET INKUIRI SUBTOPIK 1.2 (CONTOH LAIN)
+      soalanTanya = "Apakah yang membuatkan Kesultanan Melayu Melaka diiktiraf sebagai model negara bangsa yang sangat unggul?";
+      soalanTeroka = "Berdasarkan nota, cuba cari satu ciri Kesultanan Melayu Melaka yang tiada pada kerajaan sebelumnya.";
+      soalanAnalisis = "Mengapakah 'lambang kebesaran' sangat penting kepada Sultan Melaka pada waktu itu berbanding sekarang?";
+      soalanRefleksi = "Pada pendapat awak, adakah ciri-ciri Kesultanan Melayu Melaka ini masih diamalkan di Malaysia hari ini?";
     }
 
-    // ====================================================================
-    // PROMPT YANG TELAH DIPERKETATKAN (STRICT GROUNDING)
-    // ====================================================================
+    // ==========================================
+    // 2. LOGIK 5 FASA INKUIRI (DINAMIK)
+    // ==========================================
+    let arahanFasa = "";
+    if (currentPhase === 1) {
+      arahanFasa = `FASA 1 (TANYA): Cetuskan inkuiri murid. JANGAN tanya soalan 'recall'. Contoh soalan untuk ditanya: "${soalanTanya}"`;
+    } 
+    else if (currentPhase === 2) {
+      arahanFasa = `FASA 2 (TEROKA): Arahkan murid meneroka nota rujukan. Contoh: "${soalanTeroka}"`;
+    } 
+    else if (currentPhase === 3) {
+      arahanFasa = `FASA 3 (ANALISIS): Bimbing murid membuat analisis perbandingan/hubung kait. Contoh: "${soalanAnalisis}"`;
+    } 
+    else if (currentPhase === 4) {
+      arahanFasa = `FASA 4 (RUMUS): Minta murid merumuskan dan membuat kesimpulan ringkas tentang bukti yang dibincangkan.`;
+    } 
+    else if (currentPhase === 5) {
+      arahanFasa = `FASA 5 (REFLEKSI): Tanya soalan KBAT/Refleksi luar dari kotak. Contoh: "${soalanRefleksi}"`;
+    }
+
+    // ==========================================
+    // 3. SYSTEM PROMPT (DENGAN OUTPUT JSON & ANTI-HALUSINASI)
+    // ==========================================
     const systemPrompt = {
       role: "system",
-      content: `Anda ialah "I-RAGs", tutor maya Sejarah untuk murid sekolah menengah.
+      content: `Anda ialah "I-RAGs", tutor maya Sejarah untuk murid aras rendah.
+      
+      STATUS MURID SEKARANG: ${arahanFasa}
 
-      PERATURAN SANGAT KETAT (WAJIB PATUH 100%):
-      1. SUMBER FAKTA: Anda MESTI menilai jawapan murid berdasarkan maklumat di dalam kotak [KONTEKS] di bawah SAHAJA. 
-      2. DILARANG BERHALUSINASI: Jangan sesekali menambah fakta luar seperti Geografi, iklim, atau bentuk muka bumi jika ia tiada dalam [KONTEKS].
-      3. JIKA MURID BETUL: Jika murid menyenaraikan fakta yang TEPAT berdasarkan [KONTEKS] (contohnya Raja, Rakyat, Wilayah Pengaruh, Undang-undang), anda WAJIB sahkan ia betul, puji mereka memanggil mereka hebat, dan JANGAN cari salah mereka.
-      4. TEKNIK SCAFFOLDING (JIKA SALAH): Jika jawapan murid salah atau tidak lengkap, jangan beri jawapan terus. Beri "hint" menggunakan ayat dari [KONTEKS] untuk dorong mereka berfikir.
-      5. FORMAT BALASAN: Gunakan bahasa Melayu santai, mesra, dan pendek (maksimum 3 ayat).
+      PERATURAN KETAT (WAJIB PATUH 100%):
+      1. SUMBER FAKTA: Nilai jawapan murid berdasarkan [KONTEKS] di bawah SAHAJA. JANGAN berhalusinasi atau tambah fakta luar (seperti Geografi/iklim) jika ia tiada dalam nota.
+      2. PANDUAN MENYOAL: Berpandukan [BANK SOALAN SEBENAR], bimbing murid (Scaffolding) supaya mereka dapat menjawab soalan aras peperiksaan tersebut. JANGAN beri jawapan bocor.
+      3. PENILAIAN JAWAPAN: Jika murid telah berjaya menjawab tugasan Fasa ini dengan betul, tetapkan "isPhaseComplete" kepada true dan puji usaha mereka. Jika jawapan salah, tetapkan "isPhaseComplete" kepada false dan beri "hint".
+      4. FORMAT BALASAN: Gunakan bahasa Melayu santai, mesra, dan PENDEK (maksimum 3 ayat).
 
+      [BANK SOALAN SEBENAR (JADIKAN PANDUAN BERTANYA)]:
+      ${soalanSebenar}
+      
       [KONTEKS BUKU TEKS]:
-      """
       ${notaRujukan}
-      """
+
+      PENTING: Anda MESTI membalas dalam format JSON yang sah (valid JSON) seperti ini:
+      {
+        "reply": "Mesej balasan anda kepada murid...",
+        "isPhaseComplete": true atau false
+      }
       `
     };
 
@@ -59,13 +106,14 @@ export async function POST(req) {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini", 
       messages: messages,
-      // Suhu dikurangkan lagi ke 0.1 supaya AI jadi sangat skema & tak mereka cerita
-      temperature: 0.1, 
+      temperature: 0.1, // Suhu sangat rendah (0.1) supaya AI skema dan ikut buku teks sahaja
+      response_format: { type: "json_object" } 
     });
 
-    const aiReply = response.choices[0].message.content;
+    // Parse output JSON dari AI
+    const aiOutput = JSON.parse(response.choices[0].message.content);
 
-    return new Response(JSON.stringify({ reply: aiReply }), {
+    return new Response(JSON.stringify(aiOutput), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
