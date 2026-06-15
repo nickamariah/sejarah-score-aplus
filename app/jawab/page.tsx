@@ -5,14 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { collection, query, where, getDocs, doc, setDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
-// ==========================================
-// 1. KOMPONEN KANDUNGAN UJIAN (Isi Sebenar)
-// ==========================================
 function KandunganUjian() {
   const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  useEffect(() => { setIsClient(true); }, []);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -54,19 +49,28 @@ function KandunganUjian() {
         );
 
         const querySnapshot = await getDocs(q);
-        let soalanData: any[] = [];
+        let soalanObjektif: any[] = [];
+        let soalanStruktur: any[] = [];
 
         querySnapshot.forEach((docSnap) => {
           let data = docSnap.data();
-          if (data.jenis === "objektif" && data.pilihan) {
-            let pilihanArray = Object.entries(data.pilihan);
-            data.shuffledPilihan = shuffleArray(pilihanArray);
+          if (data.jenis === "objektif") {
+            if (data.pilihan) {
+              let pilihanArray = Object.entries(data.pilihan);
+              data.shuffledPilihan = shuffleArray(pilihanArray);
+            }
+            soalanObjektif.push({ id: docSnap.id, ...data });
+          } else {
+            soalanStruktur.push({ id: docSnap.id, ...data });
           }
-          soalanData.push({ id: docSnap.id, ...data });
         });
 
-        const soalanDahShuffle = shuffleArray(soalanData);
-        setSoalanSenarai(soalanDahShuffle);
+        // 🌟 PENYELESAIAN 1: ASINGKAN DAN SHUFFLE MENGIKUT BAHAGIAN
+        const objektifDahShuffle = shuffleArray(soalanObjektif);
+        const strukturDahShuffle = shuffleArray(soalanStruktur);
+        
+        // Cantumkan semula: Objektif dahulu, baru Struktur
+        setSoalanSenarai([...objektifDahShuffle, ...strukturDahShuffle]);
       } catch (error) {
         console.error("Ralat tarik soalan:", error);
       } finally {
@@ -122,13 +126,19 @@ function KandunganUjian() {
             const docId = `${user.id}_t${tingkatan}_${bab}`;
             const adaSoalanStruktur = Object.keys(jawapanStruktur).length > 0;
 
+            // 🌟 PENYELESAIAN 2: PENGIRAAN MARKAH YANG LEBIH TEPAT
             let markahPenuhUjian = 0;
             soalanSenarai.forEach(s => {
-              markahPenuhUjian += Number(s.markah) || 1;
+              if (s.jenis === "objektif") {
+                markahPenuhUjian += 1; // Objektif = 1 markah
+              } else {
+                markahPenuhUjian += Number(s.markah) || 0; // Struktur = ikut markah ditetapkan guru
+              }
             });
 
+            // Pengiraan akhir
             const skorAkhir = skor + jumlahMarkahStrukturAI;
-            const peratus = Math.round((skorAkhir / markahPenuhUjian) * 100);
+            const peratus = markahPenuhUjian > 0 ? Math.round((skorAkhir / markahPenuhUjian) * 100) : 0;
 
             await setDoc(doc(db, "skor_murid", docId), {
               idMurid: user.id,
@@ -195,6 +205,7 @@ function KandunganUjian() {
     }
   };
 
+  // UI RENDERING ==========================================
   if (!isClient) return <div className="min-h-screen flex items-center justify-center font-bold text-sky-600">Sistem Memulakan Ujian...</div>;
   if (loading) return <div className="min-h-screen flex items-center justify-center text-sky-700 font-semibold">Memuatkan Soalan Firebase...</div>;
 
@@ -245,6 +256,9 @@ function KandunganUjian() {
   const semasa = soalanSenarai[indexSemasa];
   const jenisSoalan = semasa.jenis ? semasa.jenis.toLowerCase() : "objektif";
   const senaraiPilihan = semasa.shuffledPilihan || (semasa.pilihan ? Object.entries(semasa.pilihan) : []);
+  
+  // Tentukan label bahagian untuk UI
+  const labelBahagian = jenisSoalan === "objektif" ? "Bahagian A: Objektif" : "Bahagian B: Struktur/Esei";
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4">
@@ -252,7 +266,7 @@ function KandunganUjian() {
         <div className="flex justify-between items-center mb-8 border-b pb-4">
           <div>
             <h1 className="text-xl font-bold text-slate-800">{bab}</h1>
-            <p className="text-sm font-medium text-sky-600">{semasa.topik}</p>
+            <p className="text-sm font-bold text-indigo-600 uppercase tracking-wider mt-1">{labelBahagian}</p>
           </div>
           <span className="bg-sky-100 text-sky-800 px-4 py-2 rounded-lg text-sm font-bold shadow-sm">
             Soalan {indexSemasa + 1} / {soalanSenarai.length}
