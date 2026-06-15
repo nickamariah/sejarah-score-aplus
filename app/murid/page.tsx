@@ -20,13 +20,14 @@ const radarData = [
   { subject: "Kreativiti", A: 72, fullMark: 100 },
 ];
 
-// 🌟 SENARAI BAB KEMBALI PENUH (T4 & T5)
-const chapters = {
+// 🌟 PENYELESAIAN 1: Kita beritahu TypeScript jenis data yang betul
+type Subtopic = { id: string; title: string; };
+type ChapterDef = { id: number; title: string; desc: string; subtopics?: Subtopic[]; };
+
+const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
   t4: [
     { 
-      id: 1, 
-      title: "Bab 1: Warisan Negara Bangsa", 
-      desc: "Mengenal identiti dan nilai kebangsaan",
+      id: 1, title: "Bab 1: Warisan Negara Bangsa", desc: "Mengenal identiti dan nilai kebangsaan",
       subtopics: [
         { id: "1.1", title: "Konsep Alam Melayu" },
         { id: "1.2", title: "Ciri Kesultanan Melayu Melaka" },
@@ -35,9 +36,7 @@ const chapters = {
       ]
     },
     { 
-      id: 2, 
-      title: "Bab 2: Kebangkitan Nasionalisme", 
-      desc: "Asas kebangkitan dan semangat kebangsaan",
+      id: 2, title: "Bab 2: Kebangkitan Nasionalisme", desc: "Asas kebangkitan dan semangat kebangsaan",
       subtopics: [
         { id: "2.1", title: "Maksud Nasionalisme" },
         { id: "2.2", title: "Perkembangan Idea Nasionalisme" },
@@ -55,15 +54,6 @@ const chapters = {
   ],
   t5: [
     { id: 1, title: "Bab 1: Kedaulatan Negara", desc: "Konsep dan kepentingan kedaulatan" },
-    { id: 2, title: "Bab 2: Perlembagaan Persekutuan", desc: "Rangka perlembagaan dan hak" },
-    { id: 3, title: "Bab 3: Raja berperlembagaan & Demokrasi Berparlimen", desc: "Peranan Raja dan Parlimen" },
-    { id: 4, title: "Bab 4: Sistem Persekutuan", desc: "Susunan dan fungsi kerajaan persekutuan" },
-    { id: 5, title: "Bab 5: Pembentukan Malaysia", desc: "Proses dan isu pembentukan Malaysia" },
-    { id: 6, title: "Bab 6: Cabaran Selepas Pembentukaan Malaysia", desc: "Isu sosial dan politik pasca pembentukan" },
-    { id: 7, title: "Bab 7: Membina Kesejahteraan Negara", desc: "Dasar dan program membina kesejahteraan" },
-    { id: 8, title: "Bab 8: Membina Kemakmuran Negara", desc: "Strategi pembangunan ekonomi" },
-    { id: 9, title: "Bab 9: Dasar Luar Malaysia", desc: "Pendekatan dan kepentingan dasar luar" },
-    { id: 10, title: "Bab 10: Kecemerlangan Malaysia di Persada Dunia", desc: "Peranan Malaysia di pentas antarabangsa" },
   ]
 };
 
@@ -161,7 +151,11 @@ export default function MuridDashboard() {
   };
 
   const getAdaptiveMeta = (chapterId: number, moduleId: number, chapterData: any) => {
-    const meta = { hidden: false, adaptiveLocked: false, displayName: "", aras: "" };
+    // 🌟 PENYELESAIAN 2: Paksa TypeScript faham meta.hidden tu boolean
+    const meta: { hidden: boolean; adaptiveLocked: boolean; displayName: string; aras: string } = { 
+      hidden: false, adaptiveLocked: false, displayName: "", aras: "" 
+    };
+    
     const skor = skorBab[chapterId];
     
     let isBimbinganSelesai = false;
@@ -240,7 +234,6 @@ export default function MuridDashboard() {
               <p className="text-sm text-slate-500">Kenal pasti tahap penguasaan anda bagi setiap bab.</p>
             </div>
           </div>
-
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {currentChapters.map((ch) => {
               const status = getChapterStatus(ch.id);
@@ -277,7 +270,7 @@ export default function MuridDashboard() {
         </div>
 
         <div className="space-y-4">
-          {currentChapters.map((chapter) => (
+          {currentChapters.map((chapter: any) => (
             <div key={chapter.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               
               <button onClick={() => setExpandedChapter(expandedChapter === chapter.id ? null : chapter.id)} className="w-full px-6 py-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
@@ -346,7 +339,7 @@ export default function MuridDashboard() {
                         
                         const subSemasa = getCurrentSubtopic(chapter.id, chapter);
                         const isModul1Completed = module.id === 1 && skorBab[chapter.id] !== undefined;
-                        const isModul2Completed = module.id === 2 && !adaptive.adaptiveLocked && adaptive.hidden === true; 
+                        const isModul2Completed = module.id === 2 && !adaptive.adaptiveLocked && adaptive.hidden; 
                         const isButtonDisabled = adaptive.adaptiveLocked || (module.id === 1 && isModul1Completed);
 
                         return (

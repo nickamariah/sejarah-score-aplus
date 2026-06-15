@@ -5,6 +5,14 @@ import { useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase"; 
 import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
 
+// Senarai subtopik manual untuk UI Chatbot
+const subtopicsT4B1 = [
+  { id: "1.1", title: "Konsep Alam Melayu" },
+  { id: "1.2", title: "Ciri Kesultanan Melayu Melaka" },
+  { id: "1.3", title: "Keunggulan Sistem Pentadbiran" },
+  { id: "1.4", title: "Peranan Pemerintah & Rakyat" }
+];
+
 function KomponenPembelajaran() {
   const searchParams = useSearchParams();
   const babDariURL = searchParams.get("bab") || "tingkatan4_bab1_sub1.1"; 
@@ -16,16 +24,12 @@ function KomponenPembelajaran() {
   const [currentPhase, setCurrentPhase] = useState(1);
   const [isMastered, setIsMastered] = useState(false);
   
-  // 🌟 STATE BARU UNTUK KAWAL NOTA DI MOBILE
   const [showPdfMobile, setShowPdfMobile] = useState(false);
 
-  // Ambil ID dari LocalStorage (Sistem Sebenar)
   const [studentId, setStudentId] = useState("murid_test");
   useEffect(() => {
     const rawUser = localStorage.getItem("currentUser");
-    if (rawUser) {
-      setStudentId(JSON.parse(rawUser).id);
-    }
+    if (rawUser) setStudentId(JSON.parse(rawUser).id);
   }, []);
 
   const chapterId = babDariURL; 
@@ -43,13 +47,25 @@ function KomponenPembelajaran() {
   }, [messages]);
 
   const formatTajuk = (id) => id.replace('tingkatan', 'Tingkatan ').replace('_bab', ' Bab ').replace('_sub', ' Subtopik ');
-  const ekstrakSubtopik = (id) => id.includes("_sub") ? id.split("_sub")[1] : "Umum";
+  const ekstrakSubtopik = (id) => id.includes("_sub") ? id.split("_sub")[1] : "1.1";
 
-  // ==========================================
-  // FIREBASE INIT
-  // ==========================================
+  // Dapatkan info subtopik untuk Stepper
+  const currentSub = ekstrakSubtopik(chapterId);
+  const currentIndex = subtopicsT4B1.findIndex(s => s.id === currentSub);
+  
+  // Fungsi lompat ke subtopik seterusnya
+  const gotoNextSubtopic = () => {
+    if (currentIndex + 1 < subtopicsT4B1.length) {
+      const nextSub = subtopicsT4B1[currentIndex + 1].id;
+      const nextUrl = `?bab=${pdfFileName}_sub${nextSub}&aras=${arasDariURL}`;
+      window.location.href = nextUrl;
+    } else {
+      window.location.href = '/murid'; // Kalau dah habis semua, balik dashboard
+    }
+  };
+
   useEffect(() => {
-    if (studentId === "murid_test") return; // Tunggu ID sebenar load
+    if (studentId === "murid_test") return; 
 
     const sessionDocRef = doc(db, "chat_sessions", sessionId);
     const messagesCollectionRef = collection(sessionDocRef, "messages");
@@ -70,7 +86,7 @@ function KomponenPembelajaran() {
 
         await addDoc(messagesCollectionRef, {
           role: "assistant",
-          content: `Hai! Saya I-RAGs 🤖. Jom kita mulakan sesi inkuiri untuk **${formatTajuk(chapterId).toUpperCase()}**. Boleh beritahu saya apa persoalan utama yang bermain di fikiran awak tentang topik ini?`,
+          content: `Hai! Saya I-RAGs 🤖. Jom mulakan sesi inkuiri untuk **${formatTajuk(chapterId).toUpperCase()}**. Boleh beritahu saya apa persoalan utama yang bermain di fikiran awak tentang topik ini?`,
           timestamp: serverTimestamp()
         });
       } else {
@@ -93,9 +109,6 @@ function KomponenPembelajaran() {
     return () => unsubscribe();
   }, [sessionId, chapterId, studentId]);
 
-  // ==========================================
-  // HANTAR MESEJ
-  // ==========================================
   const sendMessage = async (e) => {
     e?.preventDefault();
     if (!input.trim()) return;
@@ -140,7 +153,7 @@ function KomponenPembelajaran() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
-                studentId, chapterId, text: "Saya bersedia. Sila berikan soalan inkuiri pertama untuk fasa baharu ini.", 
+                studentId, chapterId, text: "Sila berikan soalan inkuiri pertama untuk fasa baharu ini.", 
                 currentPhase: nextPhase, aras: arasDariURL, previousMessages: [] 
               })
             });
@@ -172,76 +185,69 @@ function KomponenPembelajaran() {
   const sendQuickPrompt = (text) => setInput(text);
 
   return (
-    // Susunan Layout: Kiri(PDF), Kanan(Chat) untuk Desktop.
     <div className="flex flex-col lg:flex-row h-screen bg-slate-50 overflow-hidden font-sans relative">
       
-      {/* ======================================= */}
-      {/* BAHAGIAN KIRI: PDF VIEWER */}
-      {/* ======================================= */}
-      {/* Desktop: Sentiasa nampak (w-60%). Mobile: Hanya nampak jika showPdfMobile = true */}
       <div className={`${showPdfMobile ? 'flex absolute inset-0 z-50 bg-white' : 'hidden'} lg:flex lg:relative lg:w-[60%] lg:h-full flex-col z-20 shadow-xl lg:shadow-none`}>
-        
         <div className="bg-slate-800 text-white p-3 lg:p-4 shadow-sm flex items-center justify-between gap-3">
+          <button onClick={() => window.location.href = '/murid'} className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 transition shrink-0">
+            ⬅️ <span className="hidden sm:inline">Dashboard</span>
+          </button>
           <h2 className="text-sm lg:text-lg font-bold truncate capitalize flex items-center gap-2">
             📄 Nota: {formatTajuk(chapterId)}
           </h2>
-          {/* Butang Tutup Nota hanya muncul di Mobile */}
-          <button 
-            onClick={() => setShowPdfMobile(false)}
-            className="lg:hidden bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold"
-          >
+          <button onClick={() => setShowPdfMobile(false)} className="lg:hidden bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">
             Tutup Nota ✖
           </button>
         </div>
-        
         <div className="flex-1 bg-gray-200 overflow-hidden relative">
           <iframe src={`${pdfUrl}#toolbar=1&view=FitH`} className="w-full h-full z-10 relative bg-white" title="PDF Viewer" />
         </div>
       </div>
 
-      {/* ======================================= */}
-      {/* BAHAGIAN KANAN: CHATBOT I-RAGS */}
-      {/* ======================================= */}
-      <div className="w-full lg:w-[40%] h-full bg-white shadow-2xl flex flex-col border-l-0 lg:border-l-4 border-blue-500 z-10 relative">
+      <div className="w-full lg:w-[40%] h-full bg-white shadow-2xl flex flex-col border-t-4 lg:border-t-0 lg:border-l-4 border-blue-500 z-10 relative">
         
-        {/* HEADER */}
+        {/* HEADER & LALUAN SUBTOPIK BARU! */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-3 lg:p-5 flex flex-col gap-2 shadow-md shrink-0">
           
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 lg:gap-3">
-              {/* Butang Kembali ke Dashboard */}
-              {/* Butang Kembali ke Dashboard (KINI LEBIH JELAS!) */}
-            <button 
-              onClick={() => window.location.href = '/murid'} 
-              className="bg-white text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition flex items-center gap-2 shrink-0"
-              title="Kembali ke Dashboard"
-            >
-              <span>⬅️</span> <span className="hidden lg:inline">Dashboard</span>
-            </button>
-              
+              <button onClick={() => window.location.href = '/murid'} className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition" title="Kembali ke Dashboard">
+                ⬅️
+              </button>
               <div className="text-2xl lg:text-4xl bg-white rounded-full p-1 shadow-sm">🤖</div>
               <div>
                 <h2 className="font-extrabold text-base lg:text-xl tracking-wide leading-tight">I-RAGs Tutor</h2>
                 <p className="text-blue-100 text-[10px] lg:text-xs font-medium">Model 5 Fasa Inkuiri</p>
               </div>
             </div>
-
-            {/* Butang Buka Nota (Hanya di Mobile) */}
-            <button 
-              onClick={() => setShowPdfMobile(true)}
-              className="lg:hidden bg-amber-400 hover:bg-amber-500 text-amber-900 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 shadow-sm"
-            >
+            <button onClick={() => setShowPdfMobile(true)} className="lg:hidden bg-amber-400 hover:bg-amber-500 text-amber-900 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 shadow-sm">
               📖 Baca Nota
             </button>
           </div>
 
-          {/* PROGRESS BAR & JEJAK SUBTOPIK */}
+          {/* 🌟 PETA SUBTOPIK DI DALAM MODUL 🌟 */}
+          <div className="flex gap-1 overflow-hidden mt-1 bg-black/20 p-1.5 rounded-lg">
+            {subtopicsT4B1.map((sub, index) => {
+              const isPast = index < currentIndex;
+              const isActive = index === currentIndex;
+              let style = "bg-white/10 text-white/50 border border-white/5"; // Terkunci
+              let icon = "🔒";
+              if (isPast) { style = "bg-emerald-500/80 text-white border-emerald-400"; icon = "✅"; }
+              if (isActive) { style = "bg-sky-400 text-sky-950 font-bold border-white shadow-sm"; icon = "🚀"; }
+              
+              return (
+                <div key={sub.id} className={`flex-1 text-center py-1 rounded text-[9px] lg:text-[11px] truncate px-1 transition-all ${style}`} title={sub.title}>
+                  {icon} {sub.id}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* PROGRESS BAR 5 FASA */}
           <div className="bg-black/20 rounded-xl p-2 lg:p-3 mt-1 backdrop-blur-sm">
             <div className="flex justify-between items-center mb-1.5 lg:mb-2">
-              <span className="text-[10px] lg:text-xs font-bold text-blue-100 bg-white/10 px-2 py-0.5 rounded-full">
-                Subtopik: {ekstrakSubtopik(chapterId)}
-              </span>
-              <span className="text-[10px] lg:text-xs font-bold text-yellow-300">Fasa {currentPhase} / 5</span>
+              <span className="text-[10px] lg:text-xs font-bold text-blue-100 bg-white/10 px-2 py-0.5 rounded-full">Fasa Semasa</span>
+              <span className="text-[10px] lg:text-xs font-bold text-yellow-300">{currentPhase} / 5</span>
             </div>
             <div className="flex gap-1 w-full">
               {phaseNames.map((name, index) => {
@@ -263,12 +269,10 @@ function KomponenPembelajaran() {
           </div>
         </div>
 
-        {/* RUANG CHAT */}
-        {/* Saiz text dikecilkan (text-sm) untuk Mobile, dan kekal besar (text-lg) untuk Desktop */}
         <div className="flex-1 p-3 lg:p-5 overflow-y-auto bg-[url('/bg-chat-pattern.png')] bg-blue-50/30">
           {messages.map((msg) => (
             <div key={msg.id} className={`mb-3 lg:mb-4 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`p-3 lg:p-5 rounded-2xl lg:rounded-3xl max-w-[85%] text-sm lg:text-lg font-medium leading-relaxed shadow-sm lg:shadow-md ${
+              <div className={`p-3 lg:p-5 rounded-2xl lg:rounded-3xl max-w-[90%] lg:max-w-[85%] text-sm lg:text-lg font-medium leading-relaxed shadow-sm lg:shadow-md ${
                 msg.role === "user" ? "bg-blue-500 text-white rounded-br-none" : "bg-white text-gray-800 border-2 border-blue-100 rounded-bl-none"
               }`}>
                 <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
@@ -279,41 +283,40 @@ function KomponenPembelajaran() {
             <div className="flex justify-start mb-4">
               <div className="p-3 lg:p-4 bg-white border-2 border-blue-100 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-2">
                 <span className="animate-bounce text-lg">💭</span>
-                <span className="text-gray-500 text-xs lg:text-sm italic font-medium">I-RAGs sedang memproses...</span>
+                <span className="text-gray-500 text-xs lg:text-sm italic font-medium">I-RAGs sedang menilai...</span>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* BUTANG PANTAS */}
         {!isLoading && !isMastered && (
           <div className="flex flex-wrap gap-2 px-3 py-2 bg-gray-50 border-t border-gray-200 shrink-0">
-            <button onClick={() => sendQuickPrompt("Saya tak faham.")} className="bg-orange-100 text-orange-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-orange-200">🤷‍♂️ Tak Faham</button>
-            <button onClick={() => sendQuickPrompt("Boleh bagi hint?")} className="bg-green-100 text-green-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-green-200">💡 Beri Hint</button>
+            <button onClick={() => sendQuickPrompt("Saya tak faham.")} className="bg-orange-100 text-orange-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-orange-200 shadow-sm">🤷‍♂️ Tak Faham</button>
+            <button onClick={() => sendQuickPrompt("Boleh bagi hint?")} className="bg-green-100 text-green-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-green-200 shadow-sm">💡 Beri Hint</button>
           </div>
         )}
 
-        {/* FORM INPUT / BUTANG NEXT */}
         {isMastered ? (
           <div className="p-4 lg:p-6 bg-emerald-50 border-t-4 border-emerald-500 text-center shrink-0">
-            <h3 className="text-lg lg:text-2xl font-extrabold text-emerald-700 mb-1">🏆 Subtopik Selesai!</h3>
-            <p className="text-emerald-800 font-medium text-xs lg:text-sm mb-3">Sila kembali ke Dashboard untuk mengambil Post-Test.</p>
-            <button onClick={() => window.location.href = '/murid'} className="bg-emerald-600 text-white text-sm lg:text-base font-bold px-6 py-2.5 rounded-full shadow-md hover:bg-emerald-700 transition">
-              Kembali ke Dashboard 🚀
+            <h3 className="text-lg lg:text-2xl font-extrabold text-emerald-700 mb-1">🏆 Subtopik Selesai! ✅</h3>
+            <p className="text-emerald-800 font-medium text-xs lg:text-sm mb-3">Syabas! Anda telah melengkapkan 5 Fasa Inkuiri.</p>
+            
+            <button 
+              onClick={gotoNextSubtopic} 
+              className="bg-emerald-600 text-white text-sm lg:text-lg font-bold px-6 py-3 rounded-full shadow-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 mx-auto"
+            >
+              <span>{currentIndex + 1 < subtopicsT4B1.length ? "Seterusnya" : "Kembali ke Dashboard"}</span>
+              <span className="text-xl">{currentIndex + 1 < subtopicsT4B1.length ? "🔓🚀" : "🏠"}</span>
             </button>
           </div>
         ) : (
           <form onSubmit={sendMessage} className="p-3 lg:p-4 bg-white border-t border-gray-200 flex gap-2 items-center shadow-inner shrink-0">
             <input 
-              type="text" 
-              value={input} 
-              onChange={(e) => setInput(e.target.value)} 
-              placeholder="Taip jawapan..." 
-              className="flex-1 border-2 border-gray-300 rounded-full px-4 py-2.5 text-sm lg:text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm" 
-              disabled={isLoading} 
+              type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Taip jawapan..." 
+              className="flex-1 border-2 border-gray-300 rounded-full px-4 py-2.5 text-sm lg:text-base focus:outline-none focus:border-blue-500" disabled={isLoading} 
             />
-            <button type="submit" className="bg-blue-600 text-white rounded-full w-10 h-10 lg:w-12 lg:h-12 flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 shadow-md transition-all shrink-0" disabled={isLoading || !input.trim()}>
+            <button type="submit" className="bg-blue-600 text-white rounded-full w-10 h-10 lg:w-12 lg:h-12 flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 text-xl" disabled={isLoading || !input.trim()}>
               ➤
             </button>
           </form>
