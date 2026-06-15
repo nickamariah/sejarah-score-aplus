@@ -8,6 +8,7 @@ import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, orderBy, onS
 function KomponenPembelajaran() {
   const searchParams = useSearchParams();
   const babDariURL = searchParams.get("bab") || "tingkatan4_bab1_sub1.1"; 
+  const arasDariURL = searchParams.get("aras") || "rendah";
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -15,16 +16,11 @@ function KomponenPembelajaran() {
   const [currentPhase, setCurrentPhase] = useState(1);
   const [isMastered, setIsMastered] = useState(false);
 
-  // ID Murid (Guna murid_007 untuk sesi baru yang bersih)
-  const studentId = "murid_007"; 
+  // ID Murid - Pastikan guna sistem login sebenar nanti
+  const studentId = "murid_006"; 
   const chapterId = babDariURL; 
   const sessionId = `${studentId}_${chapterId}`;
 
-  // ==========================================
-  // PENYELESAIAN 1: BACA FAIL PDF YANG BETUL
-  // ==========================================
-  // Kita buang perkataan "_sub..." supaya ia baca fail bab utama sahaja.
-  // Contoh: tingkatan4_bab1_sub1.1 -> tingkatan4_bab1
   const pdfFileName = chapterId.split('_sub')[0]; 
   const pdfUrl = `/${pdfFileName}.pdf`; 
 
@@ -37,6 +33,12 @@ function KomponenPembelajaran() {
   }, [messages]);
 
   const formatTajuk = (id) => id.replace('tingkatan', 'Tingkatan ').replace('_bab', ' Bab ').replace('_sub', ' Subtopik ');
+  
+  // Fungsi ektrak nombor subtopik untuk paparan UI
+  const ekstrakSubtopik = (id) => {
+    if (id.includes("_sub")) return id.split("_sub")[1];
+    return "Umum";
+  };
 
   // ==========================================
   // FIREBASE INIT
@@ -61,8 +63,7 @@ function KomponenPembelajaran() {
 
         await addDoc(messagesCollectionRef, {
           role: "assistant",
-          // UBAH CONTENT INI SUPAYA JADI DINAMIK 👇
-          content: `Hai! Saya I-RAGS 🤖. Jom kita mulakan sesi inkuiri untuk ${formatTajuk(chapterId).toUpperCase()}. ${dapatkanSoalanPertama(chapterId)}`,
+          content: `Hai! Saya I-RAGs 🤖. Jom kita mulakan sesi inkuiri untuk ${formatTajuk(chapterId).toUpperCase()}. Boleh beritahu saya apa persoalan utama yang bermain di fikiran awak tentang topik ini?`,
           timestamp: serverTimestamp()
         });
       } else {
@@ -103,14 +104,12 @@ function KomponenPembelajaran() {
     const messagesCollectionRef = collection(sessionDocRef, "messages");
 
     try {
-      // 1. Simpan mesej murid
       await addDoc(messagesCollectionRef, {
         role: "user",
         content: teksMurid,
         timestamp: serverTimestamp()
       });
 
-      // 2. Panggil API AI untuk semak jawapan
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -119,13 +118,13 @@ function KomponenPembelajaran() {
           chapterId, 
           text: teksMurid,
           currentPhase: currentPhase,
+          aras: arasDariURL,
           previousMessages: messages.slice(-4).map(m => ({ role: m.role, content: m.content })) 
         })
       });
       
       const data = await response.json(); 
 
-      // 3. Simpan jawapan/semakan dari AI
       if (data.reply) {
         await addDoc(messagesCollectionRef, {
           role: "assistant",
@@ -133,31 +132,28 @@ function KomponenPembelajaran() {
           timestamp: serverTimestamp()
         });
 
-        // ==========================================
-        // PENYELESAIAN 2: AUTO-TANYA SOALAN FASA BARU
-        // ==========================================
         if (data.isPhaseComplete) {
           if (currentPhase < 5) {
             const nextPhase = currentPhase + 1;
             setCurrentPhase(nextPhase);
             await updateDoc(sessionDocRef, { currentPhase: nextPhase });
             
-            // Mesej sistem memberitahu fasa bertukar
             await addDoc(messagesCollectionRef, {
               role: "assistant",
               content: `✨ Tahniah! Awak dah lepasi Fasa ${currentPhase}. Mari kita ke **Fasa ${nextPhase} (${phaseNames[nextPhase-1]})** pula.`,
               timestamp: serverTimestamp()
             });
 
-            // AI akan dipaksa tanya soalan baharu untuk fasa baharu secara sembunyi!
+            // Auto-tanya soalan fasa baru
             const autoResponse = await fetch('/api/chat', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 studentId, chapterId, 
-                text: "Saya bersedia. Sila terus berikan soalan pertama untuk fasa baharu ini.", 
-                currentPhase: nextPhase, // FASA BARU
-                previousMessages: [] // Kosongkan ingatan pendek supaya AI fokus pada fasa baru
+                text: "Saya bersedia. Sila berikan soalan inkuiri pertama untuk fasa baharu ini.", 
+                currentPhase: nextPhase, 
+                aras: arasDariURL,
+                previousMessages: [] 
               })
             });
 
@@ -171,7 +167,6 @@ function KomponenPembelajaran() {
             }
 
           } else if (currentPhase === 5) {
-            // JIKA LULUS SEMUA FASA (MASTERED)
             setIsMastered(true);
             await updateDoc(sessionDocRef, { status: "completed" });
             
@@ -193,42 +188,57 @@ function KomponenPembelajaran() {
   const sendQuickPrompt = (text) => setInput(text);
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+    // 🌟 UBAHSUAI RESPONSIVE: flex-col untuk Mobile, lg:flex-row untuk Laptop
+    <div className="flex flex-col lg:flex-row h-screen bg-gray-50 overflow-hidden font-sans">
       
-      {/* BAHAGIAN KIRI: PDF VIEWER */}
-      <div className="w-[60%] h-full p-4 flex flex-col">
-        <div className="bg-white rounded-t-xl p-4 shadow-sm border-b-2 border-blue-100 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 capitalize">
-            📄 Nota Rujukan: {formatTajuk(chapterId)}
+      {/* ======================================= */}
+      {/* BAHAGIAN 1: PDF VIEWER (Atas untuk Mobile, Kiri untuk Laptop) */}
+      {/* ======================================= */}
+      <div className="w-full lg:w-[60%] h-[40%] lg:h-full p-2 lg:p-4 flex flex-col z-20 shadow-md lg:shadow-none bg-white lg:bg-transparent">
+        <div className="bg-white rounded-t-xl p-2 lg:p-4 shadow-sm border-b-2 border-blue-100 flex items-center gap-3">
+          {/* 🌟 BUTANG KEMBALI KE DASHBOARD */}
+          <button 
+            onClick={() => window.location.href = '/murid'} 
+            className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 transition shrink-0"
+          >
+            ⬅️ <span className="hidden sm:inline">Dashboard</span>
+          </button>
+          
+          <h2 className="text-sm lg:text-lg font-bold text-gray-800 truncate capitalize">
+            📄 Nota: {formatTajuk(chapterId)}
           </h2>
         </div>
-        <div className="flex-1 bg-gray-200 rounded-b-xl shadow-inner overflow-hidden relative">
+        
+        <div className="flex-1 bg-gray-200 lg:rounded-b-xl shadow-inner overflow-hidden relative">
           <iframe src={`${pdfUrl}#toolbar=1&view=FitH`} className="w-full h-full z-10 relative bg-white" title="PDF Viewer" />
-          {/* Mesej Backup jika PDF tak wujud */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 z-0 bg-gray-100">
-            <span className="text-4xl mb-3 animate-pulse">📄</span>
-            <span className="text-lg">Sistem sedang mencari fail: <b>{pdfUrl}</b></span>
-          </div>
         </div>
       </div>
 
-      {/* BAHAGIAN KANAN: CHATBOT */}
-      <div className="w-[40%] h-full bg-white shadow-2xl flex flex-col border-l-4 border-blue-500">
+      {/* ======================================= */}
+      {/* BAHAGIAN 2: CHATBOT (Bawah untuk Mobile, Kanan untuk Laptop) */}
+      {/* ======================================= */}
+      <div className="w-full lg:w-[40%] h-[60%] lg:h-full bg-white shadow-2xl flex flex-col border-t-4 lg:border-t-0 lg:border-l-4 border-blue-500 z-10">
         
         {/* HEADER & PROGRESS BAR */}
-        <div className="bg-blue-600 text-white p-5 flex flex-col gap-3 shadow-md z-10">
-          <div className="flex items-center gap-4">
-            <div className="text-5xl bg-white rounded-full p-2 shadow-sm">🤖</div>
-            <div>
-              <h2 className="font-extrabold text-2xl tracking-wide">I-RAGS Tutor</h2>
-              <p className="text-blue-100 text-base font-medium">Model 5 Fasa Inkuiri</p>
+        <div className="bg-blue-600 text-white p-3 lg:p-5 flex flex-col gap-2 shadow-md z-10 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl lg:text-5xl bg-white rounded-full p-1.5 lg:p-2 shadow-sm">🤖</div>
+              <div>
+                <h2 className="font-extrabold text-lg lg:text-2xl tracking-wide leading-tight">I-RAGs Tutor</h2>
+                <p className="text-blue-100 text-xs lg:text-sm font-medium">Model 5 Fasa Inkuiri</p>
+              </div>
+            </div>
+            {/* 🌟 JEJAK SUBTOPIK: Beritahu murid mereka di mana */}
+            <div className="bg-blue-800 text-blue-100 text-xs font-bold px-3 py-1 rounded-full border border-blue-400 shadow-sm">
+              Subtopik {ekstrakSubtopik(chapterId)}
             </div>
           </div>
 
-          <div className="bg-blue-800/50 rounded-xl p-3 mt-2">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-bold text-blue-200">Tahap Kemajuan Anda:</span>
-              <span className="text-sm font-bold text-yellow-300">Fasa {currentPhase} / 5</span>
+          <div className="bg-blue-800/50 rounded-xl p-2 lg:p-3 mt-1">
+            <div className="flex justify-between items-center mb-1.5 lg:mb-2">
+              <span className="text-[10px] lg:text-sm font-bold text-blue-200">Tahap Kemajuan Anda:</span>
+              <span className="text-[10px] lg:text-sm font-bold text-yellow-300">Fasa {currentPhase} / 5</span>
             </div>
             <div className="flex gap-1 w-full">
               {phaseNames.map((name, index) => {
@@ -239,8 +249,8 @@ function KomponenPembelajaran() {
                 
                 return (
                   <div key={step} className="flex-1 flex flex-col items-center gap-1">
-                    <div className={`h-2 w-full rounded-full ${bgClass} transition-all duration-500`}></div>
-                    <span className={`text-[10px] font-bold ${step === currentPhase ? 'text-yellow-300' : 'text-blue-200'}`}>
+                    <div className={`h-1.5 lg:h-2 w-full rounded-full ${bgClass} transition-all duration-500`}></div>
+                    <span className={`text-[8px] lg:text-[10px] font-bold ${step === currentPhase ? 'text-yellow-300' : 'text-blue-200'}`}>
                       {name}
                     </span>
                   </div>
@@ -251,10 +261,10 @@ function KomponenPembelajaran() {
         </div>
 
         {/* RUANG CHAT */}
-        <div className="flex-1 p-5 overflow-y-auto bg-[url('/bg-chat-pattern.png')] bg-blue-50/30">
+        <div className="flex-1 p-3 lg:p-5 overflow-y-auto bg-[url('/bg-chat-pattern.png')] bg-blue-50/30">
           {messages.map((msg) => (
-            <div key={msg.id} className={`mb-5 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`p-5 rounded-3xl max-w-[85%] text-xl font-medium leading-relaxed shadow-md ${
+            <div key={msg.id} className={`mb-3 lg:mb-5 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`p-3 lg:p-5 rounded-2xl lg:rounded-3xl max-w-[90%] lg:max-w-[85%] text-base lg:text-xl font-medium leading-relaxed shadow-sm lg:shadow-md ${
                 msg.role === "user" ? "bg-blue-500 text-white rounded-br-none" : "bg-white text-gray-800 border-2 border-blue-200 rounded-bl-none"
               }`}>
                 <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
@@ -263,9 +273,9 @@ function KomponenPembelajaran() {
           ))}
           {isLoading && (
             <div className="flex justify-start mb-5">
-              <div className="p-5 bg-white border-2 border-blue-200 rounded-3xl rounded-bl-none shadow-md flex items-center gap-3">
-                <span className="animate-bounce text-2xl">💭</span>
-                <span className="text-gray-500 text-lg italic font-medium">I-RAGS sedang memproses...</span>
+              <div className="p-4 bg-white border-2 border-blue-200 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-2">
+                <span className="animate-bounce text-xl">💭</span>
+                <span className="text-gray-500 text-sm lg:text-lg italic font-medium">I-RAGs sedang menilai...</span>
               </div>
             </div>
           )}
@@ -274,39 +284,39 @@ function KomponenPembelajaran() {
 
         {/* BUTANG PANTAS */}
         {!isLoading && !isMastered && (
-          <div className="flex flex-wrap gap-3 px-5 py-3 bg-gray-50 border-t-2 border-gray-200">
-            <button onClick={() => sendQuickPrompt("Saya tak tahu jawapannya.")} className="bg-orange-100 text-orange-700 text-base font-bold px-5 py-3 rounded-full hover:bg-orange-200 shadow-sm transition-all hover:scale-105">🤷‍♂️ Saya tak tahu</button>
-            <button onClick={() => sendQuickPrompt("Boleh bagi petunjuk (hint)?")} className="bg-green-100 text-green-700 text-base font-bold px-5 py-3 rounded-full hover:bg-green-200 shadow-sm transition-all hover:scale-105">💡 Beri saya hint</button>
+          <div className="flex flex-wrap gap-2 px-3 py-2 bg-gray-50 border-t-2 border-gray-200 shrink-0">
+            <button onClick={() => sendQuickPrompt("Saya tak tahu jawapannya.")} className="bg-orange-100 text-orange-700 text-xs lg:text-sm font-bold px-3 py-2 rounded-full hover:bg-orange-200 shadow-sm transition-all active:scale-95">🤷‍♂️ Saya tak tahu</button>
+            <button onClick={() => sendQuickPrompt("Boleh bagi petunjuk (hint)?")} className="bg-green-100 text-green-700 text-xs lg:text-sm font-bold px-3 py-2 rounded-full hover:bg-green-200 shadow-sm transition-all active:scale-95">💡 Beri saya hint</button>
           </div>
         )}
 
         {/* RUANG BAWAH: BORANG / BUTANG NEXT SUBTOPIK */}
         {isMastered ? (
-          <div className="p-6 bg-green-50 border-t-4 border-green-500 text-center shadow-inner">
-            <h3 className="text-2xl font-extrabold text-green-700 mb-2">🏆 Subtopik Selesai! ✅</h3>
-            <p className="text-green-800 font-medium mb-5">Syabas! Anda telah melengkapkan 5 Fasa Inkuiri.</p>
+          <div className="p-4 lg:p-6 bg-green-50 border-t-4 border-green-500 text-center shadow-inner shrink-0">
+            <h3 className="text-xl lg:text-2xl font-extrabold text-green-700 mb-1">🏆 Subtopik Selesai! ✅</h3>
+            <p className="text-green-800 font-medium text-xs lg:text-sm mb-3">Syabas! Anda telah melengkapkan 5 Fasa Inkuiri.</p>
             
             <button 
               onClick={() => window.location.href = "?bab=tingkatan4_bab1_sub1.2"} 
-              className="bg-green-600 text-white text-lg font-bold px-8 py-4 rounded-full shadow-lg hover:bg-green-700 hover:scale-105 transition-all flex items-center justify-center gap-2 mx-auto"
+              className="bg-green-600 text-white text-sm lg:text-lg font-bold px-6 py-3 rounded-full shadow-lg hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto"
             >
-              <span>Buka Kunci Subtopik Seterusnya</span>
-              <span className="text-2xl">🔓🚀</span>
+              <span>Seterusnya</span>
+              <span className="text-xl">🔓🚀</span>
             </button>
           </div>
         ) : (
-          <form onSubmit={sendMessage} className="p-5 bg-white border-t-2 border-gray-200 flex gap-3 items-center shadow-inner">
+          <form onSubmit={sendMessage} className="p-3 lg:p-5 bg-white border-t-2 border-gray-200 flex gap-2 lg:gap-3 items-center shadow-inner shrink-0">
             <input 
               type="text" 
               value={input} 
               onChange={(e) => setInput(e.target.value)} 
               placeholder="Taip jawapan awak di sini..." 
-              className="flex-1 border-2 border-gray-300 rounded-full px-6 py-4 text-xl font-medium focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm" 
+              className="flex-1 border-2 border-gray-300 rounded-full px-4 lg:px-6 py-3 lg:py-4 text-sm lg:text-xl font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm" 
               disabled={isLoading} 
             />
             <button 
               type="submit" 
-              className="bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center hover:bg-blue-700 hover:scale-105 disabled:opacity-50 shadow-lg text-2xl transition-all" 
+              className="bg-blue-600 text-white rounded-full w-12 h-12 lg:w-16 lg:h-16 flex items-center justify-center hover:bg-blue-700 active:scale-95 disabled:opacity-50 shadow-md text-xl lg:text-2xl transition-all shrink-0" 
               disabled={isLoading || !input.trim()}
             >
               ➤
@@ -320,21 +330,8 @@ function KomponenPembelajaran() {
 
 export default function SplitScreenLearning() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center text-2xl font-bold text-blue-600 animate-pulse">Sistem I-RAGS sedang dimuatkan...</div>}>
+    <Suspense fallback={<div className="flex h-screen items-center justify-center text-xl lg:text-2xl font-bold text-blue-600 animate-pulse">Sistem I-RAGs sedang dimuatkan...</div>}>
       <KomponenPembelajaran />
     </Suspense>
   );
 }
-
-const formatTajuk = (id) => id.replace('tingkatan', 'Tingkatan ').replace('_bab', ' Bab ').replace('_sub', ' Subtopik ');
-
-  // FUNGSI BARU: Ambil soalan inkuiri pertama mengikut subtopik
-  const dapatkanSoalanPertama = (id) => {
-    if (id.includes("sub1.1")) {
-      return "Mengapakah kerajaan Alam Melayu boleh dianggap sebagai sebuah negara bangsa?";
-    } else if (id.includes("sub1.2")) {
-      return "Apakah yang membuatkan Kesultanan Melayu Melaka diiktiraf sebagai model negara bangsa yang unggul?";
-    } else {
-      return "Apakah persoalan utama yang menarik perhatian awak dalam subtopik ini?";
-    }
-  };
