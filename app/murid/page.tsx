@@ -315,13 +315,23 @@ export default function MuridDashboard() {
                                 <div className="flex gap-2">
                                   {/* 🌟 JIKA MODUL 1 DAN SUDAH DIJAWAB, TUNJUK BUTANG LINK */}
                                   {module.id === 1 && isModul1Completed ? (
-                                    <Link 
-                                      href={`/student/semakan-ujian/${docIds[chapter.id]}`} 
-                                      className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition shadow border border-indigo-200 flex items-center gap-2"
-                                    >
+                                   // Semak markah dan status post-test
+                                    (skorBab[chapter.id] >= 80 || completedModules.includes(`${activeLevel}-ch${chapter.id}-mod3`)) ? (
+                                     // JIKA CEMERLANG (>=80) ATAU DAH SIAP POST TEST (MODUL 3) -> BUKA SKEMA
+                                    <Link href={`/student/semakan-ujian/${docIds[chapter.id]}`} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition shadow border border-indigo-200 flex items-center gap-2">
+                                      
                                       🔍 Lihat Semakan
                                     </Link>
                                   ) : (
+
+                                     // JIKA LEMAH/SEDERHANA DAN BELUM SIAP POST TEST -> KUNCI SKEMA
+                                      <button disabled className="bg-slate-100 text-slate-400 border-slate-200 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2 cursor-not-allowed" title="Selesaikan Post Test dahulu untuk lihat skema.">
+                                     🔒 Semakan Dikunci
+                                      </button>
+                                        )
+                                      ) : (
+
+
                                     /* 🌟 JIKA BELUM DIJAWAB ATAU MODUL LAIN, TUNJUK BUTANG BIASA */
                                     <button 
                                       onClick={() => openModule(chapter.id, module.id)}

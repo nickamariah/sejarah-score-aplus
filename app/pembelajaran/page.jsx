@@ -62,7 +62,7 @@ function KomponenPembelajaran() {
         await addDoc(messagesCollectionRef, {
           role: "assistant",
           // UBAH CONTENT INI SUPAYA JADI DINAMIK 👇
-          content: `Hai! Saya I-RAGs 🤖. Jom kita mulakan sesi inkuiri untuk ${formatTajuk(chapterId).toUpperCase()}. ${dapatkanSoalanPertama(chapterId)}`,
+          content: `Hai! Saya I-RAGS 🤖. Jom kita mulakan sesi inkuiri untuk ${formatTajuk(chapterId).toUpperCase()}. ${dapatkanSoalanPertama(chapterId)}`,
           timestamp: serverTimestamp()
         });
       } else {

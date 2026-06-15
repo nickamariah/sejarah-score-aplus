@@ -73,7 +73,7 @@ export async function POST(req) {
     // ==========================================
     const systemPrompt = {
       role: "system",
-      content: `Anda ialah "I-RAGs", tutor maya Sejarah untuk murid aras rendah.
+      content: `Anda ialah "I-RAGS", tutor maya Sejarah untuk murid aras rendah.
       
       STATUS MURID SEKARANG: ${arahanFasa}
 

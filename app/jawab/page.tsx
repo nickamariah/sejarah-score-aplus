@@ -33,6 +33,30 @@ function KandunganUjian() {
   const [telahDisimpan, setTelahDisimpan] = useState(false); // Elak AI tanda 2 kali
   const [menganalisisAI, setMenganalisisAI] = useState(false); // Untuk paparan loading AI
 
+
+// Fungsi untuk kocok (shuffle) susunan array
+const shuffleArray = (array) => {
+  return array.sort(() => Math.random() - 0.5);
+};
+
+// CONTOH PENGGUNAAN:
+// Bila awak tarik data soalan dari Firebase atau fail tempatan, awak shuffle ia terus:
+const soalanKuiz = [
+  { id: 1, soalan: "Siapa pengasas Melaka?", pilihan: ["Parameswara", "Tun Perak", "Hang Tuah", "Sultan Mansur"] },
+  { id: 2, soalan: "Apakah ciri negara bangsa?", pilihan: ["Raja", "Kereta", "Bangunan", "Pangkat"] },
+];
+
+// 1. Shuffle susunan Soalan (Soalan 2 mungkin keluar dulu)
+const soalanDahShuffle = shuffleArray([...soalanKuiz]);
+
+// 2. Jika awak nak shuffle Pilihan Jawapan (A,B,C,D) juga:
+soalanDahShuffle.forEach(s => {
+  s.pilihan = shuffleArray([...s.pilihan]);
+});
+
+
+
+
   // TARIK SOALAN DARI FIREBASE
   useEffect(() => {
     if (!isClient) return;
