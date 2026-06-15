@@ -71,7 +71,6 @@ export default function MuridDashboard() {
           setActiveLevel("t4");
         }
       }
-      // Tarik status Post-Test dari memory
       const comp = JSON.parse(localStorage.getItem("completedModules") || "[]");
       setCompletedModules(comp);
     } catch (e) {}
@@ -94,11 +93,11 @@ export default function MuridDashboard() {
         const loadedScores: Record<number, number> = {};
         const loadedDocIds: Record<number, string> = {}; 
         
-        snapSkor.forEach((doc) => {
-          const data = doc.data();
+        snapSkor.forEach((docSnap) => {
+          const data = docSnap.data();
           const babNum = parseInt(data.bab.replace("Bab ", ""));
           loadedScores[babNum] = data.skor;
-          loadedDocIds[babNum] = doc.id; 
+          loadedDocIds[babNum] = docSnap.id; 
         });
         setSkorBab(loadedScores);
         setDocIds(loadedDocIds); 
@@ -107,8 +106,8 @@ export default function MuridDashboard() {
         const snapChat = await getDocs(qChat);
         const selesaiChat: string[] = [];
         
-        snapChat.forEach((doc) => {
-          const data = doc.data();
+        snapChat.forEach((docSnap) => {
+          const data = docSnap.data();
           if (data.chapterId) selesaiChat.push(data.chapterId); 
         });
         setAiSelesai(selesaiChat);
@@ -121,6 +120,9 @@ export default function MuridDashboard() {
     tarikDataFirebase();
   }, [activeLevel]);
 
+  // ===============================================================
+  // LOG KELUAR (CUCI MEMORI SUPAYA TAK BOCOR KE MURID LAIN)
+  // ===============================================================
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
     localStorage.removeItem("completedModules"); 
@@ -156,12 +158,10 @@ export default function MuridDashboard() {
     } else if (skor >= 50) {
       meta.aras = "sederhana";
       if (moduleId === 2) meta.displayName = `Bimbingan AI (Aras Sederhana)`;
-      // Kunci Modul 3 jika AI belum selesai
       if (moduleId === 3 && !isBimbinganSelesai) meta.adaptiveLocked = true; 
     } else {
       meta.aras = "rendah";
       if (moduleId === 2) meta.displayName = `Bimbingan AI (Bimbingan Penuh)`;
-      // Kunci Modul 3 jika AI belum selesai
       if (moduleId === 3 && !isBimbinganSelesai) meta.adaptiveLocked = true; 
     }
     return meta;
@@ -239,7 +239,6 @@ export default function MuridDashboard() {
                         if (adaptive.hidden) return null;
                         
                         const isModul1Completed = module.id === 1 && skorBab[chapter.id] !== undefined;
-                        
                         const formatBabKey = `tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapter.id}`;
                         const isModul2Completed = module.id === 2 && aiSelesai.some(id => id.includes(formatBabKey));
                         
@@ -262,8 +261,7 @@ export default function MuridDashboard() {
                                 ) : <div />}
                                 
                                 <div className="flex gap-2">
-                                  
-                                  {/* 🌟 LOGIK KUNCI SEMAKAN 🌟 */}
+                                  {/* LOGIK KUNCI SEMAKAN */}
                                   {module.id === 1 && isModul1Completed ? (
                                     (skorBab[chapter.id] >= 80 || completedModules.includes(`${activeLevel}-ch${chapter.id}-mod3`)) ? (
                                       <Link href={`/student/semakan-ujian/${docIds[chapter.id]}`} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition shadow border border-indigo-200 flex items-center gap-2">
@@ -287,7 +285,6 @@ export default function MuridDashboard() {
                                       {adaptive.adaptiveLocked ? 'Terkunci 🔒' : module.id === 1 ? 'Jawab Ujian 📝' : 'Buka Modul 🚀'}
                                     </button>
                                   )}
-
                                 </div>
                               </div>
                             </div>
