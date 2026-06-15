@@ -110,12 +110,15 @@ export default function SemakanUjianMurid() {
     <div className="max-w-4xl mx-auto p-6 space-y-6 bg-gray-50 min-h-screen">
       
       {/* BUTANG KEMBALI */}
-      <button 
-        onClick={() => router.push('/murid')} 
-        className="flex items-center text-gray-600 hover:text-blue-600 transition-colors font-medium"
-      >
-        <span className="mr-2">←</span> Kembali ke Dashboard
-      </button>
+      <div className="mb-6">
+  <button 
+    onClick={() => window.location.href = '/murid'} 
+    className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold shadow-md transition-all active:scale-95"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    Kembali ke Dashboard
+  </button>
+</div>
 
       {/* KAD MAKLUMAT PELAJAR */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
