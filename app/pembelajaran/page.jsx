@@ -210,9 +210,14 @@ function KomponenPembelajaran() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 lg:gap-3">
               {/* Butang Kembali ke Dashboard */}
-              <button onClick={() => window.location.href = '/murid'} className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition" title="Kembali ke Dashboard">
-                ⬅️
-              </button>
+              {/* Butang Kembali ke Dashboard (KINI LEBIH JELAS!) */}
+            <button 
+              onClick={() => window.location.href = '/murid'} 
+              className="bg-white text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition flex items-center gap-2 shrink-0"
+              title="Kembali ke Dashboard"
+            >
+              <span>⬅️</span> <span className="hidden lg:inline">Dashboard</span>
+            </button>
               
               <div className="text-2xl lg:text-4xl bg-white rounded-full p-1 shadow-sm">🤖</div>
               <div>
