@@ -13,7 +13,7 @@
     "firebase": "^12.14.0",
     "framer-motion": "^12.39.0",
     "lucide-react": "^1.16.0",
-    "next": "^14.2.0",
+    "next": "^16.2.9",
     "openai": "^6.42.0",
     "react": "^18.2.0",
     "react-circular-progressbar": "^2.2.0",
@@ -26,7 +26,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "eslint": "^8.0.0",
-    "eslint-config-next": "^14.2.0",
+    "eslint-config-next": "^16.2.9",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

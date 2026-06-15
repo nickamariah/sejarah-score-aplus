@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Zap, CheckCircle2, Trophy, Medal, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Map
+  Zap, CheckCircle2, Trophy, Medal, ChevronDown, Lock, Sparkles, LogOut, BarChart3
 } from "lucide-react";
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
@@ -20,10 +20,10 @@ const radarData = [
   { subject: "Kreativiti", A: 72, fullMark: 100 },
 ];
 
-// 🌟 PENYELESAIAN 1: Kita beritahu TypeScript jenis data yang betul
 type Subtopic = { id: string; title: string; };
 type ChapterDef = { id: number; title: string; desc: string; subtopics?: Subtopic[]; };
 
+// 🌟 SENARAI BAB LENGKAP (T4 & T5 DIKEMBALIKAN PENUH)
 const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
   t4: [
     { 
@@ -54,6 +54,15 @@ const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
   ],
   t5: [
     { id: 1, title: "Bab 1: Kedaulatan Negara", desc: "Konsep dan kepentingan kedaulatan" },
+    { id: 2, title: "Bab 2: Perlembagaan Persekutuan", desc: "Rangka perlembagaan dan hak" },
+    { id: 3, title: "Bab 3: Raja berperlembagaan & Demokrasi Berparlimen", desc: "Peranan Raja dan Parlimen" },
+    { id: 4, title: "Bab 4: Sistem Persekutuan", desc: "Susunan dan fungsi kerajaan persekutuan" },
+    { id: 5, title: "Bab 5: Pembentukan Malaysia", desc: "Proses dan isu pembentukan Malaysia" },
+    { id: 6, title: "Bab 6: Cabaran Selepas Pembentukaan Malaysia", desc: "Isu sosial dan politik pasca pembentukan" },
+    { id: 7, title: "Bab 7: Membina Kesejahteraan Negara", desc: "Dasar dan program membina kesejahteraan" },
+    { id: 8, title: "Bab 8: Membina Kemakmuran Negara", desc: "Strategi pembangunan ekonomi" },
+    { id: 9, title: "Bab 9: Dasar Luar Malaysia", desc: "Pendekatan dan kepentingan dasar luar" },
+    { id: 10, title: "Bab 10: Kecemerlangan Malaysia di Persada Dunia", desc: "Peranan Malaysia di pentas antarabangsa" },
   ]
 };
 
@@ -151,7 +160,6 @@ export default function MuridDashboard() {
   };
 
   const getAdaptiveMeta = (chapterId: number, moduleId: number, chapterData: any) => {
-    // 🌟 PENYELESAIAN 2: Paksa TypeScript faham meta.hidden tu boolean
     const meta: { hidden: boolean; adaptiveLocked: boolean; displayName: string; aras: string } = { 
       hidden: false, adaptiveLocked: false, displayName: "", aras: "" 
     };
@@ -297,39 +305,7 @@ export default function MuridDashboard() {
                 {expandedChapter === chapter.id && (
                   <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="border-t border-slate-100 bg-slate-50/50 p-6 overflow-hidden">
                     
-                    {skorBab[chapter.id] !== undefined && skorBab[chapter.id] < 80 && chapter.subtopics && chapter.subtopics.length > 0 && (
-                      <div className="mb-6 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
-                          <Map className="w-4 h-4"/> Laluan Bimbingan Subtopik
-                        </h4>
-                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                          {chapter.subtopics.map((sub: any, idx: number) => {
-                            const isSubSelesai = aiSelesai.includes(`tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapter.id}_sub${sub.id}`);
-                            let isAktif = false;
-                            if (!isSubSelesai) {
-                              if (idx === 0) isAktif = true;
-                              else if (aiSelesai.includes(`tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapter.id}_sub${chapter.subtopics[idx-1].id}`)) isAktif = true;
-                            }
-
-                            if (isSubSelesai) return (
-                              <div key={sub.id} className="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-sm font-bold flex items-center gap-2 whitespace-nowrap">
-                                ✅ {sub.id} {sub.title}
-                              </div>
-                            );
-                            if (isAktif) return (
-                              <div key={sub.id} className="px-4 py-2 bg-sky-100 text-sky-700 border-2 border-sky-400 rounded-xl text-sm font-bold flex items-center gap-2 whitespace-nowrap shadow-sm">
-                                🚀 {sub.id} {sub.title}
-                              </div>
-                            );
-                            return (
-                              <div key={sub.id} className="px-4 py-2 bg-slate-100 text-slate-400 border border-slate-200 rounded-xl text-sm font-bold flex items-center gap-2 whitespace-nowrap opacity-60">
-                                🔒 {sub.id} {sub.title}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+                    {/* KOD LALUAN SUBTOPIK TELAH DIBUANG SEPENUHNYA DARI SINI */}
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       {modules.map((module) => {
@@ -339,7 +315,7 @@ export default function MuridDashboard() {
                         
                         const subSemasa = getCurrentSubtopic(chapter.id, chapter);
                         const isModul1Completed = module.id === 1 && skorBab[chapter.id] !== undefined;
-                        const isModul2Completed = module.id === 2 && !adaptive.adaptiveLocked && adaptive.hidden; 
+                        const isModul2Completed = module.id === 2 && !adaptive.adaptiveLocked && adaptive.hidden === true; 
                         const isButtonDisabled = adaptive.adaptiveLocked || (module.id === 1 && isModul1Completed);
 
                         return (
