@@ -17,8 +17,8 @@ import { Radar, RadarChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, Responsi
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "../../lib/firebase"; // Pastikan path ini betul ikut fail Dr. Nic
-import Link from "next/link"; // Pastikan Link di-import di bahagian atas sekali fail
+import { db } from "../../lib/firebase"; 
+import Link from "next/link"; 
 
 const radarData = [
   { subject: "Pemahaman", A: 88, fullMark: 100 },
@@ -55,7 +55,6 @@ const chapters = {
   ]
 };
 
-// 🌟 SENARAI MODUL BARU (DIAGNOSTIK DAHULU, NOTA DALAM AI)
 const modules = [
   { id: 1, name: "Ujian Diagnostik", icon: Zap, color: "amber", note: "Wajib dijawab untuk penentuan aras." },
   { id: 2, name: "Bimbingan AI (RAG)", icon: Sparkles, color: "purple", note: "Sesi bimbingan berdasarkan kelemahan anda." },
@@ -68,21 +67,19 @@ export default function MuridDashboard() {
   const [activeLevel, setActiveLevel] = useState<"t4" | "t5">("t4");
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
   
-  // SEMUA STATE HANYA DEKLARASI SEKALI DI SINI
   const [completedModules, setCompletedModules] = useState<string[]>([]);
   const [skorBab, setSkorBab] = useState<Record<number, number>>({});
   const [docIds, setDocIds] = useState<Record<number, string>>({}); 
+  
+  // 🌟 STATE PENTING: Simpan senarai Bimbingan AI yang dah selesai
+  const [aiSelesai, setAiSelesai] = useState<string[]>([]); 
 
-  // ===============================================================
-  // 1. TARIK DATA MURID (Hanya run SEKALI masa mula-mula masuk)
-  // ===============================================================
   useEffect(() => {
     try {
       const raw = localStorage.getItem("currentUser");
       if (raw) {
         const user = JSON.parse(raw);
         setUserData(user);
-        // Tetapkan tab aktif ikut tingkatan murid masa mula-mula login
         if (user.tingkatan?.toString() === "5") {
           setActiveLevel("t5");
         } else {
@@ -93,10 +90,10 @@ export default function MuridDashboard() {
   }, []); 
 
   // ===============================================================
-  // 2. TARIK MARKAH & ID DARI FIREBASE
+  // TARIK MARKAH & SEMAK STATUS AI DARI FIREBASE
   // ===============================================================
   useEffect(() => {
-    const tarikMarkahFirebase = async () => {
+    const tarikDataFirebase = async () => {
       const rawUser = localStorage.getItem("currentUser");
       if (!rawUser) return;
       const user = JSON.parse(rawUser);
@@ -104,31 +101,38 @@ export default function MuridDashboard() {
       try {
         const tingkatanSemasa = activeLevel === "t4" ? "4" : "5";
         
-        const q = query(
-          collection(db, "skor_murid"),
-          where("idMurid", "==", user.id),
-          where("tingkatan", "==", tingkatanSemasa)
-        );
-
-        const querySnapshot = await getDocs(q);
+        // 1. Tarik Skor Diagnostik
+        const qSkor = query(collection(db, "skor_murid"), where("idMurid", "==", user.id), where("tingkatan", "==", tingkatanSemasa));
+        const snapSkor = await getDocs(qSkor);
         const loadedScores: Record<number, number> = {};
         const loadedDocIds: Record<number, string> = {}; 
         
-        querySnapshot.forEach((doc) => {
+        snapSkor.forEach((doc) => {
           const data = doc.data();
           const babNum = parseInt(data.bab.replace("Bab ", ""));
           loadedScores[babNum] = data.skor;
           loadedDocIds[babNum] = doc.id; 
         });
-
         setSkorBab(loadedScores);
         setDocIds(loadedDocIds); 
+
+        // 2. Tarik Status Bimbingan AI (Adakah murid dah habis Fasa 5?)
+        const qChat = query(collection(db, "chat_sessions"), where("studentId", "==", user.id), where("status", "==", "completed"));
+        const snapChat = await getDocs(qChat);
+        const selesaiChat: string[] = [];
+        
+        snapChat.forEach((doc) => {
+          const data = doc.data();
+          if (data.chapterId) selesaiChat.push(data.chapterId); 
+        });
+        setAiSelesai(selesaiChat);
+
       } catch (error) {
-        console.error("Ralat tarik markah dari Firebase:", error);
+        console.error("Ralat tarik data Firebase:", error);
       }
     };
 
-    tarikMarkahFirebase();
+    tarikDataFirebase();
   }, [activeLevel]);
 
   const handleLogout = () => {
@@ -136,41 +140,64 @@ export default function MuridDashboard() {
     window.location.href = "/";
   };
 
-  const openModule = (chapterId: number, moduleId: number) => {
+  // ===============================================================
+  // LOGIK NAVIGASI KE MODUL-MODUL KAJIAN (DENGAN ARAS)
+  // ===============================================================
+  const openModule = (chapterId: number, moduleId: number, aras: string) => {
+    const t = activeLevel === "t4" ? "4" : "5";
+
     if (moduleId === 1) {
-      const aras = activeLevel === "t4" ? "4" : "5";
-      window.location.href = `/jawab?tingkatan=${aras}&bab=Bab ${chapterId}`;
-      return;
+      window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}`;
+    } 
+    else if (moduleId === 2) {
+      // 🚀 Bawa murid ke Chatbot I-RAGS dengan aras kognitif mereka
+      const formatBab = `tingkatan${t}_bab${chapterId}_sub1.1`;
+      window.location.href = `/pembelajaran?bab=${formatBab}&aras=${aras}`;
+    } 
+    else if (moduleId === 3) {
+      // 🚀 Bawa murid ke Post Test
+      window.location.href = `/post-test?tingkatan=${t}&bab=${chapterId}`;
+    } 
+    else {
+      window.alert(`Modul ${moduleId} sedang dibangunkan.`);
     }
-    window.alert(`Modul ${moduleId} sedang dibangunkan (Fasa Seterusnya).`);
   };
 
+  // ===============================================================
+  // LOGIK ADAPTIF (KUNCI/BUKA MODUL)
+  // ===============================================================
   const getAdaptiveMeta = (chapterId: number, moduleId: number) => {
-    const meta = { hidden: false, adaptiveLocked: false, displayName: "" };
+    const meta = { hidden: false, adaptiveLocked: false, displayName: "", aras: "" };
     const skor = skorBab[chapterId];
+    
+    // Semak sama ada murid dah lulus Bimbingan AI untuk bab ini
+    const formatBabKey = `tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapterId}`;
+    const isBimbinganSelesai = aiSelesai.some(id => id.includes(formatBabKey));
 
     if (skor === undefined) {
-      // BELUM JAWAB UJIAN DIAGNOSTIK
+      // JIKA BELUM BUAT DIAGNOSTIK
       if (moduleId !== 1) meta.adaptiveLocked = true;
     } else if (skor >= 80) {
-      // CEMERLANG
-      if ([2, 3].includes(moduleId)) meta.hidden = true;
+      // KUMPULAN CEMERLANG
+      if ([2, 3].includes(moduleId)) meta.hidden = true; // Tak perlu bimbingan & post test
       if ([4].includes(moduleId)) meta.adaptiveLocked = false;
     } else if (skor >= 50) {
-      // SEDERHANA
+      // KUMPULAN SEDERHANA
+      meta.aras = "sederhana";
       if (moduleId === 2) meta.displayName = `Bimbingan AI (Aras Sederhana)`;
+      if (moduleId === 3 && !isBimbinganSelesai) meta.adaptiveLocked = true; // 🔒 KUNCI POST TEST JIKA AI BELUM SIAP
       if (moduleId === 4) meta.adaptiveLocked = true;
     } else {
-      // BIMBINGAN
+      // KUMPULAN RENDAH (BIMBINGAN)
+      meta.aras = "rendah";
       if (moduleId === 2) meta.displayName = `Bimbingan AI (Bimbingan Penuh)`;
+      if (moduleId === 3 && !isBimbinganSelesai) meta.adaptiveLocked = true; // 🔒 KUNCI POST TEST JIKA AI BELUM SIAP
       if (moduleId === 4) meta.adaptiveLocked = true;
     }
     return meta;
   };
 
   const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
-
-  // Kira peratusan penguasaan keseluruhan
   const totalModules = currentChapters.length * modules.length;
   const completedCount = completedModules.filter((k) => k.startsWith(activeLevel)).length;
   const masteryPercent = totalModules ? Math.round((completedCount / totalModules) * 100) : 0;
@@ -186,13 +213,8 @@ export default function MuridDashboard() {
                 {userData?.name ? userData.name.charAt(0).toUpperCase() : (userData?.nama ? userData.nama.charAt(0).toUpperCase() : "P")}
               </div>
               <div>
-                <p className="text-xs md:text-sm uppercase tracking-widest text-slate-500">Selamat datang,</p>
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{userData?.name || userData?.nama || "Pelajar Pintar"}</h1>
                 <p className="text-sm text-slate-600">Pusat Pembelajaran HUB I-RAGS</p>
-                <div className="mt-2 flex items-center gap-3">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-700 text-xs font-semibold">🔥 Streak: 7</span>
-                  <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-sky-700 text-xs font-semibold">XP: 1240</span>
-                </div>
               </div>
             </div>
             <button onClick={handleLogout} className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-red-300 bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition">
@@ -200,48 +222,6 @@ export default function MuridDashboard() {
             </button>
           </div>
         </motion.div>
-
-        {/* CARTA & ANALITIK PENGUASAAN */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="md:col-span-1 rounded-xl bg-white p-6 shadow-sm border border-slate-200 flex flex-col items-center justify-center">
-            <h3 className="text-sm text-slate-500 uppercase tracking-widest font-semibold">Penguasaan Bab</h3>
-            <div className="w-40 h-40 mt-6">
-              <CircularProgressbar
-                value={masteryPercent}
-                text={`${masteryPercent}%`}
-                styles={buildStyles({
-                  textSize: "18px",
-                  pathColor: `rgba(14, 165, 233, ${masteryPercent / 100 || 0.1})`, 
-                  textColor: "#0f172a",
-                  trailColor: "#f1f5f9",
-                })}
-              />
-            </div>
-            <p className="mt-6 text-sm text-slate-600 text-center font-medium">Selesaikan Ujian Diagnostik dan Modul untuk tingkatkan peratusan anda.</p>
-          </div>
-
-          <div className="md:col-span-2 rounded-xl bg-white p-6 shadow-sm border border-slate-200">
-            <div className="flex items-center justify-between border-b pb-4">
-              <div>
-                <p className="text-sm uppercase tracking-widest text-slate-500 font-semibold">Analitik Kemahiran</p>
-                <h2 className="text-xl font-bold text-slate-900 mt-1">Radar Prestasi Sejarah</h2>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-sm font-bold text-amber-700 shadow-sm">
-                <Trophy className="w-4 h-4 text-amber-500" /> Top 14%
-              </div>
-            </div>
-            <div className="mt-4 h-60 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
-                  <PolarGrid stroke="#e2e8f0" />
-                  <PolarAngleAxis dataKey="subject" stroke="#64748b" tick={{ fill: '#475569', fontSize: 12, fontWeight: 600 }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                  <Radar name="Skor" dataKey="A" stroke="#0ea5e9" strokeWidth={2} fill="#38bdf8" fillOpacity={0.4} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
 
         {/* TABS TINGKATAN */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex gap-3">
@@ -263,7 +243,6 @@ export default function MuridDashboard() {
           {currentChapters.map((chapter, index) => (
             <motion.div key={chapter.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               
-              {/* Kepala Bab */}
               <button onClick={() => setExpandedChapter(expandedChapter === chapter.id ? null : chapter.id)} className="w-full px-6 py-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div className="text-left flex-1">
                   <h3 className="font-bold text-lg text-slate-900">{chapter.title}</h3>
@@ -275,13 +254,10 @@ export default function MuridDashboard() {
                       Skor: {skorBab[chapter.id]}%
                     </span>
                   )}
-                  <motion.div animate={{ rotate: expandedChapter === chapter.id ? 180 : 0 }}>
-                    <ChevronDown className="w-6 h-6 text-slate-400" />
-                  </motion.div>
+                  <ChevronDown className="w-6 h-6 text-slate-400" />
                 </div>
               </button>
 
-              {/* Isi Modul */}
               <AnimatePresence>
                 {expandedChapter === chapter.id && (
                   <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="border-t border-slate-200 bg-slate-50/50 p-6 overflow-hidden">
@@ -291,14 +267,17 @@ export default function MuridDashboard() {
                         const adaptive = getAdaptiveMeta(chapter.id, module.id);
                         if (adaptive.hidden) return null;
                         
-                        const modKey = `${activeLevel}-ch${chapter.id}-mod${module.id}`;
-                        const isCompleted = completedModules.includes(modKey);
                         const isModul1Completed = module.id === 1 && skorBab[chapter.id] !== undefined;
+                        
+                        // Semak kalau Modul 2 (AI) dah selesai di Firebase
+                        const formatBabKey = `tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapter.id}`;
+                        const isModul2Completed = module.id === 2 && aiSelesai.some(id => id.includes(formatBabKey));
+                        
                         const isButtonDisabled = adaptive.adaptiveLocked || (module.id === 1 && isModul1Completed);
 
                         return (
-                          <div key={module.id} className={`p-5 rounded-xl border ${adaptive.adaptiveLocked ? 'bg-slate-100 border-slate-200' : isModul1Completed ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-sky-200 shadow-sm'} flex items-start gap-4 transition-all hover:shadow-md`}>
-                            <div className={`p-3 rounded-xl shrink-0 shadow-inner ${adaptive.adaptiveLocked ? 'bg-slate-200 text-slate-500' : isModul1Completed ? 'bg-emerald-100 text-emerald-600' : 'bg-gradient-to-br from-sky-100 to-sky-200 text-sky-700'}`}>
+                          <div key={module.id} className={`p-5 rounded-xl border ${adaptive.adaptiveLocked ? 'bg-slate-100 border-slate-200' : (isModul1Completed || isModul2Completed) ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-sky-200 shadow-sm'} flex items-start gap-4 transition-all hover:shadow-md`}>
+                            <div className={`p-3 rounded-xl shrink-0 shadow-inner ${adaptive.adaptiveLocked ? 'bg-slate-200 text-slate-500' : (isModul1Completed || isModul2Completed) ? 'bg-emerald-100 text-emerald-600' : 'bg-gradient-to-br from-sky-100 to-sky-200 text-sky-700'}`}>
                               {adaptive.adaptiveLocked ? <Lock className="w-6 h-6" /> : <Icon className="w-6 h-6" />}
                             </div>
                             <div className="flex-1">
@@ -306,35 +285,31 @@ export default function MuridDashboard() {
                               <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">{module.note}</p>
                               
                               <div className="flex items-center justify-between">
-                                {isCompleted || isModul1Completed ? (
+                                {(isModul1Completed || isModul2Completed) ? (
                                   <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-100/50 px-3 py-1 rounded-full border border-emerald-200">
                                     <CheckCircle2 className="w-4 h-4"/> Selesai
                                   </span>
                                 ) : <div />}
                                 
                                 <div className="flex gap-2">
-                                  {/* 🌟 JIKA MODUL 1 DAN SUDAH DIJAWAB, TUNJUK BUTANG LINK */}
+                                  
+                                  {/* ============================================================== */}
+                                  {/* LOGIK PINTAR: BUTANG SEMAKAN UNTUK UJIAN DIAGNOSTIK */}
+                                  {/* ============================================================== */}
                                   {module.id === 1 && isModul1Completed ? (
-                                   // Semak markah dan status post-test
                                     (skorBab[chapter.id] >= 80 || completedModules.includes(`${activeLevel}-ch${chapter.id}-mod3`)) ? (
-                                     // JIKA CEMERLANG (>=80) ATAU DAH SIAP POST TEST (MODUL 3) -> BUKA SKEMA
-                                    <Link href={`/student/semakan-ujian/${docIds[chapter.id]}`} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition shadow border border-indigo-200 flex items-center gap-2">
-                                      
-                                      🔍 Lihat Semakan
-                                    </Link>
-                                  ) : (
-
-                                     // JIKA LEMAH/SEDERHANA DAN BELUM SIAP POST TEST -> KUNCI SKEMA
+                                      <Link href={`/student/semakan-ujian/${docIds[chapter.id]}`} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition shadow border border-indigo-200 flex items-center gap-2">
+                                        🔍 Lihat Semakan
+                                      </Link>
+                                    ) : (
                                       <button disabled className="bg-slate-100 text-slate-400 border-slate-200 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2 cursor-not-allowed" title="Selesaikan Post Test dahulu untuk lihat skema.">
-                                     🔒 Semakan Dikunci
+                                        🔒 Semakan Dikunci
                                       </button>
-                                        )
-                                      ) : (
-
-
-                                    /* 🌟 JIKA BELUM DIJAWAB ATAU MODUL LAIN, TUNJUK BUTANG BIASA */
+                                    )
+                                  ) : (
+                                    /* BUTANG BIASA UNTUK MODUL LAIN */
                                     <button 
-                                      onClick={() => openModule(chapter.id, module.id)}
+                                      onClick={() => openModule(chapter.id, module.id, adaptive.aras)}
                                       disabled={isButtonDisabled}
                                       className={`px-4 py-2 text-sm font-bold rounded-lg transition-all shadow border ${
                                         isButtonDisabled 
@@ -365,16 +340,6 @@ export default function MuridDashboard() {
             </motion.div>
           ))}
         </motion.div>
-
-        {/* FOOTER MOTIVASI */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-12 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 p-6 md:p-8 text-white shadow-lg flex items-center gap-4">
-          <Medal className="w-10 h-10 shrink-0 text-amber-100" />
-          <div>
-            <h3 className="text-xl font-bold">Teruskan Pembelajaran!</h3>
-            <p className="text-amber-50 text-sm md:text-base mt-1">Selesaikan Ujian Diagnostik untuk membuka laluan khas AI dan kumpul lebih banyak XP.</p>
-          </div>
-        </motion.div>
-
       </div>
     </div>
   );
