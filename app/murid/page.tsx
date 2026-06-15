@@ -123,6 +123,7 @@ export default function MuridDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
+    localStorage.removeItem("completedModules"); 
     window.location.href = "/";
   };
 
