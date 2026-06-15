@@ -6,7 +6,6 @@ import {
   Zap,
   CheckCircle2,
   Trophy,
-  Gamepad2,
   Medal,
   ChevronDown,
   Lock,
@@ -32,34 +31,18 @@ const chapters = {
   t4: [
     { id: 1, title: "Bab 1: Warisan Negara Bangsa", desc: "Mengenal identiti dan nilai kebangsaan" },
     { id: 2, title: "Bab 2: Kebangkitan Nasionalisme", desc: "Asas kebangkitan dan semangat kebangsaan" },
-    { id: 3, title: "Bab 3: Konflik Dunia & Pendudukan Jepun Di negara Kita", desc: "Perang Dunia dan pendudukan Jepun di negara kita" },
-    { id: 4, title: "Bab 4: Era Peralihan Kuasa British Di Negara Kita", desc: "Perubahan kuasa British dan kesannya" },
-    { id: 5, title: "Bab 5: Persekutuan Tanah Melayu (PTM) 1948", desc: "Pembentukan PTM 1948" },
-    { id: 6, title: "Bab 6: Ancaman Komunis & Perisytiharan Darurat", desc: "Perjuangan menentang ancaman komunis" },
-    { id: 7, title: "Bab 7: Usaha Ke Arah Kemerdekaan", desc: "Gerakan dan rundingan ke arah merdeka" },
-    { id: 8, title: "Bab 8: Pilihan Raya", desc: "Proses pilihan raya awal dan impaknya" },
-    { id: 9, title: "Bab 9: PTM 1957", desc: "Peristiwa penting PTM 1957" },
-    { id: 10, title: "Bab 10: Permasyuran Kemerdekaan", desc: "Upacara dan simbol permasyuran kemerdekaan" },
   ],
   t5: [
     { id: 1, title: "Bab 1: Kedaulatan Negara", desc: "Konsep dan kepentingan kedaulatan" },
     { id: 2, title: "Bab 2: Perlembagaan Persekutuan", desc: "Rangka perlembagaan dan hak" },
-    { id: 3, title: "Bab 3: Raja berperlembagaan & Demokrasi Berparlimen", desc: "Peranan Raja dan Parlimen" },
-    { id: 4, title: "Bab 4: Sistem Persekutuan", desc: "Susunan dan fungsi kerajaan persekutuan" },
-    { id: 5, title: "Bab 5: Pembentukan Malaysia", desc: "Proses dan isu pembentukan Malaysia" },
-    { id: 6, title: "Bab 6: Cabaran Selepas Pembentukaan Malaysia", desc: "Isu sosial dan politik pasca pembentukan" },
-    { id: 7, title: "Bab 7: Membina Kesejahteraan Negara", desc: "Dasar dan program membina kesejahteraan" },
-    { id: 8, title: "Bab 8: Membina Kemakmuran Negara", desc: "Strategi pembangunan ekonomi" },
-    { id: 9, title: "Bab 9: Dasar Luar Malaysia", desc: "Pendekatan dan kepentingan dasar luar" },
-    { id: 10, title: "Bab 10: Kecemerlangan Malaysia di Persada Dunia", desc: "Peranan Malaysia di pentas antarabangsa" },
   ]
 };
 
+// 🌟 SENARAI MODUL BARU (GAMES DIBUANG)
 const modules = [
   { id: 1, name: "Ujian Diagnostik", icon: Zap, color: "amber", note: "Wajib dijawab untuk penentuan aras." },
   { id: 2, name: "Bimbingan AI (RAG)", icon: Sparkles, color: "purple", note: "Sesi bimbingan berdasarkan kelemahan anda." },
-  { id: 3, name: "Post Test", icon: CheckCircle2, color: "emerald", note: "Ujian pengesahan kefahaman akhir." },
-  { id: 4, name: "Games Pengukuhan", icon: Gamepad2, color: "pink", note: "Ganjaran main sambil belajar." },
+  { id: 3, name: "Post Test", icon: CheckCircle2, color: "emerald", note: "Ujian pengesahan kefahaman akhir." }
 ];
 
 export default function MuridDashboard() {
@@ -71,9 +54,11 @@ export default function MuridDashboard() {
   const [skorBab, setSkorBab] = useState<Record<number, number>>({});
   const [docIds, setDocIds] = useState<Record<number, string>>({}); 
   
-  // 🌟 STATE PENTING: Simpan senarai Bimbingan AI yang dah selesai
   const [aiSelesai, setAiSelesai] = useState<string[]>([]); 
 
+  // ===============================================================
+  // TARIK DATA MURID & MODULES YANG DAH SIAP
+  // ===============================================================
   useEffect(() => {
     try {
       const raw = localStorage.getItem("currentUser");
@@ -86,6 +71,9 @@ export default function MuridDashboard() {
           setActiveLevel("t4");
         }
       }
+      // Tarik status Post-Test dari memory
+      const comp = JSON.parse(localStorage.getItem("completedModules") || "[]");
+      setCompletedModules(comp);
     } catch (e) {}
   }, []); 
 
@@ -101,7 +89,6 @@ export default function MuridDashboard() {
       try {
         const tingkatanSemasa = activeLevel === "t4" ? "4" : "5";
         
-        // 1. Tarik Skor Diagnostik
         const qSkor = query(collection(db, "skor_murid"), where("idMurid", "==", user.id), where("tingkatan", "==", tingkatanSemasa));
         const snapSkor = await getDocs(qSkor);
         const loadedScores: Record<number, number> = {};
@@ -116,7 +103,6 @@ export default function MuridDashboard() {
         setSkorBab(loadedScores);
         setDocIds(loadedDocIds); 
 
-        // 2. Tarik Status Bimbingan AI (Adakah murid dah habis Fasa 5?)
         const qChat = query(collection(db, "chat_sessions"), where("studentId", "==", user.id), where("status", "==", "completed"));
         const snapChat = await getDocs(qChat);
         const selesaiChat: string[] = [];
@@ -140,9 +126,6 @@ export default function MuridDashboard() {
     window.location.href = "/";
   };
 
-  // ===============================================================
-  // LOGIK NAVIGASI KE MODUL-MODUL KAJIAN (DENGAN ARAS)
-  // ===============================================================
   const openModule = (chapterId: number, moduleId: number, aras: string) => {
     const t = activeLevel === "t4" ? "4" : "5";
 
@@ -150,49 +133,35 @@ export default function MuridDashboard() {
       window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}`;
     } 
     else if (moduleId === 2) {
-      // 🚀 Bawa murid ke Chatbot I-RAGS dengan aras kognitif mereka
       const formatBab = `tingkatan${t}_bab${chapterId}_sub1.1`;
       window.location.href = `/pembelajaran?bab=${formatBab}&aras=${aras}`;
     } 
     else if (moduleId === 3) {
-      // 🚀 Bawa murid ke Post Test
       window.location.href = `/post-test?tingkatan=${t}&bab=${chapterId}`;
     } 
-    else {
-      window.alert(`Modul ${moduleId} sedang dibangunkan.`);
-    }
   };
 
-  // ===============================================================
-  // LOGIK ADAPTIF (KUNCI/BUKA MODUL)
-  // ===============================================================
   const getAdaptiveMeta = (chapterId: number, moduleId: number) => {
     const meta = { hidden: false, adaptiveLocked: false, displayName: "", aras: "" };
     const skor = skorBab[chapterId];
     
-    // Semak sama ada murid dah lulus Bimbingan AI untuk bab ini
     const formatBabKey = `tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapterId}`;
     const isBimbinganSelesai = aiSelesai.some(id => id.includes(formatBabKey));
 
     if (skor === undefined) {
-      // JIKA BELUM BUAT DIAGNOSTIK
       if (moduleId !== 1) meta.adaptiveLocked = true;
     } else if (skor >= 80) {
-      // KUMPULAN CEMERLANG
-      if ([2, 3].includes(moduleId)) meta.hidden = true; // Tak perlu bimbingan & post test
-      if ([4].includes(moduleId)) meta.adaptiveLocked = false;
+      if ([2, 3].includes(moduleId)) meta.hidden = true; 
     } else if (skor >= 50) {
-      // KUMPULAN SEDERHANA
       meta.aras = "sederhana";
       if (moduleId === 2) meta.displayName = `Bimbingan AI (Aras Sederhana)`;
-      if (moduleId === 3 && !isBimbinganSelesai) meta.adaptiveLocked = true; // 🔒 KUNCI POST TEST JIKA AI BELUM SIAP
-      if (moduleId === 4) meta.adaptiveLocked = true;
+      // Kunci Modul 3 jika AI belum selesai
+      if (moduleId === 3 && !isBimbinganSelesai) meta.adaptiveLocked = true; 
     } else {
-      // KUMPULAN RENDAH (BIMBINGAN)
       meta.aras = "rendah";
       if (moduleId === 2) meta.displayName = `Bimbingan AI (Bimbingan Penuh)`;
-      if (moduleId === 3 && !isBimbinganSelesai) meta.adaptiveLocked = true; // 🔒 KUNCI POST TEST JIKA AI BELUM SIAP
-      if (moduleId === 4) meta.adaptiveLocked = true;
+      // Kunci Modul 3 jika AI belum selesai
+      if (moduleId === 3 && !isBimbinganSelesai) meta.adaptiveLocked = true; 
     }
     return meta;
   };
@@ -205,6 +174,7 @@ export default function MuridDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-8 md:px-6 font-sans text-slate-900">
       <div className="mx-auto max-w-6xl">
+        
         {/* HEADER PROFIL */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-white p-6 md:p-8 shadow-sm border border-slate-200 mb-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -269,7 +239,6 @@ export default function MuridDashboard() {
                         
                         const isModul1Completed = module.id === 1 && skorBab[chapter.id] !== undefined;
                         
-                        // Semak kalau Modul 2 (AI) dah selesai di Firebase
                         const formatBabKey = `tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapter.id}`;
                         const isModul2Completed = module.id === 2 && aiSelesai.some(id => id.includes(formatBabKey));
                         
@@ -293,21 +262,18 @@ export default function MuridDashboard() {
                                 
                                 <div className="flex gap-2">
                                   
-                                  {/* ============================================================== */}
-                                  {/* LOGIK PINTAR: BUTANG SEMAKAN UNTUK UJIAN DIAGNOSTIK */}
-                                  {/* ============================================================== */}
+                                  {/* 🌟 LOGIK KUNCI SEMAKAN 🌟 */}
                                   {module.id === 1 && isModul1Completed ? (
                                     (skorBab[chapter.id] >= 80 || completedModules.includes(`${activeLevel}-ch${chapter.id}-mod3`)) ? (
                                       <Link href={`/student/semakan-ujian/${docIds[chapter.id]}`} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition shadow border border-indigo-200 flex items-center gap-2">
                                         🔍 Lihat Semakan
                                       </Link>
                                     ) : (
-                                      <button disabled className="bg-slate-100 text-slate-400 border-slate-200 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2 cursor-not-allowed" title="Selesaikan Post Test dahulu untuk lihat skema.">
+                                      <button disabled className="bg-slate-100 text-slate-400 border-slate-200 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2 cursor-not-allowed">
                                         🔒 Semakan Dikunci
                                       </button>
                                     )
                                   ) : (
-                                    /* BUTANG BIASA UNTUK MODUL LAIN */
                                     <button 
                                       onClick={() => openModule(chapter.id, module.id, adaptive.aras)}
                                       disabled={isButtonDisabled}
@@ -317,15 +283,10 @@ export default function MuridDashboard() {
                                           : 'bg-sky-600 text-white hover:bg-sky-700 border-sky-700'
                                       }`}
                                     >
-                                      {adaptive.adaptiveLocked 
-                                        ? 'Terkunci 🔒' 
-                                        : module.id === 1 
-                                        ? 'Jawab Ujian 📝' 
-                                        : module.id === 4 
-                                        ? 'Mula Permainan 🎮' 
-                                        : 'Buka Modul 🚀'}
+                                      {adaptive.adaptiveLocked ? 'Terkunci 🔒' : module.id === 1 ? 'Jawab Ujian 📝' : 'Buka Modul 🚀'}
                                     </button>
                                   )}
+
                                 </div>
                               </div>
                             </div>
