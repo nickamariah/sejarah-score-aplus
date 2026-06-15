@@ -23,7 +23,6 @@ const radarData = [
 type Subtopic = { id: string; title: string; };
 type ChapterDef = { id: number; title: string; desc: string; subtopics?: Subtopic[]; };
 
-// 🌟 SENARAI BAB LENGKAP (T4 & T5 DIKEMBALIKAN PENUH)
 const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
   t4: [
     { 
@@ -53,7 +52,7 @@ const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
     { id: 10, title: "Bab 10: Permasyuran Kemerdekaan", desc: "Upacara dan simbol permasyuran kemerdekaan" },
   ],
   t5: [
-    { id: 1, title: "Bab 1: Kedaulatan Negara", desc: "Konsep dan kepentingan kedaulatan" },
+    { id: 1, title: "Bab 1: Kedaulatan Negara", desc: "Konsep dan kepentingan kedaulatan", subtopics: [] },
     { id: 2, title: "Bab 2: Perlembagaan Persekutuan", desc: "Rangka perlembagaan dan hak" },
     { id: 3, title: "Bab 3: Raja berperlembagaan & Demokrasi Berparlimen", desc: "Peranan Raja dan Parlimen" },
     { id: 4, title: "Bab 4: Sistem Persekutuan", desc: "Susunan dan fungsi kerajaan persekutuan" },
@@ -71,6 +70,14 @@ const modules = [
   { id: 2, name: "Bimbingan AI (RAG)", icon: Sparkles, color: "purple", note: "Sesi bimbingan AI mengikut subtopik." },
   { id: 3, name: "Post Test", icon: CheckCircle2, color: "emerald", note: "Ujian pengesahan kefahaman akhir." }
 ];
+
+// 🌟 PENYELESAIAN 2: Isytihar interface AdaptiveMeta dengan jelas untuk TypeScript
+interface AdaptiveMeta {
+  hidden: boolean;
+  adaptiveLocked: boolean;
+  displayName: string;
+  aras: string;
+}
 
 export default function MuridDashboard() {
   const [userData, setUserData] = useState<any>(null);
@@ -159,11 +166,8 @@ export default function MuridDashboard() {
     else if (moduleId === 3) window.location.href = `/post-test?tingkatan=${t}&bab=${chapterId}`;
   };
 
-  const getAdaptiveMeta = (chapterId: number, moduleId: number, chapterData: any) => {
-    const meta: { hidden: boolean; adaptiveLocked: boolean; displayName: string; aras: string } = { 
-      hidden: false, adaptiveLocked: false, displayName: "", aras: "" 
-    };
-    
+  const getAdaptiveMeta = (chapterId: number, moduleId: number, chapterData: any): AdaptiveMeta => {
+    const meta: AdaptiveMeta = { hidden: false, adaptiveLocked: false, displayName: "", aras: "" };
     const skor = skorBab[chapterId];
     
     let isBimbinganSelesai = false;
@@ -304,8 +308,6 @@ export default function MuridDashboard() {
               <AnimatePresence>
                 {expandedChapter === chapter.id && (
                   <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="border-t border-slate-100 bg-slate-50/50 p-6 overflow-hidden">
-                    
-                    {/* KOD LALUAN SUBTOPIK TELAH DIBUANG SEPENUHNYA DARI SINI */}
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       {modules.map((module) => {
@@ -315,7 +317,8 @@ export default function MuridDashboard() {
                         
                         const subSemasa = getCurrentSubtopic(chapter.id, chapter);
                         const isModul1Completed = module.id === 1 && skorBab[chapter.id] !== undefined;
-                        const isModul2Completed = module.id === 2 && !adaptive.adaptiveLocked && adaptive.hidden === true; 
+                        // Pembetulan: Tukar === true kepada yang lebih fleksibel
+                        const isModul2Completed = module.id === 2 && !adaptive.adaptiveLocked && adaptive.hidden; 
                         const isButtonDisabled = adaptive.adaptiveLocked || (module.id === 1 && isModul1Completed);
 
                         return (
@@ -337,9 +340,12 @@ export default function MuridDashboard() {
                                 <div className="flex gap-2">
                                   {module.id === 1 && isModul1Completed ? (
                                     (skorBab[chapter.id] >= 80 || completedModules.includes(`${activeLevel}-ch${chapter.id}-mod3`)) ? (
-                                      <Link href={`/student/semakan-ujian/${docIds[chapter.id]}`} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition shadow border border-indigo-200 flex items-center gap-2">
-                                        🔍 Semakan
-                                      </Link>
+                                     <button 
+  onClick={() => window.location.href = `/student/semakan-ujian/${docIds[chapter.id]}`} 
+  className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition shadow border border-indigo-200 flex items-center gap-2"
+>
+  🔍 Semakan
+</button>
                                     ) : (
                                       <button disabled className="bg-slate-100 text-slate-400 border-slate-200 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2 cursor-not-allowed">
                                         🔒 Dikunci
