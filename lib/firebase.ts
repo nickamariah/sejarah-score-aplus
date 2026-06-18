@@ -36,3 +36,4 @@ if (typeof window !== "undefined") {
 
 // 4. EXPORT SEMUA - Mengikut cara asal awak!
 export { app, db, storage, auth, analytics };
+

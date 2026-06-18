@@ -25,6 +25,10 @@ function KomponenPembelajaran() {
   const [isMastered, setIsMastered] = useState(false);
   
   const [showPdfMobile, setShowPdfMobile] = useState(false);
+  
+  // STATE BARU UNTUK RESIZABLE SPLIT SCREEN
+  const [leftWidth, setLeftWidth] = useState(60); // Default kiri 60%
+  const [isDragging, setIsDragging] = useState(false);
 
   const [studentId, setStudentId] = useState("murid_test");
   useEffect(() => {
@@ -46,21 +50,51 @@ function KomponenPembelajaran() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // FUNGSI UNTUK MENGENDALIKAN DRAG (RESIZE PANEL)
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging) return;
+      // Kira peratusan kelebaran berdasarkan posisi tetikus
+      let newWidth = (e.clientX / window.innerWidth) * 100;
+      // Limit supaya tak terlalu kecil/besar (antara 20% hingga 80%)
+      if (newWidth < 20) newWidth = 20;
+      if (newWidth > 80) newWidth = 80;
+      setLeftWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging) setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      // Elak teks dari ter-highlight bila tengah drag
+      document.body.style.userSelect = "none";
+    } else {
+      document.body.style.userSelect = "";
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = "";
+    };
+  }, [isDragging]);
+
   const formatTajuk = (id) => id.replace('tingkatan', 'Tingkatan ').replace('_bab', ' Bab ').replace('_sub', ' Subtopik ');
   const ekstrakSubtopik = (id) => id.includes("_sub") ? id.split("_sub")[1] : "1.1";
 
-  // Dapatkan info subtopik untuk Stepper
   const currentSub = ekstrakSubtopik(chapterId);
   const currentIndex = subtopicsT4B1.findIndex(s => s.id === currentSub);
   
-  // Fungsi lompat ke subtopik seterusnya
   const gotoNextSubtopic = () => {
     if (currentIndex + 1 < subtopicsT4B1.length) {
       const nextSub = subtopicsT4B1[currentIndex + 1].id;
       const nextUrl = `?bab=${pdfFileName}_sub${nextSub}&aras=${arasDariURL}`;
       window.location.href = nextUrl;
     } else {
-      window.location.href = '/murid'; // Kalau dah habis semua, balik dashboard
+      window.location.href = '/murid'; 
     }
   };
 
@@ -187,7 +221,11 @@ function KomponenPembelajaran() {
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-slate-50 overflow-hidden font-sans relative">
       
-      <div className={`${showPdfMobile ? 'flex absolute inset-0 z-50 bg-white' : 'hidden'} lg:flex lg:relative lg:w-[60%] lg:h-full flex-col z-20 shadow-xl lg:shadow-none`}>
+      {/* 1. PANEL KIRI (NOTA PDF) */}
+      <div 
+        className={`${showPdfMobile ? 'flex absolute inset-0 z-50 bg-white' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-xl lg:shadow-none h-full lg:w-[var(--left-width)]`}
+        style={{ "--left-width": `${leftWidth}%` }}
+      >
         <div className="bg-slate-800 text-white p-3 lg:p-4 shadow-sm flex items-center justify-between gap-3">
           <button onClick={() => window.location.href = '/murid'} className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 transition shrink-0">
             ⬅️ <span className="hidden sm:inline">Dashboard</span>
@@ -199,19 +237,31 @@ function KomponenPembelajaran() {
             Tutup Nota ✖
           </button>
         </div>
+        
         <div className="flex-1 bg-gray-200 overflow-hidden relative">
+          {/* Overlay Transparent (Elak iframe sekat event mouse semasa drag) */}
+          {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
+          
           <iframe src={`${pdfUrl}#toolbar=1&view=FitH`} className="w-full h-full z-10 relative bg-white" title="PDF Viewer" />
         </div>
       </div>
 
-      <div className="w-full lg:w-[40%] h-full bg-white shadow-2xl flex flex-col border-t-4 lg:border-t-0 lg:border-l-4 border-blue-500 z-10 relative">
+      {/* 2. DRAG RESIZER BAR (Hanya di Desktop) */}
+      <div 
+        className="hidden lg:flex flex-col justify-center items-center w-2 bg-gray-200 hover:bg-blue-500 active:bg-blue-600 cursor-col-resize z-30 transition-colors"
+        onMouseDown={() => setIsDragging(true)}
+      >
+        <div className="h-12 w-1 bg-gray-400 rounded-full"></div>
+      </div>
+
+      {/* 3. PANEL KANAN (CHAT AI) */}
+      {/* Menggunakan lg:flex-1 supaya ia mengisi baki ruang skrin secara automatik */}
+      <div className="w-full lg:flex-1 h-full bg-white shadow-2xl flex flex-col border-t-4 lg:border-t-0 z-10 relative">
         
-        {/* HEADER & LALUAN SUBTOPIK BARU! */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-3 lg:p-5 flex flex-col gap-2 shadow-md shrink-0">
-          
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 lg:gap-3">
-              <button onClick={() => window.location.href = '/murid'} className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition" title="Kembali ke Dashboard">
+              <button onClick={() => window.location.href = '/murid'} className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition lg:hidden" title="Kembali ke Dashboard">
                 ⬅️
               </button>
               <div className="text-2xl lg:text-4xl bg-white rounded-full p-1 shadow-sm">🤖</div>
@@ -225,12 +275,11 @@ function KomponenPembelajaran() {
             </button>
           </div>
 
-          {/* 🌟 PETA SUBTOPIK DI DALAM MODUL 🌟 */}
           <div className="flex gap-1 overflow-hidden mt-1 bg-black/20 p-1.5 rounded-lg">
             {subtopicsT4B1.map((sub, index) => {
               const isPast = index < currentIndex;
               const isActive = index === currentIndex;
-              let style = "bg-white/10 text-white/50 border border-white/5"; // Terkunci
+              let style = "bg-white/10 text-white/50 border border-white/5"; 
               let icon = "🔒";
               if (isPast) { style = "bg-emerald-500/80 text-white border-emerald-400"; icon = "✅"; }
               if (isActive) { style = "bg-sky-400 text-sky-950 font-bold border-white shadow-sm"; icon = "🚀"; }
@@ -243,7 +292,6 @@ function KomponenPembelajaran() {
             })}
           </div>
 
-          {/* PROGRESS BAR 5 FASA */}
           <div className="bg-black/20 rounded-xl p-2 lg:p-3 mt-1 backdrop-blur-sm">
             <div className="flex justify-between items-center mb-1.5 lg:mb-2">
               <span className="text-[10px] lg:text-xs font-bold text-blue-100 bg-white/10 px-2 py-0.5 rounded-full">Fasa Semasa</span>
@@ -272,7 +320,7 @@ function KomponenPembelajaran() {
         <div className="flex-1 p-3 lg:p-5 overflow-y-auto bg-[url('/bg-chat-pattern.png')] bg-blue-50/30">
           {messages.map((msg) => (
             <div key={msg.id} className={`mb-3 lg:mb-4 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`p-3 lg:p-5 rounded-2xl lg:rounded-3xl max-w-[90%] lg:max-w-[85%] text-sm lg:text-lg font-medium leading-relaxed shadow-sm lg:shadow-md ${
+              <div className={`p-3 lg:p-5 rounded-2xl lg:rounded-3xl max-w-[90%] lg:max-w-[85%] text-sm lg:text-base font-medium leading-relaxed shadow-sm lg:shadow-md ${
                 msg.role === "user" ? "bg-blue-500 text-white rounded-br-none" : "bg-white text-gray-800 border-2 border-blue-100 rounded-bl-none"
               }`}>
                 <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />

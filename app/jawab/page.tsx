@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { collection, query, where, getDocs, doc, setDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, setDoc, updateDoc } from "firebase/firestore"; // Ditambah updateDoc
 import { db } from "../../lib/firebase";
 
 function KandunganUjian() {
@@ -65,7 +65,6 @@ function KandunganUjian() {
           }
         });
 
-        // 🌟 PENYELESAIAN 1: ASINGKAN DAN SHUFFLE MENGIKUT BAHAGIAN
         const objektifDahShuffle = shuffleArray(soalanObjektif);
         const strukturDahShuffle = shuffleArray(soalanStruktur);
         
@@ -126,20 +125,27 @@ function KandunganUjian() {
             const docId = `${user.id}_t${tingkatan}_${bab}`;
             const adaSoalanStruktur = Object.keys(jawapanStruktur).length > 0;
 
-            // 🌟 PENYELESAIAN 2: PENGIRAAN MARKAH YANG LEBIH TEPAT
             let markahPenuhUjian = 0;
             soalanSenarai.forEach(s => {
               if (s.jenis === "objektif") {
-                markahPenuhUjian += 1; // Objektif = 1 markah
+                markahPenuhUjian += 1; 
               } else {
-                markahPenuhUjian += Number(s.markah) || 0; // Struktur = ikut markah ditetapkan guru
+                markahPenuhUjian += Number(s.markah) || 0; 
               }
             });
 
-            // Pengiraan akhir
+            // PENGIRAAN MARKAH AKHIR
             const skorAkhir = skor + jumlahMarkahStrukturAI;
             const peratus = markahPenuhUjian > 0 ? Math.round((skorAkhir / markahPenuhUjian) * 100) : 0;
 
+            // ==================================================
+            // 🌟 LOGIK I-RAGS ADAPTIF (PENENTUAN TAHAP INKUIRI)
+            // ==================================================
+            let tahapBaru = "Rendah";
+            if (peratus >= 80) tahapBaru = "Tinggi";
+            else if (peratus >= 50) tahapBaru = "Sederhana";
+
+            // 1. Simpan ke jadual skor terperinci
             await setDoc(doc(db, "skor_murid", docId), {
               idMurid: user.id,
               namaMurid: user.name || user.nama,
@@ -155,6 +161,12 @@ function KandunganUjian() {
               skorAkhir: skorAkhir,
               statusPermarkahanEsei: adaSoalanStruktur ? "disemak_oleh_AI" : "tiada_esei",
               tarikh: new Date().toISOString()
+            });
+
+            // 2. KEMAS KINI JADUAL 'users' UNTUK DASHBOARD GURU
+            await updateDoc(doc(db, "users", user.id), {
+              markahTerkini: peratus,
+              tahapInkuiri: tahapBaru
             });
 
           } catch (error) {
@@ -257,7 +269,6 @@ function KandunganUjian() {
   const jenisSoalan = semasa.jenis ? semasa.jenis.toLowerCase() : "objektif";
   const senaraiPilihan = semasa.shuffledPilihan || (semasa.pilihan ? Object.entries(semasa.pilihan) : []);
   
-  // Tentukan label bahagian untuk UI
   const labelBahagian = jenisSoalan === "objektif" ? "Bahagian A: Objektif" : "Bahagian B: Struktur/Esei";
 
   return (
