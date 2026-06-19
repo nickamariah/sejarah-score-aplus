@@ -5,14 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase"; 
 import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
 
-// Senarai subtopik manual untuk UI Chatbot
-const subtopicsT4B1 = [
-  { id: "1.1", title: "Konsep Alam Melayu" },
-  { id: "1.2", title: "Ciri Kesultanan Melayu Melaka" },
-  { id: "1.3", title: "Keunggulan Sistem Pentadbiran" },
-  { id: "1.4", title: "Peranan Pemerintah & Rakyat" }
-];
-
 function KomponenPembelajaran() {
   const searchParams = useSearchParams();
   const babDariURL = searchParams.get("bab") || "tingkatan4_bab1_sub1.1"; 
@@ -26,9 +18,12 @@ function KomponenPembelajaran() {
   
   const [showPdfMobile, setShowPdfMobile] = useState(false);
   
-  // STATE BARU UNTUK RESIZABLE SPLIT SCREEN
-  const [leftWidth, setLeftWidth] = useState(60); // Default kiri 60%
+  // STATE BARU UNTUK SPLIT SCREEN RESIZABLE
+  const [leftWidth, setLeftWidth] = useState(60); 
   const [isDragging, setIsDragging] = useState(false);
+
+  // STATE BARU UNTUK DATA BAB DARI DATABASE
+  const [chapterData, setChapterData] = useState(null);
 
   const [studentId, setStudentId] = useState("murid_test");
   useEffect(() => {
@@ -38,43 +33,53 @@ function KomponenPembelajaran() {
 
   const chapterId = babDariURL; 
   const sessionId = `${studentId}_${chapterId}`;
-
-  const pdfFileName = chapterId.split('_sub')[0]; 
-  const pdfUrl = `/${pdfFileName}.pdf`; 
+  const pdfFileName = chapterId.split('_sub')[0]; // cth: tingkatan4_bab1
 
   const messagesEndRef = useRef(null);
   const isInitializing = useRef(false);
-  const phaseNames = ["Tanya", "Teroka", "Analisis", "Rumus", "Refleksi"];
+  // SEKARANG (6 Fasa ikut DSKP)
+  const phaseNames = ["Mengetahui", "Memahami", "Mengaplikasi", "Menganalisis", "Menilai", "Mencipta Idea"];
+
+  // 1. TARIK DATA SUBTOPIK DARI FIREBASE BERDASARKAN BAB
+  useEffect(() => {
+    const fetchChapterData = async () => {
+      try {
+        const docRef = doc(db, "chapters", pdfFileName);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setChapterData(docSnap.data());
+        } else {
+          console.log("Tiada data bab dijumpai untuk:", pdfFileName);
+        }
+      } catch (error) {
+        console.error("Ralat ambil data bab:", error);
+      }
+    };
+    fetchChapterData();
+  }, [pdfFileName]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // FUNGSI UNTUK MENGENDALIKAN DRAG (RESIZE PANEL)
+  // FUNGSI MENGENDALIKAN DRAG PANEL (RESIZABLE)
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isDragging) return;
-      // Kira peratusan kelebaran berdasarkan posisi tetikus
       let newWidth = (e.clientX / window.innerWidth) * 100;
-      // Limit supaya tak terlalu kecil/besar (antara 20% hingga 80%)
       if (newWidth < 20) newWidth = 20;
       if (newWidth > 80) newWidth = 80;
       setLeftWidth(newWidth);
     };
-
-    const handleMouseUp = () => {
-      if (isDragging) setIsDragging(false);
-    };
+    const handleMouseUp = () => { if (isDragging) setIsDragging(false); };
 
     if (isDragging) {
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
-      // Elak teks dari ter-highlight bila tengah drag
       document.body.style.userSelect = "none";
     } else {
       document.body.style.userSelect = "";
     }
-
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
@@ -85,12 +90,18 @@ function KomponenPembelajaran() {
   const formatTajuk = (id) => id.replace('tingkatan', 'Tingkatan ').replace('_bab', ' Bab ').replace('_sub', ' Subtopik ');
   const ekstrakSubtopik = (id) => id.includes("_sub") ? id.split("_sub")[1] : "1.1";
 
+  // LOGIK MENENTUKAN SUBTOPIK BERDASARKAN DATA DATABASE
   const currentSub = ekstrakSubtopik(chapterId);
-  const currentIndex = subtopicsT4B1.findIndex(s => s.id === currentSub);
+  const subtopicsList = chapterData?.subtopics || []; // Ambil dari Firestore
+  const currentIndex = subtopicsList.findIndex(s => s.id === currentSub);
   
+  // Tentukan muka surat PDF (Kalau takde data, mula di muka surat 1)
+  const currentSubInfo = subtopicsList.find(s => s.id === currentSub);
+  const pageNumber = currentSubInfo ? currentSubInfo.startPage : 3;
+
   const gotoNextSubtopic = () => {
-    if (currentIndex + 1 < subtopicsT4B1.length) {
-      const nextSub = subtopicsT4B1[currentIndex + 1].id;
+    if (currentIndex !== -1 && currentIndex + 1 < subtopicsList.length) {
+      const nextSub = subtopicsList[currentIndex + 1].id;
       const nextUrl = `?bab=${pdfFileName}_sub${nextSub}&aras=${arasDariURL}`;
       window.location.href = nextUrl;
     } else {
@@ -126,9 +137,7 @@ function KomponenPembelajaran() {
       } else {
         const dataSesi = docSnap.data();
         setCurrentPhase(dataSesi.currentPhase || 1);
-        if (dataSesi.status === "completed") {
-          setIsMastered(true);
-        }
+        if (dataSesi.status === "completed") setIsMastered(true);
       }
     };
 
@@ -172,7 +181,7 @@ function KomponenPembelajaran() {
         await addDoc(messagesCollectionRef, { role: "assistant", content: data.reply, timestamp: serverTimestamp() });
 
         if (data.isPhaseComplete) {
-          if (currentPhase < 5) {
+          if (currentPhase < 6) {
             const nextPhase = currentPhase + 1;
             setCurrentPhase(nextPhase);
             await updateDoc(sessionDocRef, { currentPhase: nextPhase });
@@ -182,22 +191,7 @@ function KomponenPembelajaran() {
               content: `✨ Tahniah! Awak dah lepasi Fasa ${currentPhase}. Mari kita ke **Fasa ${nextPhase} (${phaseNames[nextPhase-1]})** pula.`,
               timestamp: serverTimestamp()
             });
-
-            const autoResponse = await fetch('/api/chat', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                studentId, chapterId, text: "Sila berikan soalan inkuiri pertama untuk fasa baharu ini.", 
-                currentPhase: nextPhase, aras: arasDariURL, previousMessages: [] 
-              })
-            });
-
-            const autoData = await autoResponse.json();
-            if (autoData.reply) {
-               await addDoc(messagesCollectionRef, { role: "assistant", content: autoData.reply, timestamp: serverTimestamp() });
-            }
-
-          } else if (currentPhase === 5) {
+          } else if (currentPhase === 6) {
             setIsMastered(true);
             await updateDoc(sessionDocRef, { status: "completed" });
             
@@ -231,7 +225,7 @@ function KomponenPembelajaran() {
             ⬅️ <span className="hidden sm:inline">Dashboard</span>
           </button>
           <h2 className="text-sm lg:text-lg font-bold truncate capitalize flex items-center gap-2">
-            📄 Nota: {formatTajuk(chapterId)}
+            📄 Nota: {chapterData ? chapterData.title : formatTajuk(chapterId)}
           </h2>
           <button onClick={() => setShowPdfMobile(false)} className="lg:hidden bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">
             Tutup Nota ✖
@@ -239,14 +233,20 @@ function KomponenPembelajaran() {
         </div>
         
         <div className="flex-1 bg-gray-200 overflow-hidden relative">
-          {/* Overlay Transparent (Elak iframe sekat event mouse semasa drag) */}
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
           
-          <iframe src={`${pdfUrl}#toolbar=1&view=FitH`} className="w-full h-full z-10 relative bg-white" title="PDF Viewer" />
+          {/* Iframe akan lompat automatik ke muka surat berdasarkaan #page=X */}
+          {/* Iframe yang telah dibaiki (Guna key untuk paksa refresh & baca URL Firebase) */}
+          <iframe 
+            key={pageNumber} 
+            src={chapterData?.chapterUrl ? `${chapterData.chapterUrl}#page=${pageNumber}&toolbar=1&view=FitH` : `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`}
+            className="w-full h-full z-10 relative bg-white" 
+            title="PDF Viewer" 
+          />
         </div>
       </div>
 
-      {/* 2. DRAG RESIZER BAR (Hanya di Desktop) */}
+      {/* 2. DRAG RESIZER BAR */}
       <div 
         className="hidden lg:flex flex-col justify-center items-center w-2 bg-gray-200 hover:bg-blue-500 active:bg-blue-600 cursor-col-resize z-30 transition-colors"
         onMouseDown={() => setIsDragging(true)}
@@ -255,9 +255,7 @@ function KomponenPembelajaran() {
       </div>
 
       {/* 3. PANEL KANAN (CHAT AI) */}
-      {/* Menggunakan lg:flex-1 supaya ia mengisi baki ruang skrin secara automatik */}
       <div className="w-full lg:flex-1 h-full bg-white shadow-2xl flex flex-col border-t-4 lg:border-t-0 z-10 relative">
-        
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-3 lg:p-5 flex flex-col gap-2 shadow-md shrink-0">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 lg:gap-3">
@@ -276,7 +274,7 @@ function KomponenPembelajaran() {
           </div>
 
           <div className="flex gap-1 overflow-hidden mt-1 bg-black/20 p-1.5 rounded-lg">
-            {subtopicsT4B1.map((sub, index) => {
+            {subtopicsList.length > 0 ? subtopicsList.map((sub, index) => {
               const isPast = index < currentIndex;
               const isActive = index === currentIndex;
               let style = "bg-white/10 text-white/50 border border-white/5"; 
@@ -289,13 +287,13 @@ function KomponenPembelajaran() {
                   {icon} {sub.id}
                 </div>
               );
-            })}
+            }) : <div className="text-xs text-white/70 italic text-center w-full">Memuatkan subtopik...</div>}
           </div>
 
           <div className="bg-black/20 rounded-xl p-2 lg:p-3 mt-1 backdrop-blur-sm">
             <div className="flex justify-between items-center mb-1.5 lg:mb-2">
               <span className="text-[10px] lg:text-xs font-bold text-blue-100 bg-white/10 px-2 py-0.5 rounded-full">Fasa Semasa</span>
-              <span className="text-[10px] lg:text-xs font-bold text-yellow-300">{currentPhase} / 5</span>
+              <span className="text-[10px] lg:text-xs font-bold text-yellow-300">{currentPhase} / 6</span>
             </div>
             <div className="flex gap-1 w-full">
               {phaseNames.map((name, index) => {
@@ -354,8 +352,8 @@ function KomponenPembelajaran() {
               onClick={gotoNextSubtopic} 
               className="bg-emerald-600 text-white text-sm lg:text-lg font-bold px-6 py-3 rounded-full shadow-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 mx-auto"
             >
-              <span>{currentIndex + 1 < subtopicsT4B1.length ? "Seterusnya" : "Kembali ke Dashboard"}</span>
-              <span className="text-xl">{currentIndex + 1 < subtopicsT4B1.length ? "🔓🚀" : "🏠"}</span>
+              <span>{currentIndex !== -1 && currentIndex + 1 < subtopicsList.length ? "Seterusnya" : "Kembali ke Dashboard"}</span>
+              <span className="text-xl">{currentIndex !== -1 && currentIndex + 1 < subtopicsList.length ? "🔓🚀" : "🏠"}</span>
             </button>
           </div>
         ) : (
