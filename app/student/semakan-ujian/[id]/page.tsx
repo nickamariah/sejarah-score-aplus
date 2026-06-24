@@ -180,7 +180,7 @@ export default function SemakanUjianMurid() {
 
         {/* 🌟 BAHAGIAN BUTANG SIJIL BERSYARAT */}
         <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col items-center">
-          {paparButangSemakan ? (
+          {paparButangSijil ? (
             <Link 
                href={`/semakan?id=${documentId}`} 
               target="_blank"
