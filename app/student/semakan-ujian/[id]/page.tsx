@@ -145,7 +145,7 @@ export default function SemakanUjianMurid() {
             <p className="text-gray-500">Tingkatan {data.tingkatan} • {data.namaMurid} ({data.idMurid})</p>
             {/* Label Jenis Ujian */}
             <span className="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-md uppercase tracking-wider">
-               Ujian: {jenis.replace('_', ' ')}
+               Ujian: {jenisUjian.replace('_', ' ')}
             </span>
           </div>
           <span className={`mt-2 md:mt-0 px-4 py-1.5 text-sm rounded-full font-semibold uppercase ${

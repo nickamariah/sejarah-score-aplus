@@ -381,13 +381,13 @@ export default function MuridDashboard() {
                                 ) : <div />}
                                 
                                 <div className="flex gap-2">
-                                  {module.id === 1 && isModul1Completed ? (
-                                     <button 
-                                      onClick={() => window.location.href = `/semakan?id=${docIds[chapter.id]}`} 
-                                      className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition shadow border border-indigo-200 flex items-center gap-2"
-                                    >
-                                      🔍 Semakan
-                                    </button>
+                                 {module.id === 1 && isModul1Completed ? (
+                               <button
+                                 onClick={() => window.location.href = `/student/semakan-ujian/${docIds[chapter.id]}`}
+                                  className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition"
+                               >
+                                 🔍 Semakan
+                                 </button>
                                   ) : (
                                     <button 
                                       onClick={() => openModule(chapter.id, module.id, adaptive.aras, subSemasa)}
