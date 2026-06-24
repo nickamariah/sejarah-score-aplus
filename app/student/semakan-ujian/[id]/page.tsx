@@ -107,9 +107,6 @@ export default function SemakanUjianMurid() {
   const jawapanObjektifMurid = data.jawapanObjektif || {};
 
   // ==========================================
-  // 🌟 LOGIK SYARAT BUTANG SEMAKAN (KEMASKINI)
-  // ==========================================
-// ==========================================
   // 🌟 LOGIK SYARAT BUTANG SIJIL (DIKEMASKINI)
   // ==========================================
   // 1. Dapatkan markah peratusan
