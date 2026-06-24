@@ -179,7 +179,7 @@ export default function SemakanUjianMurid() {
         <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col items-center">
           {paparButangSemakan ? (
             <Link 
-               href={`/semakan?id=${documentId}`} gi
+               href={`/semakan?id=${documentId}`} 
               target="_blank"
               className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:-translate-y-1 hover:scale-105 flex items-center gap-2"
             >
