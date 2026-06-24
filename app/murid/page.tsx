@@ -381,27 +381,37 @@ export default function MuridDashboard() {
                                 ) : <div />}
                                 
                                 <div className="flex gap-2">
-                                 {module.id === 1 && isModul1Completed ? (
-                               <button
-                                 onClick={() => window.location.href = `/student/semakan-ujian/${docIds[chapter.id]}`}
-                                  className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition"
-                               >
-                                 🔍 Semakan
-                                 </button>
-                                  ) : (
-                                    <button 
-                                      onClick={() => openModule(chapter.id, module.id, adaptive.aras, subSemasa)}
-                                      disabled={isButtonDisabled}
-                                      className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all shadow-sm border ${
-                                        isButtonDisabled 
-                                          ? 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed' 
-                                          : 'bg-sky-600 text-white hover:bg-sky-700 border-sky-700 hover:shadow-md'
-                                      }`}
-                                    >
-                                      {adaptive.adaptiveLocked ? 'Terkunci 🔒' : module.id === 1 || module.id === 3 ? 'Jawab Ujian 📝' : 'Buka Modul 🚀'}
-                                    </button>
-                                  )}
-                                </div>
+  {module.id === 1 && isModul1Completed ? (
+    /* Syarat Baru: Semak jika murid CEMERLANG (atau markah >= 80) */
+    /* Nota: Jika cikgu guna nama lain untuk aras, contohnya 'cemerlang' huruf kecil, pastikan ejaan sama */
+    (adaptive.aras === "Cemerlang" || adaptive.aras === "cemerlang") ? (
+      <button
+        onClick={() => window.location.href = `/student/semakan-ujian/${docIds[chapter.id]}`}
+        className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition"
+      >
+        🔍 Semakan
+      </button>
+    ) : (
+      /* Jika murid Sederhana / Rendah, butang Semakan DIBUANG. 
+         Kita letak mesej suruh mereka buat modul bimbingan */
+      <span className="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-lg text-sm font-medium italic border border-gray-200 flex items-center">
+        Sila ke Bimbingan AI 👉
+      </span>
+    )
+  ) : (
+    <button 
+      onClick={() => openModule(chapter.id, module.id, adaptive.aras, subSemasa)}
+      disabled={isButtonDisabled}
+      className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all shadow-sm border ${
+        isButtonDisabled 
+          ? 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed' 
+          : 'bg-sky-600 text-white hover:bg-sky-700 border-sky-700 hover:shadow-md'
+      }`}
+    >
+      {adaptive.adaptiveLocked ? 'Terkunci 🔒' : module.id === 1 || module.id === 3 ? 'Jawab Ujian 📝' : 'Buka Modul 🚀'}
+    </button>
+  )}
+</div>
                               </div>
                             </div>
                           </div>
