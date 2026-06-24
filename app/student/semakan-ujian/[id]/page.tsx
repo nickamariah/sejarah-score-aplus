@@ -109,16 +109,22 @@ export default function SemakanUjianMurid() {
   // ==========================================
   // 🌟 LOGIK SYARAT BUTANG SEMAKAN (KEMASKINI)
   // ==========================================
-  const isCemerlang = data.skor >= 80; 
+// ==========================================
+  // 🌟 LOGIK SYARAT BUTANG SIJIL (DIKEMASKINI)
+  // ==========================================
+  // 1. Dapatkan markah peratusan
+  const markahPeratus = data.skor || 0;
   
-  // Jika dalam DB tiada rekod jenisUjian, kita anggap automatik ia adalah 'pre_test'
-  const jenis = data.jenisUjian || 'pre_test'; 
-  const isPreTest = jenis === 'pre_test'; 
-  const isPostTest = jenis === 'post_test';
+  // 2. Dapatkan jenis ujian dari database. Jika kosong, kita PAKSA ia jadi 'pre_test'
+  // Pastikan ejaan 'pre_test' ini SAMA SEBIJI dengan apa yang cikgu simpan di Firebase
+  const jenisUjian = data.jenisUjian ? data.jenisUjian.toLowerCase() : 'pre_test'; 
+  
+  // 3. Syarat Ketat:
+  const layakSijilPreTest = jenisUjian === 'pre_test' && markahPeratus >= 80;
+  const layakSijilPostTest = jenisUjian === 'post_test';
 
-  // Butang Sijil muncul jika: (Pre-Test DAN Cemerlang) ATAU (Lepas ambil Post-Test)
-  const paparButangSemakan = (isPreTest && isCemerlang) || isPostTest;
-
+  // 4. Keputusan akhir untuk tunjuk butang atau tidak:
+  const paparButangSijil = layakSijilPreTest || layakSijilPostTest;
   // 5. Paparan Utama (Header & Markah)
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6 bg-gray-50 min-h-screen">
