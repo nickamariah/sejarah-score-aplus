@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-// KITA TAMBAH collection, query, where, getDocs UNTUK TARIK SOALAN SEBENAR
+import Link from "next/link"; 
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase"; 
 
@@ -25,7 +25,8 @@ interface SkorMuridData {
   statusPermarkahanEsei: string;
   namaGuru?: string; 
   tarikh: string;
-  jawapanObjektif?: Record<string, string>; // TAMBAH INI UNTUK BACA OBJEKTIF
+  jenisUjian?: string; // Boleh jadi undefined kalau murid ambil ujian buat kali pertama
+  jawapanObjektif?: Record<string, string>; 
   jawapanStruktur: Record<string, string>; 
   ulasanAI: Record<string, UlasanDetail>;
   markahGuru?: Record<string, number>;
@@ -37,7 +38,7 @@ export default function SemakanUjianMurid() {
   const documentId = params.id as string; 
 
   const [data, setData] = useState<SkorMuridData | null>(null);
-  const [soalanBank, setSoalanBank] = useState<any[]>([]); // STATE BARU UNTUK SIMPAN SOALAN
+  const [soalanBank, setSoalanBank] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
 
    // 2. Fungsi untuk tarik data dari Firestore
@@ -105,20 +106,33 @@ export default function SemakanUjianMurid() {
 
   const jawapanObjektifMurid = data.jawapanObjektif || {};
 
+  // ==========================================
+  // 🌟 LOGIK SYARAT BUTANG SEMAKAN (KEMASKINI)
+  // ==========================================
+  const isCemerlang = data.skor >= 80; 
+  
+  // Jika dalam DB tiada rekod jenisUjian, kita anggap automatik ia adalah 'pre_test'
+  const jenis = data.jenisUjian || 'pre_test'; 
+  const isPreTest = jenis === 'pre_test'; 
+  const isPostTest = jenis === 'post_test';
+
+  // Butang Sijil muncul jika: (Pre-Test DAN Cemerlang) ATAU (Lepas ambil Post-Test)
+  const paparButangSemakan = (isPreTest && isCemerlang) || isPostTest;
+
   // 5. Paparan Utama (Header & Markah)
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6 bg-gray-50 min-h-screen">
       
       {/* BUTANG KEMBALI */}
       <div className="mb-6">
-  <button 
-    onClick={() => window.location.href = '/murid'} 
-    className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold shadow-md transition-all active:scale-95"
-  >
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-    Kembali ke Dashboard
-  </button>
-</div>
+        <button 
+          onClick={() => window.location.href = '/murid'} 
+          className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold shadow-md transition-all active:scale-95"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          Kembali ke Dashboard
+        </button>
+      </div>
 
       {/* KAD MAKLUMAT PELAJAR */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -126,6 +140,10 @@ export default function SemakanUjianMurid() {
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Laporan Diagnostik: {data.bab}</h1>
             <p className="text-gray-500">Tingkatan {data.tingkatan} • {data.namaMurid} ({data.idMurid})</p>
+            {/* Label Jenis Ujian */}
+            <span className="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-md uppercase tracking-wider">
+               Ujian: {jenis.replace('_', ' ')}
+            </span>
           </div>
           <span className={`mt-2 md:mt-0 px-4 py-1.5 text-sm rounded-full font-semibold uppercase ${
             data.statusPermarkahanEsei === 'disemak_oleh_guru' 
@@ -152,11 +170,31 @@ export default function SemakanUjianMurid() {
             <p className="text-xs text-purple-600 font-bold uppercase">Skor Keseluruhan</p>
             <p className="text-3xl font-black text-purple-800 mt-1">
               {data.skorAkhir} <span className="text-lg text-purple-500 font-medium">/ {data.markahPenuhUjian}</span>
-              {/* KITA TAMBAH PERATUS DI SINI 👇 */}
               <span className="ml-3 text-2xl text-purple-600 font-bold">({data.skor}%)</span>
             </p>
           </div>
         </div>
+
+        {/* 🌟 BAHAGIAN BUTANG SIJIL BERSYARAT */}
+        <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col items-center">
+          {paparButangSemakan ? (
+            <Link 
+              href={`/semakan?id=${encodeURIComponent(documentId)}`}
+              target="_blank"
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:-translate-y-1 hover:scale-105 flex items-center gap-2"
+            >
+              <span className="text-xl">🎓</span> 
+              <span>Dapatkan Sijil Pengesahan I-RAGS</span>
+            </Link>
+          ) : (
+            <div className="w-full p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+              <p className="text-yellow-700">
+                Pautan Sijil Pengesahan hanya akan dibuka selepas anda melengkapkan <strong>Post Test</strong> (Ujian Pasca) atau jika anda melepasi tahap Cemerlang. Teruskan usaha! 💪
+              </p>
+            </div>
+          )}
+        </div>
+        
       </div>
 
       {/* BAHAGIAN 2: SENARAI JAWAPAN & ULASAN AI */}
@@ -165,12 +203,12 @@ export default function SemakanUjianMurid() {
         
         {soalanBank.length > 0 ? (
           soalanBank.map((soalan, index) => {
-            const jenis = soalan.jenis?.toLowerCase() || "objektif";
+            const jenisSoalan = soalan.jenis?.toLowerCase() || "objektif";
             
             // ==========================================
             // LOGIK PAPARAN SOALAN OBJEKTIF
             // ==========================================
-            if (jenis === "objektif") {
+            if (jenisSoalan === "objektif") {
               const jawapanPilihanMurid = jawapanObjektifMurid[soalan.id];
               const isBetul = jawapanPilihanMurid === soalan.jawapan;
               
@@ -201,14 +239,14 @@ export default function SemakanUjianMurid() {
                 </div>
               );
             } 
-// ==========================================
+            // ==========================================
             // LOGIK PAPARAN SOALAN STRUKTUR
             // ==========================================
             else {
               const jawapanEseiMurid = data.jawapanStruktur?.[soalan.id];
               const ulasan = data.ulasanAI?.[soalan.id];
               
-              // 🌟 KIRA MARKAH AKHIR (Utamakan markah guru, kalau cikgu belum tanda, baru tunjuk markah AI)
+              // 🌟 KIRA MARKAH AKHIR
               const markahAkhir = data.markahGuru?.[soalan.id] !== undefined 
                                     ? data.markahGuru[soalan.id] 
                                     : (ulasan?.markahAI || 0);
@@ -221,7 +259,6 @@ export default function SemakanUjianMurid() {
                       <p className="mt-3 font-medium text-gray-800">{soalan.soalan}</p>
                     </div>
                     
-                    {/* 🌟 KOTAK TAYANG MARKAH (GURU / AI) */}
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-slate-200">
                         {data.markahGuru?.[soalan.id] !== undefined ? 'Disemak Guru' : 'Disemak AI'}
