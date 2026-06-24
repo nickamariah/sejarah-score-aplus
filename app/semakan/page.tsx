@@ -118,8 +118,14 @@ function PaparanSijil() {
 
       {/* Butang Tutup / Kembali */}
       <div className="mt-8">
-        <button onClick={() => window.close()} className="text-gray-500 hover:text-gray-800 font-bold transition flex items-center gap-2 bg-white px-6 py-2 rounded-full shadow-sm border border-gray-200">
-          Tutup Sijil X
+        <button 
+          onClick={() => {
+            window.close(); // 1. Cuba tutup tab (Berfungsi jika murid klik dari butang oren)
+            window.history.back(); // 2. Jika browser halang, sistem akan bawa kembali ke page markah
+          }} 
+          className="text-gray-500 hover:text-gray-800 font-bold transition flex items-center gap-2 bg-white px-6 py-2 rounded-full shadow-sm border border-gray-200 hover:bg-gray-50 hover:text-red-500"
+        >
+          Tutup Sijil ✖
         </button>
       </div>
 
