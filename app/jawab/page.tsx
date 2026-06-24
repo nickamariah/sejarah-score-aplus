@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { collection, query, where, getDocs, doc, setDoc, updateDoc } from "firebase/firestore"; // Ditambah updateDoc
+import { collection, query, where, getDocs, doc, setDoc, updateDoc } from "firebase/firestore"; 
 import { db } from "../../lib/firebase";
 
 function KandunganUjian() {
@@ -96,31 +96,56 @@ function KandunganUjian() {
             let jumlahMarkahStrukturAI = 0;
             let ulasanAIPenuh: Record<string, any> = {};
 
+            // =========================================================================
+            // 🌟 TAMBAHAN BARU: KELEWATAN RAWAK (JITTER) UNTUK 60 MURID
+            // Sistem akan pilih masa rawak antara 1 saat hingga 8 saat sebelum mula menanda.
+            // Ini mengelakkan 60 murid menyerang Server Google pada saat/milisaat yang sama.
+            // =========================================================================
+            const masaGiliranRawak = Math.floor(Math.random() * 8000) + 1000;
+            console.log(`Sistem menunggu giliran selama ${masaGiliranRawak}ms sebelum tembak API...`);
+            await new Promise(resolve => setTimeout(resolve, masaGiliranRawak));
+
             for (const [soalanId, jawapanMurid] of Object.entries(jawapanStruktur)) {
               const detailSoalan = soalanSenarai.find(s => s.id === soalanId);
 
               if (detailSoalan) {
-                const res = await fetch("/api/semak-ai", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    soalan: detailSoalan.soalan,
-                    jawapanMurid: jawapanMurid,
-                    markahPenuh: Number(detailSoalan.markah) || 0,
-                    skemaJawapan: detailSoalan.skemaJawapan || ""
-                  })
-                });
+                // 🌟 TAMBAHAN BARU: Letak try-catch dalam loop. 
+                // Kalau 1 soalan gagal/error, ia tak 'crash' kan sistem. Ia akan teruskan ke soalan lain.
+                try {
+                  const res = await fetch("/api/semak-ai", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      soalan: detailSoalan.soalan,
+                      jawapanMurid: jawapanMurid,
+                      markahPenuh: Number(detailSoalan.markah) || 0,
+                      skemaJawapan: detailSoalan.skemaJawapan || ""
+                    })
+                  });
 
-                const aiData = await res.json();
+                  if (!res.ok) throw new Error("Ralat dari server AI");
 
-                ulasanAIPenuh[soalanId] = {
-                  markahAI: Number(aiData.markahDicadangkan) || 0,
-                  komenAI: aiData.komen || "Tiada ulasan."
-                };
-                jumlahMarkahStrukturAI += (Number(aiData.markahDicadangkan) || 0);
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                  const aiData = await res.json();
+
+                  ulasanAIPenuh[soalanId] = {
+                    markahAI: Number(aiData.markahDicadangkan) || 0,
+                    komenAI: aiData.komen || "Tiada ulasan."
+                  };
+                  jumlahMarkahStrukturAI += (Number(aiData.markahDicadangkan) || 0);
+
+                } catch (err) {
+                  console.error("Gagal API untuk soalan:", soalanId);
+                  ulasanAIPenuh[soalanId] = {
+                    markahAI: 0,
+                    komenAI: "SISTEM AI GAGAL (Talian Terputus/Server Sibuk). Sila semak secara manual."
+                  };
+                }
+
+                // Rehat 2.5 saat sebelum tembak soalan seterusnya
+                await new Promise(resolve => setTimeout(resolve, 2500));
               }
             }
+            // =========================================================================
 
             const docId = `${user.id}_t${tingkatan}_${bab}`;
             const adaSoalanStruktur = Object.keys(jawapanStruktur).length > 0;
@@ -160,7 +185,9 @@ function KandunganUjian() {
               markahStruktur: jumlahMarkahStrukturAI,
               skorAkhir: skorAkhir,
               statusPermarkahanEsei: adaSoalanStruktur ? "disemak_oleh_AI" : "tiada_esei",
-              tarikh: new Date().toISOString()
+              tarikh: new Date().toISOString(),
+              // Mesti letak jenisUjian untuk kenal pasti Pre-Test / Post Test
+              jenisUjian: "pre_test" // Secara automatik anggap ujian pertama ini pre_test
             });
 
             // 2. KEMAS KINI JADUAL 'users' UNTUK DASHBOARD GURU
@@ -170,7 +197,7 @@ function KandunganUjian() {
             });
 
           } catch (error) {
-            console.error("Ralat simpan data atau AI:", error);
+            console.error("Ralat simpan data ke Firebase:", error);
           }
         }
 
