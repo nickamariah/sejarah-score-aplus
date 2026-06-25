@@ -6,8 +6,8 @@ const openai = new OpenAI({
 
 export async function POST(req) {
   try {
-    // Kita terima 'currentPhase' dari Frontend
-    const { studentId, chapterId, text, previousMessages, currentPhase } = await req.json();
+    // 🌟 TAMBAHAN BARU: Kita pastikan 'aras' diterima dari Frontend
+    const { studentId, chapterId, text, previousMessages, currentPhase, aras } = await req.json();
 
     // ==========================================
     // 1. RAG DINAMIK: SUBTOPIK, BANK SOALAN & INKUIRI
@@ -28,7 +28,6 @@ export async function POST(req) {
       `;
       soalanSebenar = `- Soalan SPM: Jelaskan ciri-ciri negara bangsa kerajaan Alam Melayu. (4 Markah)`;
       
-      // SET INKUIRI SUBTOPIK 1.1
       soalanTanya = "Mengapakah kerajaan Alam Melayu boleh dianggap sebagai sebuah negara bangsa?";
       soalanTeroka = "Cuba cari dalam nota. Apakah bukti pertama yang anda temui?";
       soalanAnalisis = "Antara raja dan undang-undang, yang manakah lebih penting dalam pembentukan negara bangsa? Mengapa?";
@@ -41,7 +40,6 @@ export async function POST(req) {
       `;
       soalanSebenar = `- Soalan SPM: Nyatakan ciri negara bangsa Kesultanan Melayu Melaka. (4 Markah)`;
       
-      // SET INKUIRI SUBTOPIK 1.2 (CONTOH LAIN)
       soalanTanya = "Apakah yang membuatkan Kesultanan Melayu Melaka diiktiraf sebagai model negara bangsa yang sangat unggul?";
       soalanTeroka = "Berdasarkan nota, cuba cari satu ciri Kesultanan Melayu Melaka yang tiada pada kerajaan sebelumnya.";
       soalanAnalisis = "Mengapakah 'lambang kebesaran' sangat penting kepada Sultan Melaka pada waktu itu berbanding sekarang?";
@@ -69,18 +67,42 @@ export async function POST(req) {
     }
 
     // ==========================================
-    // 3. SYSTEM PROMPT (DENGAN OUTPUT JSON & ANTI-HALUSINASI)
+    // 🌟 3. LOGIK ADAPTIF (PERSONA BERBEZA MENGIKUT ARAS)
+    // ==========================================
+    let personaTutor = "";
+    const tahapMurid = aras ? aras.toLowerCase() : "rendah"; // Default ke rendah jika tiada data
+
+    if (tahapMurid === "sederhana") {
+      personaTutor = `
+      [GAYA PENGAJARAN: FASILITATOR (SCAFFOLDING SEDERHANA)]
+      - Anda berhadapan dengan murid Aras Sederhana. 
+      - JANGAN BERIKAN JAWAPAN TERUS (No direct answers).
+      - Berikan klu (hints) secara berperingkat dan pancing murid dengan soalan berbalik (probing questions).
+      - Jika murid salah, tegur dengan baik dan suruh mereka rujuk semula [KONTEKS BUKU TEKS].`;
+    } else {
+      personaTutor = `
+      [GAYA PENGAJARAN: PEMBIMBING PENUH (SCAFFOLDING TINGGI)]
+      - Anda berhadapan dengan murid Aras Rendah.
+      - Gunakan bahasa yang SANGAT RINGKAS, santai dan mudah difahami.
+      - Berikan analogi mudah jika perlu. Pecahkan soalan kepada bahagian yang kecil.
+      - Jika murid kelihatan buntu atau masih salah selepas diberi hint, TERUS BERIKAN JAWAPAN YANG BETUL beserta penerangan seringkas mungkin.`;
+    }
+
+    // ==========================================
+    // 4. SYSTEM PROMPT (DENGAN OUTPUT JSON & ANTI-HALUSINASI)
     // ==========================================
     const systemPrompt = {
       role: "system",
-      content: `Anda ialah "I-RAGS", tutor maya Sejarah untuk murid aras rendah.
+      content: `Anda ialah "I-RAGS", tutor maya Sejarah.
       
       STATUS MURID SEKARANG: ${arahanFasa}
+      
+      ${personaTutor}
 
       PERATURAN KETAT (WAJIB PATUH 100%):
-      1. SUMBER FAKTA: Nilai jawapan murid berdasarkan [KONTEKS] di bawah SAHAJA. JANGAN berhalusinasi atau tambah fakta luar (seperti Geografi/iklim) jika ia tiada dalam nota.
-      2. PANDUAN MENYOAL: Berpandukan [BANK SOALAN SEBENAR], bimbing murid (Scaffolding) supaya mereka dapat menjawab soalan aras peperiksaan tersebut. JANGAN beri jawapan bocor.
-      3. PENILAIAN JAWAPAN: Jika murid telah berjaya menjawab tugasan Fasa ini dengan betul, tetapkan "isPhaseComplete" kepada true dan puji usaha mereka. Jika jawapan salah, tetapkan "isPhaseComplete" kepada false dan beri "hint".
+      1. SUMBER FAKTA: Nilai jawapan murid berdasarkan [KONTEKS BUKU TEKS] di bawah SAHAJA. JANGAN berhalusinasi atau tambah fakta luar.
+      2. PANDUAN MENYOAL: Berpandukan [BANK SOALAN SEBENAR], bimbing murid supaya mereka dapat menjawab soalan aras peperiksaan tersebut.
+      3. PENILAIAN JAWAPAN: Jika murid telah berjaya menjawab tugasan Fasa ini dengan betul, tetapkan "isPhaseComplete" kepada true dan puji usaha mereka. Jika belum capai objektif, "isPhaseComplete" mestilah false.
       4. FORMAT BALASAN: Gunakan bahasa Melayu santai, mesra, dan PENDEK (maksimum 3 ayat).
 
       [BANK SOALAN SEBENAR (JADIKAN PANDUAN BERTANYA)]:
@@ -106,7 +128,7 @@ export async function POST(req) {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini", 
       messages: messages,
-      temperature: 0.1, // Suhu sangat rendah (0.1) supaya AI skema dan ikut buku teks sahaja
+      temperature: 0.1, // Suhu sangat rendah supaya AI skema dan ikut buku teks sahaja
       response_format: { type: "json_object" } 
     });
 
