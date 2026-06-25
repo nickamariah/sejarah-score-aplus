@@ -28,7 +28,7 @@ export default function PemarkahanGuru() {
           const rekod = docSnap.data();
           setDataMurid(rekod);
 
-          // Sediakan markah input awal (Sama ada dari markah AI atau markah Guru yang dah pernah diisi)
+          // Sediakan markah input awal
           const markahAwal: Record<string, number> = {};
           if (rekod.jawapanStruktur) {
             Object.keys(rekod.jawapanStruktur).forEach(soalanId => {
@@ -53,7 +53,6 @@ export default function PemarkahanGuru() {
           const qList: any[] = [];
           qSnap.forEach((d) => {
              const soalanData = d.data();
-             // Kita hanya perlukan soalan struktur untuk disemak guru
              if(soalanData.jenis !== "objektif") {
                 qList.push({ id: d.id, ...soalanData });
              }
@@ -75,8 +74,8 @@ export default function PemarkahanGuru() {
   // FUNGSI KEMASKINI INPUT MARKAH
   const handleMarkahChange = (soalanId: string, nilai: string, markahPenuh: number) => {
     let num = parseInt(nilai) || 0;
-    if (num > markahPenuh) num = markahPenuh; // Tak boleh lebih markah penuh
-    if (num < 0) num = 0; // Tak boleh negatif
+    if (num > markahPenuh) num = markahPenuh; 
+    if (num < 0) num = 0; 
 
     setMarkahGuru(prev => ({
       ...prev,
@@ -84,19 +83,20 @@ export default function PemarkahanGuru() {
     }));
   };
 
-  // 🌟 FUNGSI SIMPAN MARKAH KE FIREBASE
+  // 🌟 FUNGSI SIMPAN MARKAH KE FIREBASE (TELAH DIBETULKAN)
   const simpanPemarkahan = async () => {
     setMenyimpan(true);
     try {
       // 1. Kira jumlah markah Esei/Struktur yang baru
       let totalStrukturBaru = 0;
-      Object.values(markahGuru).forEach(m => { totalStrukturBaru += m; });
+      Object.values(markahGuru).forEach(m => { 
+        totalStrukturBaru += (Number(m) || 0); 
+      });
 
       // 2. Kira markah keseluruhan (Objektif sedia ada + Esei baru)
-      const skorAkhirBaru = (dataMurid.skorObjektif || 0) + totalStrukturBaru;
-      const peratusBaru = dataMurid.markahPenuhUjian > 0 
-                          ? Math.round((skorAkhirBaru / dataMurid.markahPenuhUjian) * 100) 
-                          : 0;
+      const skorAkhirBaru = (Number(dataMurid.skorObjektif) || 0) + totalStrukturBaru;
+      const penuhUjian = Number(dataMurid.markahPenuhUjian) || 100; // Elak bahagi dengan 0
+      const peratusBaru = penuhUjian > 0 ? Math.round((skorAkhirBaru / penuhUjian) * 100) : 0;
 
       // 3. Tentukan Tahap Inkuiri Murid yang terkini
       let tahapBaru = "Rendah";
@@ -109,7 +109,7 @@ export default function PemarkahanGuru() {
         markahStruktur: totalStrukturBaru,
         skorAkhir: skorAkhirBaru,
         skor: peratusBaru,
-        statusPermarkahanEsei: "disemak_oleh_guru" // Update status!
+        statusPermarkahanEsei: "disemak_oleh_guru"
       });
 
       // 5. Update jadual 'users' supaya dashboard murid & guru selari
@@ -122,12 +122,9 @@ export default function PemarkahanGuru() {
 
       alert("Markah berjaya disimpan! Status telah dikemaskini.");
       
-      // Tutup tab ini dan biarkan guru sambung di dashboard utama
+      // Tutup tab ini
       window.close();
       
-      // Jika browser halang window.close(), kita kembali ke dashboard
-      window.location.href = "/guru";
-
     } catch (error) {
       console.error("Gagal simpan:", error);
       alert("Gagal menyimpan markah.");
