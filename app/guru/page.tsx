@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, HelpCircle, Save, Zap, Sparkles, Activity, UploadCloud, RefreshCw } from "lucide-react";
+import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, HelpCircle, Save, Zap, Sparkles, Activity, UploadCloud, RefreshCw, CheckSquare } from "lucide-react";
 
 // IMPORT KOMPONEN MAKMAL DATA KAJIAN
 import MakmalDataKajian from "../../utils/MakmalDataKajian";
@@ -14,7 +14,8 @@ import { initializeApp, getApps } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"; 
 
-type TabKey = "murid" | "pemantauan" | "kandungan" | "upload" | "soalan" | "analitik";
+// 🌟 TAMBAHAN BARU: Masukkan 'semakan' dalam TabKey
+type TabKey = "murid" | "pemantauan" | "kandungan" | "upload" | "soalan" | "analitik" | "semakan";
 
 export default function GuruDashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>("murid");
@@ -67,6 +68,10 @@ export default function GuruDashboard() {
   // STATE KHAS UNTUK EDIT MUKA SURAT
   const [editSubtopikId, setEditSubtopikId] = useState<string | null>(null);
   const [tempSubtopik, setTempSubtopik] = useState<any[]>([]);
+
+  // 🌟 TAMBAHAN BARU: STATE UNTUK SEMAKAN ESEI
+  const [senaraiSemakan, setSenaraiSemakan] = useState<any[]>([]);
+  const [loadingSemakan, setLoadingSemakan] = useState(false);
 
   // ==========================================
   // SENARAI SUBTOPIK SEJARAH (Rujukan Utama)
@@ -140,7 +145,31 @@ export default function GuruDashboard() {
     } catch (error) { console.error(error); } finally { setLoadingBahan(false); }
   };
 
-  useEffect(() => { tarikSoalanFirebase(); tarikDataPenggunaFirebase(); tarikBahanFirebase(); }, []);
+  // 🌟 TAMBAHAN BARU: FUNGSI TARIK DATA SEMAKAN
+  const tarikDataSemakan = async () => {
+    setLoadingSemakan(true);
+    try {
+      // Kita tarik semua rekod dari jadual skor_murid (susun yang terbaru)
+      const q = query(collection(db, "skor_murid"), orderBy("tarikh", "desc"));
+      const querySnapshot = await getDocs(q);
+      const data: any[] = [];
+      querySnapshot.forEach((doc) => { 
+        const docData = doc.data();
+        // Hanya ambil rekod yang ada soalan esei sahaja untuk ditanda
+        if (docData.statusPermarkahanEsei && docData.statusPermarkahanEsei !== "tiada_esei") {
+           data.push({ id: doc.id, ...docData }); 
+        }
+      });
+      setSenaraiSemakan(data);
+    } catch (error) { console.error(error); } finally { setLoadingSemakan(false); }
+  };
+
+  useEffect(() => { 
+    tarikSoalanFirebase(); 
+    tarikDataPenggunaFirebase(); 
+    tarikBahanFirebase(); 
+    tarikDataSemakan(); // Panggil fungsi semakan
+  }, []);
 
   // FUNGSI PENGGUNA
   const handleSimpanPengguna = async (e: React.FormEvent) => {
@@ -232,7 +261,6 @@ export default function GuruDashboard() {
       const listSub = senaraiSubtopik[bTingkatan]?.[bBab] || [];
       const subtopicsArray = listSub.map((sub: string, index: number) => {
         const parts = sub.split(" ");
-        // Kita letak default mula muka surat 1 kalau baru upload
         return { id: parts[0], title: parts.slice(1).join(" "), startPage: 1 };
       });
 
@@ -264,7 +292,6 @@ export default function GuruDashboard() {
       const parts = sub.split(" ");
       const id = parts[0];
       const title = parts.slice(1).join(" ");
-      // Cek kalau subtopik ni dah wujud sebelum ni, kita kekalkan muka surat (startPage) lama dia
       const wujud = existingSubs.find((e: any) => e.id === id);
       return { id, title, startPage: wujud ? wujud.startPage : 1 };
     });
@@ -277,7 +304,6 @@ export default function GuruDashboard() {
     } catch (error) { showToastMessage("Ralat sync subtopik.", "error"); }
   };
 
-  // 🌟 FUNGSI BARU: SIMPAN MUKA SURAT PDF
   const handleSimpanMukaSurat = async (bahanId: string) => {
     try {
       await updateDoc(doc(db, "chapters", bahanId), {
@@ -286,7 +312,7 @@ export default function GuruDashboard() {
       });
       showToastMessage("Nombor muka surat berjaya disimpan!", "success");
       setEditSubtopikId(null);
-      tarikBahanFirebase(); // Refresh UI
+      tarikBahanFirebase(); 
     } catch(error) {
       showToastMessage("Ralat menyimpan muka surat.", "error");
     }
@@ -308,6 +334,10 @@ export default function GuruDashboard() {
           <nav className="space-y-2">
             <button onClick={() => setActiveTab("murid")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "murid" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><Users size={20} /> Pengurusan Pengguna</button>
             <button onClick={() => setActiveTab("pemantauan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "pemantauan" ? "bg-emerald-900/40 text-emerald-400 border border-emerald-800/50" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><Activity size={20} /> Pemantauan I-RAGS</button>
+            
+            {/* 🌟 TAMBAHAN BARU: BUTANG SEMAKAN GURU DI SIDEBAR */}
+            <button onClick={() => setActiveTab("semakan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "semakan" ? "bg-rose-900/40 text-rose-400 border border-rose-800/50 shadow-md" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><CheckSquare size={20} /> Semakan Esei Murid</button>
+            
             <button onClick={() => setActiveTab("soalan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "soalan" ? "bg-cyan-900/40 text-cyan-400 border border-cyan-800/50" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><HelpCircle size={20} /> Bank Soalan Ujian</button>
             <button onClick={() => setActiveTab("kandungan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "kandungan" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><BookOpen size={20} /> Senarai Bahan Nota</button>
             <button onClick={() => setActiveTab("upload")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "upload" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><FileText size={20} /> Tambah Bahan Baru</button>
@@ -407,6 +437,104 @@ export default function GuruDashboard() {
             </div>
           )}
 
+          {/* ========================================== */}
+          {/* 🌟 TAB TAMBAHAN BARU: SEMAKAN ESEI MURID */}
+          {/* ========================================== */}
+          {activeTab === "semakan" && (
+            <div className="space-y-6 animate-in fade-in">
+              <div className="flex justify-between items-center bg-[#1e293b] p-6 rounded-2xl border border-slate-800 shadow-lg">
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-1 flex items-center gap-2"><CheckSquare className="text-rose-400" size={20}/> Dashboard Semakan Guru</h3>
+                  <p className="text-slate-400 text-sm">Pemantauan dan permarkahan jawapan murid secara Human-in-the-Loop.</p>
+                </div>
+                <button onClick={tarikDataSemakan} className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm font-bold shadow-md transition-colors">
+                  <RefreshCw size={16} className={loadingSemakan ? "animate-spin" : ""}/> Segar Semula
+                </button>
+              </div>
+
+              <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-lg">
+                {loadingSemakan ? (
+                   <div className="p-12 text-center text-slate-400 animate-pulse">Menarik data jawapan murid... ⏳</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-max">
+                      <thead>
+                        <tr className="border-b border-slate-800 bg-slate-900/50">
+                          <th className="p-5 font-semibold text-sm text-slate-300">Nama Murid</th>
+                          <th className="p-5 font-semibold text-sm text-slate-300">Topik Ujian</th>
+                          <th className="p-5 font-semibold text-sm text-slate-300 text-center">Status Pemarkahan</th>
+                          <th className="p-5 font-semibold text-sm text-slate-300 text-center">Markah Semasa</th>
+                          <th className="p-5 font-semibold text-sm text-slate-300 text-right">Tindakan</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {senaraiSemakan.length > 0 ? senaraiSemakan.map((rekod, i) => {
+                          
+                          // Pengurusan Warna dan Label Status
+                          const status = rekod.statusPermarkahanEsei || "tiada_esei";
+                          let statusColor = "bg-slate-800 text-slate-400 border border-slate-700";
+                          let statusText = status.replace(/_/g, " ");
+
+                          if (status === "disemak_oleh_guru") {
+                            statusColor = "bg-emerald-900/30 text-emerald-400 border border-emerald-800/50";
+                            statusText = "Selesai Disahkan Guru";
+                          } else if (status === "disemak_oleh_AI") {
+                            statusColor = "bg-blue-900/30 text-blue-400 border border-blue-800/50";
+                            statusText = "Selesai Ditanda AI";
+                          }
+
+                          // PENGESANAN PINTAR (SMART DETECTION) JIKA AI GAGAL
+                          let aiGagal = false;
+                          if (rekod.ulasanAI) {
+                            Object.values(rekod.ulasanAI).forEach((u: any) => {
+                              if (u.komenAI && (u.komenAI.includes("GAGAL") || u.komenAI.includes("Sistem Gagal"))) {
+                                aiGagal = true;
+                              }
+                            });
+                          }
+
+                          // Jika AI gagal dan guru belum semak, kita kelip-kelipkan warna merah amaran!
+                          if (aiGagal && status !== "disemak_oleh_guru") {
+                            statusColor = "bg-rose-900/30 text-rose-400 border border-rose-800/50 animate-pulse ring-1 ring-rose-500/50";
+                            statusText = "⚠️ AI Gagal - Sila Semak";
+                          }
+
+                          return (
+                            <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                              <td className="p-5">
+                                <div className="font-bold text-slate-200">{rekod.namaMurid}</div>
+                                <div className="text-slate-500 text-[10px] mt-1 uppercase">ID: {rekod.id}</div>
+                              </td>
+                              <td className="p-5 text-slate-400 text-sm">
+                                <span className="text-blue-400 font-bold">Ting. {rekod.tingkatan}</span> | {rekod.bab}
+                              </td>
+                              <td className="p-5 text-center">
+                                <span className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${statusColor}`}>
+                                  {statusText}
+                                </span>
+                              </td>
+                              <td className="p-5 text-center text-sm">
+                                <div className="text-slate-400 mb-1">Objektif: <span className="font-bold text-blue-400 px-2 bg-blue-900/20 rounded">{rekod.skorObjektif || 0}</span></div>
+                                <div className="text-slate-400">Esei: <span className="font-bold text-purple-400 px-2 bg-purple-900/20 rounded">{rekod.markahStruktur || 0}</span></div>
+                              </td>
+                              <td className="p-5 text-right">
+                                <a href={`/guru/semakan/${rekod.id}`} target="_blank" rel="noreferrer" className="inline-block bg-sky-600 hover:bg-sky-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105">
+                                  Semak Jawapan
+                                </a>
+                              </td>
+                            </tr>
+                          )
+                        }) : (
+                          <tr><td colSpan={5} className="p-12 text-center text-slate-500">Tiada kertas jawapan yang perlu disemak buat masa ini.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* TAB 3: BANK SOALAN UJIAN */}
           {activeTab === "soalan" && (
             <div className="space-y-6 animate-in fade-in">
@@ -466,9 +594,7 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* ========================================== */}
           {/* TAB 4: SENARAI BAHAN NOTA DENGAN EDIT MUKA SURAT */}
-          {/* ========================================== */}
           {activeTab === "kandungan" && (
             <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-between items-center bg-[#1e293b] p-6 rounded-2xl border border-slate-800">
