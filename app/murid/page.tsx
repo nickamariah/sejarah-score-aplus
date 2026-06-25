@@ -382,9 +382,9 @@ export default function MuridDashboard() {
                                 
                                 <div className="flex gap-2">
   {module.id === 1 && isModul1Completed ? (
-    /* Syarat Baru: Semak jika murid CEMERLANG (atau markah >= 80) */
-    /* Nota: Jika cikgu guna nama lain untuk aras, contohnya 'cemerlang' huruf kecil, pastikan ejaan sama */
-    (adaptive.aras === "Cemerlang" || adaptive.aras === "cemerlang") ? (
+    
+    /* 🌟 KOD BARU: Terus semak kalau markah >= 80 */
+    (skorBab[chapter.id] >= 80) ? (
       <button
         onClick={() => window.location.href = `/student/semakan-ujian/${docIds[chapter.id]}`}
         className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition"
@@ -392,8 +392,7 @@ export default function MuridDashboard() {
         🔍 Semakan
       </button>
     ) : (
-      /* Jika murid Sederhana / Rendah, butang Semakan DIBUANG. 
-         Kita letak mesej suruh mereka buat modul bimbingan */
+      
       <span className="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-lg text-sm font-medium italic border border-gray-200 flex items-center">
         Sila ke Bimbingan AI 👉
       </span>
