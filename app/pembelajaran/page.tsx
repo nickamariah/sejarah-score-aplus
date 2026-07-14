@@ -320,13 +320,15 @@ function KomponenPembelajaran() {
        <div className="flex-1 bg-gray-200 overflow-hidden relative flex flex-col">
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
           
-          {/* 🌟 LOGIK BARU: PAPAR VIDEO ATAU NOTA PDF DI PANEL KIRI */}
-          {showVideoModal ? (
-            <div className="w-full h-full flex flex-col bg-slate-900 animate-in fade-in duration-300">
+          {/* 🌟 LOGIK BARU: VIDEO DI ATAS, NOTA DI BAWAH (ELAK NOTA HILANG) */}
+          
+          {/* 1. LAPISAN VIDEO (Hanya muncul jika showVideoModal true, ia akan 'cover' nota PDF) */}
+          {showVideoModal && (
+            <div className="absolute inset-0 z-40 flex flex-col bg-slate-900 animate-in fade-in duration-300">
                <div className="bg-red-600 text-white p-2.5 flex justify-between items-center px-4 shadow-md z-20">
                   <span className="font-bold text-sm flex items-center gap-2">📺 Tonton & Fahamkan Video Ini</span>
                   <button onClick={() => setShowVideoModal(false)} className="bg-white/20 hover:bg-white text-white hover:text-red-600 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors shadow">
-                    Tutup Video ✖
+                    Kembali ke Nota ✖
                   </button>
                </div>
                <div className="flex-1 w-full h-full flex items-center justify-center p-4 md:p-8 relative">
@@ -348,15 +350,18 @@ function KomponenPembelajaran() {
                   )}
                </div>
             </div>
-          ) : (
-            <iframe 
-              key={pageNumber} 
-              src={chapterData?.chapterUrl ? `${chapterData.chapterUrl}#page=${pageNumber}&toolbar=1&view=FitH` : `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`}
-              className="w-full h-full z-10 relative bg-white animate-in fade-in" 
-              title="PDF Viewer" 
-            />
           )}
+
+          {/* 2. LAPISAN NOTA PDF (Sentiasa berada di belakang, tidak dibuang dari skrin) */}
+          <iframe 
+            key={pageNumber} 
+            src={chapterData?.chapterUrl ? `${chapterData.chapterUrl}#page=${pageNumber}&toolbar=1&view=FitH` : `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`}
+            className="w-full h-full z-10 absolute inset-0 bg-white" 
+            title="PDF Viewer" 
+          />
         </div>
+         
+       
       </div>
 
       {/* 2. DRAG RESIZER BAR */}
