@@ -13,6 +13,9 @@ function KomponenPembelajaran() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  // STATE UNTUK VIDEO BIMBINGAN (MURID LEMAH)
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  
   const [currentPhase, setCurrentPhase] = useState(1);
   const [isMastered, setIsMastered] = useState(false);
   
@@ -297,7 +300,7 @@ function KomponenPembelajaran() {
           <div className="bg-black/20 rounded-xl p-2 lg:p-3 mt-1 backdrop-blur-sm">
             <div className="flex justify-between items-center mb-1.5 lg:mb-2">
               <span className="text-[10px] lg:text-xs font-bold text-blue-100 bg-white/10 px-2 py-0.5 rounded-full">Fasa Semasa</span>
-              <span className="text-[10px] lg:text-xs font-bold text-yellow-300">{currentPhase} / maxFasa</span>
+              <span className="text-[10px] lg:text-xs font-bold text-yellow-300">{currentPhase} / {maxFasa}</span>
             </div>
             <div className="flex gap-1 w-full">
               {phaseNames.map((name, index) => {
@@ -344,6 +347,44 @@ function KomponenPembelajaran() {
           <div className="flex flex-wrap gap-2 px-3 py-2 bg-gray-50 border-t border-gray-200 shrink-0">
             <button onClick={() => sendQuickPrompt("Saya tak faham.")} className="bg-orange-100 text-orange-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-orange-200 shadow-sm">🤷‍♂️ Tak Faham</button>
             <button onClick={() => sendQuickPrompt("Boleh bagi hint?")} className="bg-green-100 text-green-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-green-200 shadow-sm">💡 Beri Hint</button>
+            
+            {/* 🌟 BUTANG VIDEO KHAS UNTUK ARAS RENDAH */}
+            {arasDariURL === "rendah" && (
+              <button 
+                onClick={() => setShowVideoModal(true)} 
+                className="bg-red-100 text-red-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-red-200 shadow-sm flex items-center gap-1 ml-auto"
+              >
+                🎬 Tonton Video Bimbingan
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* 🌟 POP-UP (MODAL) VIDEO YOUTUBE */}
+        {showVideoModal && (
+          <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+              <div className="bg-slate-800 p-4 flex justify-between items-center text-white">
+                <h3 className="font-bold flex items-center gap-2">🎬 Video Bimbingan: {currentSubInfo?.title || currentSub}</h3>
+                <button onClick={() => setShowVideoModal(false)} className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded-lg text-sm font-bold transition">
+                  Tutup ✖
+                </button>
+              </div>
+              <div className="w-full aspect-video bg-black">
+                <iframe 
+                  className="w-full h-full"
+                  /* GANTI URL DI BAWAH DENGAN URL YOUTUBE EMBED CIKGU SEMENTARA WAKTU */
+                  src={currentSubInfo?.videoUrl || "https://www.youtube.com/embed/dQw4w9WgXcQ"} 
+                  title="Video Bimbingan" 
+                  frameBorder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowFullScreen
+                ></iframe>
+              </div>
+              <div className="p-4 bg-slate-50 border-t border-slate-200">
+                <p className="text-sm text-slate-600 font-medium">Tonton penerangan di atas. Jika anda sudah faham, tutup video ini dan teruskan menjawab soalan bersama I-RAGS Tutor.</p>
+              </div>
+            </div>
           </div>
         )}
 
