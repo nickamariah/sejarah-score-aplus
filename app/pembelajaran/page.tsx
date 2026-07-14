@@ -158,7 +158,7 @@ function KomponenPembelajaran() {
   const currentSubInfo = subtopicsList.find((s: any) => s.id === currentSub);
   const pageNumber = currentSubInfo ? currentSubInfo.startPage : 3;
 
-  // 🌟 FUNGSI TUKAR LINK BIASA KEPADA LINK EMBED (VERSI KEBAL)
+  // 🌟 FUNGSI TUKAR LINK BIASA KEPADA LINK EMBED (DIBETULKAN KEMBALI)
   const getBimbinganVideoUrl = () => {
     const rawUrl = currentSubInfo?.videoUrl;
     if (!rawUrl) return null;
@@ -360,8 +360,6 @@ function KomponenPembelajaran() {
             title="PDF Viewer" 
           />
         </div>
-         
-       
       </div>
 
       {/* 2. DRAG RESIZER BAR */}
