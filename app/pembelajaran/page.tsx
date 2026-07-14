@@ -3,16 +3,17 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation"; 
 import { db } from "@/lib/firebase"; 
-import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, getDocs } from "firebase/firestore";
 
 function KomponenPembelajaran() {
   const searchParams = useSearchParams();
   const babDariURL = searchParams.get("bab") || "tingkatan4_bab1_sub1.1"; 
   const arasDariURL = searchParams.get("aras") || "rendah";
 
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  
   // STATE UNTUK VIDEO BIMBINGAN (MURID LEMAH)
   const [showVideoModal, setShowVideoModal] = useState(false);
   
@@ -25,8 +26,12 @@ function KomponenPembelajaran() {
   const [leftWidth, setLeftWidth] = useState(60); 
   const [isDragging, setIsDragging] = useState(false);
 
-  // STATE BARU UNTUK DATA BAB DARI DATABASE
-  const [chapterData, setChapterData] = useState(null);
+  // STATE UNTUK DATA BAB DARI DATABASE
+  const [chapterData, setChapterData] = useState<any>(null);
+
+  // STATE UNTUK SIMPAN SOALAN & SKEMA DARI DATABASE
+  const [koleksiSoalan, setKoleksiSoalan] = useState("");
+  const [koleksiSkema, setKoleksiSkema] = useState("");
 
   const [studentId, setStudentId] = useState("murid_test");
   useEffect(() => {
@@ -36,11 +41,12 @@ function KomponenPembelajaran() {
 
   const chapterId = babDariURL; 
   const sessionId = `${studentId}_${chapterId}`;
-  const pdfFileName = chapterId.split('_sub')[0]; // cth: tingkatan4_bab1
+  const pdfFileName = chapterId.split('_sub')[0]; 
 
-  const messagesEndRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitializing = useRef(false);
-  // KOD BARU: Tentukan maksimum fasa ikut aras
+  
+  // Tentukan maksimum fasa ikut aras
   const maxFasa = arasDariURL === "rendah" ? 3 : 6;
   
   const phaseNames = arasDariURL === "rendah" 
@@ -55,8 +61,6 @@ function KomponenPembelajaran() {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setChapterData(docSnap.data());
-        } else {
-          console.log("Tiada data bab dijumpai untuk:", pdfFileName);
         }
       } catch (error) {
         console.error("Ralat ambil data bab:", error);
@@ -65,13 +69,65 @@ function KomponenPembelajaran() {
     fetchChapterData();
   }, [pdfFileName]);
 
+  const ekstrakSubtopik = (id: string) => id.includes("_sub") ? id.split("_sub")[1] : "1.1";
+  const currentSub = ekstrakSubtopik(chapterId);
+
+  // 2. TARIK BANK SOALAN DARI FIREBASE
+  useEffect(() => {
+    const tarikSoalanPeperiksaan = async () => {
+      const tg = chapterId.includes("tingkatan4") ? "4" : "5";
+      const babNum = chapterId.split('_bab')[1].split('_')[0];
+      const babStr = `Bab ${babNum}`;
+
+      try {
+        const q = query(
+          collection(db, "questionBank"),
+          where("tingkatan", "==", tg),
+          where("bab", "==", babStr)
+        );
+        const snap = await getDocs(q);
+        
+        let soalanGabungan = "";
+        let skemaGabungan = "";
+
+        snap.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.jenis !== "objektif") {
+            if (data.topik.includes(currentSub)) {
+               soalanGabungan += `- ${data.soalan} (${data.markah} Markah)\n`;
+               skemaGabungan += `- Soalan: ${data.soalan}\nSkema: ${data.skemaJawapan}\n\n`;
+            }
+          }
+        });
+
+        if (soalanGabungan === "") {
+           snap.forEach((docSnap) => {
+             const data = docSnap.data();
+             if (data.jenis !== "objektif") {
+                soalanGabungan += `- ${data.soalan} (${data.markah} Markah)\n`;
+                skemaGabungan += `- Soalan: ${data.soalan}\nSkema: ${data.skemaJawapan}\n\n`;
+             }
+           });
+        }
+
+        setKoleksiSoalan(soalanGabungan);
+        setKoleksiSkema(skemaGabungan);
+
+      } catch (error) {
+        console.error("Ralat tarik bank soalan:", error);
+      }
+    };
+
+    tarikSoalanPeperiksaan();
+  }, [chapterId, currentSub]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   // FUNGSI MENGENDALIKAN DRAG PANEL (RESIZABLE)
   useEffect(() => {
-    const handleMouseMove = (e) => {
+    const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
       let newWidth = (e.clientX / window.innerWidth) * 100;
       if (newWidth < 20) newWidth = 20;
@@ -94,17 +150,33 @@ function KomponenPembelajaran() {
     };
   }, [isDragging]);
 
-  const formatTajuk = (id) => id.replace('tingkatan', 'Tingkatan ').replace('_bab', ' Bab ').replace('_sub', ' Subtopik ');
-  const ekstrakSubtopik = (id) => id.includes("_sub") ? id.split("_sub")[1] : "1.1";
+  const formatTajuk = (id: string) => id.replace('tingkatan', 'Tingkatan ').replace('_bab', ' Bab ').replace('_sub', ' Subtopik ');
 
-  // LOGIK MENENTUKAN SUBTOPIK BERDASARKAN DATA DATABASE
-  const currentSub = ekstrakSubtopik(chapterId);
-  const subtopicsList = chapterData?.subtopics || []; // Ambil dari Firestore
-  const currentIndex = subtopicsList.findIndex(s => s.id === currentSub);
+  const subtopicsList = chapterData?.subtopics || []; 
+  const currentIndex = subtopicsList.findIndex((s: any) => s.id === currentSub);
   
-  // Tentukan muka surat PDF (Kalau takde data, mula di muka surat 1)
-  const currentSubInfo = subtopicsList.find(s => s.id === currentSub);
+  const currentSubInfo = subtopicsList.find((s: any) => s.id === currentSub);
   const pageNumber = currentSubInfo ? currentSubInfo.startPage : 3;
+
+  // 🌟 FUNGSI TUKAR LINK BIASA KEPADA LINK EMBED (VERSI KEBAL)
+  const getBimbinganVideoUrl = () => {
+    const rawUrl = currentSubInfo?.videoUrl;
+    if (!rawUrl) return null;
+
+    try {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/|live\/)([^#\&\?]*).*/;
+      const match = rawUrl.match(regExp);
+
+      if (match && match[2].length === 11) {
+         return `https://www.youtube.com/embed/${match[2]}`;
+      }
+      return rawUrl;
+    } catch (e) {
+      return rawUrl;
+    }
+  };
+
+  const videoKhas = getBimbinganVideoUrl();
 
   const gotoNextSubtopic = () => {
     if (currentIndex !== -1 && currentIndex + 1 < subtopicsList.length) {
@@ -159,7 +231,7 @@ function KomponenPembelajaran() {
     return () => unsubscribe();
   }, [sessionId, chapterId, studentId]);
 
-  const sendMessage = async (e) => {
+  const sendMessage = async (e: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim()) return;
 
@@ -177,7 +249,13 @@ function KomponenPembelajaran() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          studentId, chapterId, text: teksMurid, currentPhase: currentPhase, aras: arasDariURL,
+          studentId, 
+          chapterId, 
+          text: teksMurid, 
+          currentPhase: currentPhase, 
+          aras: arasDariURL,
+          soalanUjian: koleksiSoalan, 
+          skemaJawapan: koleksiSkema, 
           previousMessages: messages.slice(-4).map(m => ({ role: m.role, content: m.content })) 
         })
       });
@@ -198,13 +276,13 @@ function KomponenPembelajaran() {
               content: `✨ Tahniah! Awak dah lepasi Fasa ${currentPhase}. Mari kita ke **Fasa ${nextPhase} (${phaseNames[nextPhase-1]})** pula.`,
               timestamp: serverTimestamp()
             });
-          } else if (currentPhase === 6) {
+          } else if (currentPhase === maxFasa) {
             setIsMastered(true);
             await updateDoc(sessionDocRef, { status: "completed" });
             
             await addDoc(messagesCollectionRef, {
               role: "assistant",
-              content: `🎉 **SYABAS!** Awak telah berjaya menjawab soalan Fasa Refleksi dengan cemerlang! Ini bermakna awak telah menguasai sepenuhnya subtopik ini.`,
+              content: `🎉 **SYABAS!** Awak telah berjaya menjawab dengan cemerlang! Ini bermakna awak telah menguasai sepenuhnya subtopik ini.`,
               timestamp: serverTimestamp()
             });
           }
@@ -217,38 +295,38 @@ function KomponenPembelajaran() {
     }
   };
 
-  const sendQuickPrompt = (text) => setInput(text);
+  const sendQuickPrompt = (text: string) => setInput(text);
 
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-slate-50 overflow-hidden font-sans relative">
       
-      {/* 1. PANEL KIRI (NOTA PDF) */}
+      {/* 1. PANEL KIRI (NOTA PDF / VIDEO YOUTUBE) */}
       <div 
         className={`${showPdfMobile ? 'flex absolute inset-0 z-50 bg-white' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-xl lg:shadow-none h-full lg:w-[var(--left-width)]`}
-        style={{ "--left-width": `${leftWidth}%` }}
+        style={{ "--left-width": `${leftWidth}%` } as React.CSSProperties}
       >
-        <div className="bg-slate-800 text-white p-3 lg:p-4 shadow-sm flex items-center justify-between gap-3">
+        <div className="bg-slate-800 text-white p-3 lg:p-4 shadow-sm flex items-center justify-between gap-3 z-30">
           <button onClick={() => window.location.href = '/murid'} className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 transition shrink-0">
             ⬅️ <span className="hidden sm:inline">Dashboard</span>
           </button>
           <h2 className="text-sm lg:text-lg font-bold truncate capitalize flex items-center gap-2">
-            📄 Nota: {chapterData ? chapterData.title : formatTajuk(chapterId)}
+            {showVideoModal ? `🎬 Video: ${currentSubInfo?.title || currentSub}` : `📄 Nota: ${chapterData ? chapterData.title : formatTajuk(chapterId)}`}
           </h2>
           <button onClick={() => setShowPdfMobile(false)} className="lg:hidden bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">
-            Tutup Nota ✖
+            Tutup ✖
           </button>
         </div>
         
        <div className="flex-1 bg-gray-200 overflow-hidden relative flex flex-col">
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
           
-          {/* 🌟 LOGIK BARU: PAPAR VIDEO ATAU NOTA PDF */}
+          {/* 🌟 LOGIK BARU: PAPAR VIDEO ATAU NOTA PDF DI PANEL KIRI */}
           {showVideoModal ? (
             <div className="w-full h-full flex flex-col bg-slate-900 animate-in fade-in duration-300">
                <div className="bg-red-600 text-white p-2.5 flex justify-between items-center px-4 shadow-md z-20">
-                  <span className="font-bold text-sm flex items-center gap-2">📺 Video Bimbingan</span>
-                  <button onClick={() => setShowVideoModal(false)} className="bg-white/20 hover:bg-white text-white hover:text-red-600 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
-                    Kembali ke Nota ✖
+                  <span className="font-bold text-sm flex items-center gap-2">📺 Tonton & Fahamkan Video Ini</span>
+                  <button onClick={() => setShowVideoModal(false)} className="bg-white/20 hover:bg-white text-white hover:text-red-600 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors shadow">
+                    Tutup Video ✖
                   </button>
                </div>
                <div className="flex-1 w-full h-full flex items-center justify-center p-4 md:p-8 relative">
@@ -264,7 +342,8 @@ function KomponenPembelajaran() {
                   ) : (
                     <div className="text-center text-slate-400">
                       <p className="text-4xl mb-2">📭</p>
-                      <p>Maaf, tiada video bimbingan disediakan untuk subtopik ini.</p>
+                      <p>Maaf, cikgu belum letak link YouTube untuk subtopik ini.</p>
+                      <button onClick={() => setShowVideoModal(false)} className="mt-4 bg-slate-700 text-white px-4 py-2 rounded-lg text-sm">Kembali ke Nota</button>
                     </div>
                   )}
                </div>
@@ -299,7 +378,7 @@ function KomponenPembelajaran() {
               <div className="text-2xl lg:text-4xl bg-white rounded-full p-1 shadow-sm">🤖</div>
               <div>
                 <h2 className="font-extrabold text-base lg:text-xl tracking-wide leading-tight">I-RAGs Tutor</h2>
-                <p className="text-blue-100 text-[10px] lg:text-xs font-medium">Model 5 Fasa Inkuiri</p>
+                <p className="text-blue-100 text-[10px] lg:text-xs font-medium">Model {maxFasa} Fasa Inkuiri</p>
               </div>
             </div>
             <button onClick={() => setShowPdfMobile(true)} className="lg:hidden bg-amber-400 hover:bg-amber-500 text-amber-900 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 shadow-sm">
@@ -308,7 +387,7 @@ function KomponenPembelajaran() {
           </div>
 
           <div className="flex gap-1 overflow-hidden mt-1 bg-black/20 p-1.5 rounded-lg">
-            {subtopicsList.length > 0 ? subtopicsList.map((sub, index) => {
+            {subtopicsList.length > 0 ? subtopicsList.map((sub: any, index: number) => {
               const isPast = index < currentIndex;
               const isActive = index === currentIndex;
               let style = "bg-white/10 text-white/50 border border-white/5"; 
@@ -387,12 +466,10 @@ function KomponenPembelajaran() {
           </div>
         )}
 
-        
-
         {isMastered ? (
           <div className="p-4 lg:p-6 bg-emerald-50 border-t-4 border-emerald-500 text-center shrink-0">
             <h3 className="text-lg lg:text-2xl font-extrabold text-emerald-700 mb-1">🏆 Subtopik Selesai! ✅</h3>
-            <p className="text-emerald-800 font-medium text-xs lg:text-sm mb-3">Syabas! Anda telah melengkapkan 5 Fasa Inkuiri.</p>
+            <p className="text-emerald-800 font-medium text-xs lg:text-sm mb-3">Syabas! Anda telah melengkapkan {maxFasa} Fasa Inkuiri.</p>
             
             <button 
               onClick={gotoNextSubtopic} 
