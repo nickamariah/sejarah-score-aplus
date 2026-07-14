@@ -321,9 +321,8 @@ function KomponenPembelajaran() {
        <div className="flex-1 bg-gray-200 overflow-hidden relative flex flex-col">
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
           
-          {/* 🌟 LAPISAN 1: VIDEO (Hanya muncul di atas nota jika showVideoModal = true) */}
-          {showVideoModal && (
-            <div className="absolute inset-0 z-40 flex flex-col bg-slate-900 animate-in fade-in duration-300">
+          {/* 🌟 LAPISAN 1: VIDEO (Kita guna CSS Opacity untuk sorok/tunjuk, supaya tak kacau PDF) */}
+          <div className={`absolute inset-0 z-40 flex flex-col bg-slate-900 transition-all duration-300 ${showVideoModal ? "opacity-100 visible pointer-events-auto" : "opacity-0 invisible pointer-events-none"}`}>
                <div className="bg-red-600 text-white p-2.5 flex justify-between items-center px-4 shadow-md z-20">
                   <span className="font-bold text-sm flex items-center gap-2">📺 Tonton & Fahamkan Video Ini</span>
                   <button onClick={() => setShowVideoModal(false)} className="bg-white/20 hover:bg-white text-white hover:text-red-600 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors shadow">
@@ -334,7 +333,7 @@ function KomponenPembelajaran() {
                   {videoKhas ? (
                     <iframe 
                       className="w-full aspect-video rounded-xl shadow-2xl border-2 border-slate-700 max-h-full"
-                      src={videoKhas} 
+                      src={showVideoModal ? videoKhas : ""} // Ini pastikan video berhenti bila ditutup
                       title="Video Bimbingan" 
                       frameBorder="0" 
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
@@ -348,14 +347,12 @@ function KomponenPembelajaran() {
                     </div>
                   )}
                </div>
-            </div>
-          )}
+          </div>
 
-          {/* 🌟 LAPISAN 2: NOTA PDF (Tapak asas, sentiasa kekal di belakang) */}
+          {/* 🌟 LAPISAN 2: NOTA PDF (Kekal statik di belakang, kita buang 'key' supaya dia tak selalu reload) */}
           <iframe 
-            key={`${chapterData?.chapterUrl || 'local'}-${pageNumber}`} 
             src={chapterData?.chapterUrl ? `${chapterData.chapterUrl}#page=${pageNumber}&toolbar=1&view=FitH` : `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`}
-            className="flex-1 w-full h-full bg-white z-10" 
+            className="absolute inset-0 w-full h-full z-10 bg-white" 
             title="PDF Viewer" 
           />
         </div>
