@@ -293,7 +293,14 @@ export default function GuruDashboard() {
       const id = parts[0];
       const title = parts.slice(1).join(" ");
       const wujud = existingSubs.find((e: any) => e.id === id);
-      return { id, title, startPage: wujud ? wujud.startPage : 1 };
+      
+      // 🌟 KEKALKAN videoUrl JIKA SUDAH WUJUD
+      return { 
+        id, 
+        title, 
+        startPage: wujud ? wujud.startPage : 1,
+        videoUrl: wujud?.videoUrl || "" // <--- KITA TAMBAH INI
+      };
     });
 
     if(subtopicsArray.length === 0) return showToastMessage(`Tiada senarai subtopik dalam memori untuk ${babKey}.`, "error");
@@ -304,17 +311,18 @@ export default function GuruDashboard() {
     } catch (error) { showToastMessage("Ralat sync subtopik.", "error"); }
   };
 
+  // Fungsi handleSimpanMukaSurat KEKAL SAMA (Tak perlu ubah apa-apa)
   const handleSimpanMukaSurat = async (bahanId: string) => {
     try {
       await updateDoc(doc(db, "chapters", bahanId), {
         subtopics: tempSubtopik,
         updatedAt: serverTimestamp()
       });
-      showToastMessage("Nombor muka surat berjaya disimpan!", "success");
+      showToastMessage("Nombor muka surat & Video berjaya disimpan!", "success"); // Saya tukar teks sikit je
       setEditSubtopikId(null);
       tarikBahanFirebase(); 
     } catch(error) {
-      showToastMessage("Ralat menyimpan muka surat.", "error");
+      showToastMessage("Ralat menyimpan maklumat.", "error");
     }
   };
 
@@ -642,17 +650,37 @@ export default function GuruDashboard() {
                       {/* BAHAGIAN PAPARAN / EDIT SUBTOPIK */}
                       {editSubtopikId === bahan.id ? (
                         <div className="mt-3 bg-slate-900/50 p-4 rounded-lg border border-amber-600/50">
-                          <p className="text-xs text-amber-400 font-bold mb-3 uppercase flex items-center gap-2"><Edit3 size={14}/> Tetapkan Muka Surat:</p>
-                          <div className="space-y-3 mb-4 max-h-48 overflow-y-auto pr-2">
+                          <p className="text-xs text-amber-400 font-bold mb-3 uppercase flex items-center gap-2"><Edit3 size={14}/> Tetapkan Muka Surat & Video:</p>
+                          <div className="space-y-3 mb-4 max-h-64 overflow-y-auto pr-2">
                             {tempSubtopik.map((sub, i) => (
-                               <div key={i} className="flex items-center gap-3">
-                                 <span className="text-xs font-bold text-blue-400 w-8 shrink-0">{sub.id}</span>
-                                 <input type="number" min="1" value={sub.startPage || 1} onChange={(e) => {
-                                   const newSubs = [...tempSubtopik];
-                                   newSubs[i].startPage = Number(e.target.value);
-                                   setTempSubtopik(newSubs);
-                                 }} className="w-16 bg-slate-800 text-amber-400 font-bold text-sm p-1.5 rounded border border-slate-600 focus:border-amber-500 outline-none text-center" title="Muka surat di dalam PDF" />
-                                 <span className="text-xs text-slate-300 truncate" title={sub.title}>{sub.title}</span>
+                               <div key={i} className="flex flex-col gap-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                                 
+                                 {/* BARIS ATAS: ID, INPUT MUKA SURAT, TAJUK */}
+                                 <div className="flex items-center gap-3">
+                                   <span className="text-xs font-bold text-blue-400 w-8 shrink-0">{sub.id}</span>
+                                   <input type="number" min="1" value={sub.startPage || 1} onChange={(e) => {
+                                     const newSubs = [...tempSubtopik];
+                                     newSubs[i].startPage = Number(e.target.value);
+                                     setTempSubtopik(newSubs);
+                                   }} className="w-16 bg-slate-800 text-amber-400 font-bold text-sm p-1.5 rounded border border-slate-600 focus:border-amber-500 outline-none text-center" title="Muka surat di dalam PDF" />
+                                   <span className="text-xs text-slate-300 truncate" title={sub.title}>{sub.title}</span>
+                                 </div>
+
+                                 {/* 🌟 BARIS BAWAH: INPUT LINK YOUTUBE */}
+                                 <div className="flex items-center gap-2">
+                                   <span className="text-[10px] text-red-400 font-bold uppercase shrink-0 w-8 text-center" title="Video YouTube">📺</span>
+                                   <input 
+                                     type="text" 
+                                     value={sub.videoUrl || ""} 
+                                     placeholder="Tampal Link YouTube (Contoh: https://youtu.be/...)" 
+                                     onChange={(e) => {
+                                       const newSubs = [...tempSubtopik];
+                                       newSubs[i].videoUrl = e.target.value;
+                                       setTempSubtopik(newSubs);
+                                     }} 
+                                     className="flex-1 bg-[#0f172a] text-slate-300 font-mono text-[10px] p-1.5 rounded border border-slate-700 focus:border-red-500 outline-none" 
+                                   />
+                                 </div>
                                </div>
                             ))}
                           </div>
