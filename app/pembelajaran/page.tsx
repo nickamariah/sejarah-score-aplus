@@ -158,17 +158,18 @@ function KomponenPembelajaran() {
   const currentSubInfo = subtopicsList.find((s: any) => s.id === currentSub);
   const pageNumber = currentSubInfo ? currentSubInfo.startPage : 3;
 
-  // 🌟 FUNGSI TUKAR LINK BIASA KEPADA LINK EMBED (DIBETULKAN KEMBALI)
+  // 🌟 FUNGSI TUKAR LINK YOUTUBE (DIBETULKAN DENGAN KOTAK STRING BIASA)
   const getBimbinganVideoUrl = () => {
     const rawUrl = currentSubInfo?.videoUrl;
     if (!rawUrl) return null;
 
     try {
-      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/|live\/)([^#\&\?]*).*/;
+      const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/|live\/)([^#\&\?]*).*/;
       const match = rawUrl.match(regExp);
 
       if (match && match[2].length === 11) {
-         return `https://www.youtube.com/embed/${match[2]}`;
+         // KOD INI DIPASTIKAN TAKKAN TERPOTONG
+         return "https://www.youtube.com/embed/" + match[2];
       }
       return rawUrl;
     } catch (e) {
@@ -322,7 +323,7 @@ function KomponenPembelajaran() {
           
           {/* 🌟 LOGIK BARU: VIDEO DI ATAS, NOTA DI BAWAH (ELAK NOTA HILANG) */}
           
-          {/* 1. LAPISAN VIDEO (Hanya muncul jika showVideoModal true, ia akan 'cover' nota PDF) */}
+          {/* 1. LAPISAN VIDEO (Hanya muncul jika showVideoModal true) */}
           {showVideoModal && (
             <div className="absolute inset-0 z-40 flex flex-col bg-slate-900 animate-in fade-in duration-300">
                <div className="bg-red-600 text-white p-2.5 flex justify-between items-center px-4 shadow-md z-20">
@@ -352,7 +353,7 @@ function KomponenPembelajaran() {
             </div>
           )}
 
-          {/* 2. LAPISAN NOTA PDF (Sentiasa berada di belakang, tidak dibuang dari skrin) */}
+          {/* 2. LAPISAN NOTA PDF (Sentiasa berada di belakang) */}
           <iframe 
             key={pageNumber} 
             src={chapterData?.chapterUrl ? `${chapterData.chapterUrl}#page=${pageNumber}&toolbar=1&view=FitH` : `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`}
