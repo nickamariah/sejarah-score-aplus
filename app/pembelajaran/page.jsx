@@ -37,8 +37,12 @@ function KomponenPembelajaran() {
 
   const messagesEndRef = useRef(null);
   const isInitializing = useRef(false);
-  // SEKARANG (6 Fasa ikut DSKP)
-  const phaseNames = ["Mengetahui", "Memahami", "Mengaplikasi", "Menganalisis", "Menilai", "Mencipta Idea"];
+  // KOD BARU: Tentukan maksimum fasa ikut aras
+  const maxFasa = arasDariURL === "rendah" ? 3 : 6;
+  
+  const phaseNames = arasDariURL === "rendah" 
+    ? ["Mengingat", "Memahami", "Mengaplikasi"] 
+    : ["Mengetahui", "Memahami", "Mengaplikasi", "Menganalisis", "Menilai", "Mencipta Idea"];
 
   // 1. TARIK DATA SUBTOPIK DARI FIREBASE BERDASARKAN BAB
   useEffect(() => {
@@ -181,7 +185,7 @@ function KomponenPembelajaran() {
         await addDoc(messagesCollectionRef, { role: "assistant", content: data.reply, timestamp: serverTimestamp() });
 
         if (data.isPhaseComplete) {
-          if (currentPhase < 6) {
+          if (currentPhase < maxFasa) {
             const nextPhase = currentPhase + 1;
             setCurrentPhase(nextPhase);
             await updateDoc(sessionDocRef, { currentPhase: nextPhase });
@@ -293,7 +297,7 @@ function KomponenPembelajaran() {
           <div className="bg-black/20 rounded-xl p-2 lg:p-3 mt-1 backdrop-blur-sm">
             <div className="flex justify-between items-center mb-1.5 lg:mb-2">
               <span className="text-[10px] lg:text-xs font-bold text-blue-100 bg-white/10 px-2 py-0.5 rounded-full">Fasa Semasa</span>
-              <span className="text-[10px] lg:text-xs font-bold text-yellow-300">{currentPhase} / 6</span>
+              <span className="text-[10px] lg:text-xs font-bold text-yellow-300">{currentPhase} / maxFasa</span>
             </div>
             <div className="flex gap-1 w-full">
               {phaseNames.map((name, index) => {

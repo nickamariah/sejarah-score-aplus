@@ -47,23 +47,26 @@ export async function POST(req) {
     }
 
     // ==========================================
-    // 2. LOGIK 5 FASA INKUIRI (DINAMIK)
+    // 1. LOGIK FASA INKUIRI (TAKSONOMI BLOOM)
     // ==========================================
     let arahanFasa = "";
     if (currentPhase === 1) {
-      arahanFasa = `FASA 1 (TANYA): Cetuskan inkuiri murid. JANGAN tanya soalan 'recall'. Contoh soalan untuk ditanya: "${soalanTanya}"`;
+      arahanFasa = `FASA 1 (MENGINGAT/MENGETAHUI): Uji hafalan atau pengetahuan asas murid berdasarkan [SKEMA JAWAPAN]. Tanya 1 soalan yang sangat mudah (Contoh: "Apakah...", "Siapakah...").`;
     } 
     else if (currentPhase === 2) {
-      arahanFasa = `FASA 2 (TEROKA): Arahkan murid meneroka nota rujukan. Contoh: "${soalanTeroka}"`;
+      arahanFasa = `FASA 2 (MEMAHAMI): Minta murid terangkan semula apa yang mereka faham tentang fakta di Fasa 1 menggunakan ayat mereka sendiri.`;
     } 
     else if (currentPhase === 3) {
-      arahanFasa = `FASA 3 (ANALISIS): Bimbing murid membuat analisis perbandingan/hubung kait. Contoh: "${soalanAnalisis}"`;
+      arahanFasa = `FASA 3 (MENGAPLIKASI): Minta murid kaitkan fakta tersebut dengan situasi sejarah yang sedang dibincangkan.`;
     } 
     else if (currentPhase === 4) {
-      arahanFasa = `FASA 4 (RUMUS): Minta murid merumuskan dan membuat kesimpulan ringkas tentang bukti yang dibincangkan.`;
+      arahanFasa = `FASA 4 (MENGANALISIS): Minta murid huraikan sebab dan akibat atau buat perbandingan.`;
     } 
     else if (currentPhase === 5) {
-      arahanFasa = `FASA 5 (REFLEKSI): Tanya soalan KBAT/Refleksi luar dari kotak. Contoh: "${soalanRefleksi}"`;
+      arahanFasa = `FASA 5 (MENILAI): Minta murid buat penilaian, wajar atau tidak wajar sesuatu tindakan/peristiwa itu berlaku. Berikan sebab.`;
+    }
+    else if (currentPhase === 6) {
+      arahanFasa = `FASA 6 (MENCIPTA/REFLEKSI): Tanya 1 soalan KBAT. Minta cadangan penyelesaian jika situasi ini berlaku pada masa sekarang.`;
     }
 
     // ==========================================
