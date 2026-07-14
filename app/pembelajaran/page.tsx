@@ -321,9 +321,7 @@ function KomponenPembelajaran() {
        <div className="flex-1 bg-gray-200 overflow-hidden relative flex flex-col">
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
           
-          {/* 🌟 LOGIK BARU: VIDEO DI ATAS, NOTA DI BAWAH (ELAK NOTA HILANG) */}
-          
-          {/* 1. LAPISAN VIDEO (Hanya muncul jika showVideoModal true) */}
+          {/* 🌟 LAPISAN 1: VIDEO (Hanya muncul di atas nota jika showVideoModal = true) */}
           {showVideoModal && (
             <div className="absolute inset-0 z-40 flex flex-col bg-slate-900 animate-in fade-in duration-300">
                <div className="bg-red-600 text-white p-2.5 flex justify-between items-center px-4 shadow-md z-20">
@@ -353,11 +351,11 @@ function KomponenPembelajaran() {
             </div>
           )}
 
-          {/* 2. LAPISAN NOTA PDF (Sentiasa berada di belakang) */}
+          {/* 🌟 LAPISAN 2: NOTA PDF (Tapak asas, sentiasa kekal di belakang) */}
           <iframe 
-            key={pageNumber} 
+            key={`${chapterData?.chapterUrl || 'local'}-${pageNumber}`} 
             src={chapterData?.chapterUrl ? `${chapterData.chapterUrl}#page=${pageNumber}&toolbar=1&view=FitH` : `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`}
-            className="w-full h-full z-10 absolute inset-0 bg-white" 
+            className="flex-1 w-full h-full bg-white z-10" 
             title="PDF Viewer" 
           />
         </div>
