@@ -239,17 +239,44 @@ function KomponenPembelajaran() {
           </button>
         </div>
         
-        <div className="flex-1 bg-gray-200 overflow-hidden relative">
+       <div className="flex-1 bg-gray-200 overflow-hidden relative flex flex-col">
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
           
-          {/* Iframe akan lompat automatik ke muka surat berdasarkaan #page=X */}
-          {/* Iframe yang telah dibaiki (Guna key untuk paksa refresh & baca URL Firebase) */}
-          <iframe 
-            key={pageNumber} 
-            src={chapterData?.chapterUrl ? `${chapterData.chapterUrl}#page=${pageNumber}&toolbar=1&view=FitH` : `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`}
-            className="w-full h-full z-10 relative bg-white" 
-            title="PDF Viewer" 
-          />
+          {/* 🌟 LOGIK BARU: PAPAR VIDEO ATAU NOTA PDF */}
+          {showVideoModal ? (
+            <div className="w-full h-full flex flex-col bg-slate-900 animate-in fade-in duration-300">
+               <div className="bg-red-600 text-white p-2.5 flex justify-between items-center px-4 shadow-md z-20">
+                  <span className="font-bold text-sm flex items-center gap-2">📺 Video Bimbingan</span>
+                  <button onClick={() => setShowVideoModal(false)} className="bg-white/20 hover:bg-white text-white hover:text-red-600 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                    Kembali ke Nota ✖
+                  </button>
+               </div>
+               <div className="flex-1 w-full h-full flex items-center justify-center p-4 md:p-8 relative">
+                  {videoKhas ? (
+                    <iframe 
+                      className="w-full aspect-video rounded-xl shadow-2xl border-2 border-slate-700 max-h-full"
+                      src={videoKhas} 
+                      title="Video Bimbingan" 
+                      frameBorder="0" 
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                      allowFullScreen
+                    ></iframe>
+                  ) : (
+                    <div className="text-center text-slate-400">
+                      <p className="text-4xl mb-2">📭</p>
+                      <p>Maaf, tiada video bimbingan disediakan untuk subtopik ini.</p>
+                    </div>
+                  )}
+               </div>
+            </div>
+          ) : (
+            <iframe 
+              key={pageNumber} 
+              src={chapterData?.chapterUrl ? `${chapterData.chapterUrl}#page=${pageNumber}&toolbar=1&view=FitH` : `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`}
+              className="w-full h-full z-10 relative bg-white animate-in fade-in" 
+              title="PDF Viewer" 
+            />
+          )}
         </div>
       </div>
 
@@ -360,33 +387,7 @@ function KomponenPembelajaran() {
           </div>
         )}
 
-        {/* 🌟 POP-UP (MODAL) VIDEO YOUTUBE */}
-        {showVideoModal && (
-          <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl animate-in zoom-in duration-300">
-              <div className="bg-slate-800 p-4 flex justify-between items-center text-white">
-                <h3 className="font-bold flex items-center gap-2">🎬 Video Bimbingan: {currentSubInfo?.title || currentSub}</h3>
-                <button onClick={() => setShowVideoModal(false)} className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded-lg text-sm font-bold transition">
-                  Tutup ✖
-                </button>
-              </div>
-              <div className="w-full aspect-video bg-black">
-                <iframe 
-                  className="w-full h-full"
-                  /* GANTI URL DI BAWAH DENGAN URL YOUTUBE EMBED CIKGU SEMENTARA WAKTU */
-                  src={currentSubInfo?.videoUrl || "https://www.youtube.com/embed/dQw4w9WgXcQ"} 
-                  title="Video Bimbingan" 
-                  frameBorder="0" 
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                  allowFullScreen
-                ></iframe>
-              </div>
-              <div className="p-4 bg-slate-50 border-t border-slate-200">
-                <p className="text-sm text-slate-600 font-medium">Tonton penerangan di atas. Jika anda sudah faham, tutup video ini dan teruskan menjawab soalan bersama I-RAGS Tutor.</p>
-              </div>
-            </div>
-          </div>
-        )}
+        
 
         {isMastered ? (
           <div className="p-4 lg:p-6 bg-emerald-50 border-t-4 border-emerald-500 text-center shrink-0">
