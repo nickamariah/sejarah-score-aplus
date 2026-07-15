@@ -14,7 +14,7 @@ function KomponenPembelajaran() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
-  // STATE UNTUK VIDEO BIMBINGAN (MURID LEMAH)
+  // STATE UNTUK VIDEO BIMBINGAN
   const [showVideoModal, setShowVideoModal] = useState(false);
   
   const [currentPhase, setCurrentPhase] = useState(1);
@@ -22,14 +22,12 @@ function KomponenPembelajaran() {
   
   const [showPdfMobile, setShowPdfMobile] = useState(false);
   
-  // STATE BARU UNTUK SPLIT SCREEN RESIZABLE
+  // STATE UNTUK SPLIT SCREEN
   const [leftWidth, setLeftWidth] = useState(60); 
   const [isDragging, setIsDragging] = useState(false);
 
-  // STATE UNTUK DATA BAB DARI DATABASE
+  // STATE UNTUK DATA
   const [chapterData, setChapterData] = useState<any>(null);
-
-  // STATE UNTUK SIMPAN SOALAN & SKEMA DARI DATABASE
   const [koleksiSoalan, setKoleksiSoalan] = useState("");
   const [koleksiSkema, setKoleksiSkema] = useState("");
 
@@ -46,22 +44,19 @@ function KomponenPembelajaran() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitializing = useRef(false);
   
-  // Tentukan maksimum fasa ikut aras
   const maxFasa = arasDariURL === "rendah" ? 3 : 6;
   
   const phaseNames = arasDariURL === "rendah" 
     ? ["Mengingat", "Memahami", "Mengaplikasi"] 
     : ["Mengetahui", "Memahami", "Mengaplikasi", "Menganalisis", "Menilai", "Mencipta Idea"];
 
-  // 1. TARIK DATA SUBTOPIK DARI FIREBASE BERDASARKAN BAB
+  // 1. TARIK DATA SUBTOPIK
   useEffect(() => {
     const fetchChapterData = async () => {
       try {
         const docRef = doc(db, "chapters", pdfFileName);
         const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setChapterData(docSnap.data());
-        }
+        if (docSnap.exists()) setChapterData(docSnap.data());
       } catch (error) {
         console.error("Ralat ambil data bab:", error);
       }
@@ -72,7 +67,7 @@ function KomponenPembelajaran() {
   const ekstrakSubtopik = (id: string) => id.includes("_sub") ? id.split("_sub")[1] : "1.1";
   const currentSub = ekstrakSubtopik(chapterId);
 
-  // 2. TARIK BANK SOALAN DARI FIREBASE
+  // 2. TARIK BANK SOALAN
   useEffect(() => {
     const tarikSoalanPeperiksaan = async () => {
       const tg = chapterId.includes("tingkatan4") ? "4" : "5";
@@ -109,7 +104,6 @@ function KomponenPembelajaran() {
              }
            });
         }
-
         setKoleksiSoalan(soalanGabungan);
         setKoleksiSkema(skemaGabungan);
 
@@ -117,7 +111,6 @@ function KomponenPembelajaran() {
         console.error("Ralat tarik bank soalan:", error);
       }
     };
-
     tarikSoalanPeperiksaan();
   }, [chapterId, currentSub]);
 
@@ -125,7 +118,7 @@ function KomponenPembelajaran() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // FUNGSI MENGENDALIKAN DRAG PANEL (RESIZABLE)
+  // FUNGSI RESIZABLE
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
@@ -158,32 +151,27 @@ function KomponenPembelajaran() {
   const currentSubInfo = subtopicsList.find((s: any) => s.id === currentSub);
   const pageNumber = currentSubInfo ? currentSubInfo.startPage : 3;
 
-  // 🌟 FUNGSI TUKAR LINK YOUTUBE (DIBETULKAN DENGAN KOTAK STRING BIASA)
+  // 🌟 FUNGSI YOUTUBE EMBED (DIBETULKAN 100%)
   const getBimbinganVideoUrl = () => {
     const rawUrl = currentSubInfo?.videoUrl;
     if (!rawUrl) return null;
-
     try {
       const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/|live\/)([^#\&\?]*).*/;
       const match = rawUrl.match(regExp);
-
       if (match && match[2].length === 11) {
-         // KOD INI DIPASTIKAN TAKKAN TERPOTONG
-         return "https://www.youtube.com/embed/" + match[2];
+        return "https://www.youtube.com/embed/" + match[2];
       }
       return rawUrl;
     } catch (e) {
       return rawUrl;
     }
   };
-
   const videoKhas = getBimbinganVideoUrl();
 
   const gotoNextSubtopic = () => {
     if (currentIndex !== -1 && currentIndex + 1 < subtopicsList.length) {
       const nextSub = subtopicsList[currentIndex + 1].id;
-      const nextUrl = `?bab=${pdfFileName}_sub${nextSub}&aras=${arasDariURL}`;
-      window.location.href = nextUrl;
+      window.location.href = `?bab=${pdfFileName}_sub${nextSub}&aras=${arasDariURL}`;
     } else {
       window.location.href = '/murid'; 
     }
@@ -220,7 +208,6 @@ function KomponenPembelajaran() {
         if (dataSesi.status === "completed") setIsMastered(true);
       }
     };
-
     inisialisasiSesi();
 
     const q = query(messagesCollectionRef, orderBy("timestamp", "asc"));
@@ -250,13 +237,8 @@ function KomponenPembelajaran() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          studentId, 
-          chapterId, 
-          text: teksMurid, 
-          currentPhase: currentPhase, 
-          aras: arasDariURL,
-          soalanUjian: koleksiSoalan, 
-          skemaJawapan: koleksiSkema, 
+          studentId, chapterId, text: teksMurid, currentPhase, aras: arasDariURL,
+          soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema, 
           previousMessages: messages.slice(-4).map(m => ({ role: m.role, content: m.content })) 
         })
       });
@@ -301,39 +283,41 @@ function KomponenPembelajaran() {
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-slate-50 overflow-hidden font-sans relative">
       
-      {/* 1. PANEL KIRI (NOTA PDF / VIDEO YOUTUBE) */}
+      {/* =============================================================== */}
+      {/* 1. PANEL KIRI (NOTA PDF DI BAWAH, VIDEO YOUTUBE MELAYANG DI ATAS) */}
+      {/* =============================================================== */}
       <div 
         className={`${showPdfMobile ? 'flex absolute inset-0 z-50 bg-white' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-xl lg:shadow-none h-full lg:w-[var(--left-width)]`}
         style={{ "--left-width": `${leftWidth}%` } as React.CSSProperties}
       >
-        <div className="bg-slate-800 text-white p-3 lg:p-4 shadow-sm flex items-center justify-between gap-3 z-30">
+        <div className="bg-slate-800 text-white p-3 lg:p-4 shadow-sm flex items-center justify-between gap-3 z-30 shrink-0">
           <button onClick={() => window.location.href = '/murid'} className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 transition shrink-0">
             ⬅️ <span className="hidden sm:inline">Dashboard</span>
           </button>
           <h2 className="text-sm lg:text-lg font-bold truncate capitalize flex items-center gap-2">
-            {showVideoModal ? `🎬 Video: ${currentSubInfo?.title || currentSub}` : `📄 Nota: ${chapterData ? chapterData.title : formatTajuk(chapterId)}`}
+            {showVideoModal ? `🎬 Video Bimbingan` : `📄 Nota: ${chapterData ? chapterData.title : formatTajuk(chapterId)}`}
           </h2>
           <button onClick={() => setShowPdfMobile(false)} className="lg:hidden bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">
             Tutup ✖
           </button>
         </div>
         
-       <div className="flex-1 bg-gray-200 overflow-hidden relative flex flex-col">
+       <div className="flex-1 w-full h-full bg-gray-200 relative flex flex-col">
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
           
-          {/* 🌟 LAPISAN 1: VIDEO (Kita guna CSS Opacity untuk sorok/tunjuk, supaya tak kacau PDF) */}
+          {/* 🌟 LAPISAN DEPAN: VIDEO (CSS Opacity menghalang Chrome daripada memadam PDF di belakang) */}
           <div className={`absolute inset-0 z-40 flex flex-col bg-slate-900 transition-all duration-300 ${showVideoModal ? "opacity-100 visible pointer-events-auto" : "opacity-0 invisible pointer-events-none"}`}>
-               <div className="bg-red-600 text-white p-2.5 flex justify-between items-center px-4 shadow-md z-20">
+               <div className="bg-red-600 text-white p-3 flex justify-between items-center px-4 shadow-md z-20">
                   <span className="font-bold text-sm flex items-center gap-2">📺 Tonton & Fahamkan Video Ini</span>
-                  <button onClick={() => setShowVideoModal(false)} className="bg-white/20 hover:bg-white text-white hover:text-red-600 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors shadow">
+                  <button onClick={() => setShowVideoModal(false)} className="bg-white text-red-600 hover:bg-gray-100 px-4 py-2 rounded-lg text-xs font-bold transition-colors shadow">
                     Kembali ke Nota ✖
                   </button>
                </div>
-               <div className="flex-1 w-full h-full flex items-center justify-center p-4 md:p-8 relative">
+               <div className="flex-1 w-full h-full flex items-center justify-center p-4 relative bg-black">
                   {videoKhas ? (
                     <iframe 
-                      className="w-full aspect-video rounded-xl shadow-2xl border-2 border-slate-700 max-h-full"
-                      src={showVideoModal ? videoKhas : ""} // Ini pastikan video berhenti bila ditutup
+                      className="w-full h-full max-h-[70vh] aspect-video rounded-xl shadow-2xl border-2 border-slate-700"
+                      src={showVideoModal ? videoKhas : ""} 
                       title="Video Bimbingan" 
                       frameBorder="0" 
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
@@ -349,12 +333,14 @@ function KomponenPembelajaran() {
                </div>
           </div>
 
-          {/* 🌟 LAPISAN 2: NOTA PDF (Kekal statik di belakang, kita buang 'key' supaya dia tak selalu reload) */}
-          <iframe 
-            src={chapterData?.chapterUrl ? `${chapterData.chapterUrl}#page=${pageNumber}&toolbar=1&view=FitH` : `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`}
-            className="absolute inset-0 w-full h-full z-10 bg-white" 
-            title="PDF Viewer" 
-          />
+          {/* 🌟 LAPISAN BELAKANG: NOTA PDF (Kekal statik tanpa key, jadi ia tidak akan crash/reload) */}
+          <div className="absolute inset-0 w-full h-full z-10 bg-white">
+              <iframe 
+                src={chapterData?.chapterUrl ? `${chapterData.chapterUrl}#page=${pageNumber}&toolbar=1&view=FitH` : `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`}
+                className="w-full h-full border-0" 
+                title="PDF Viewer" 
+              />
+          </div>
         </div>
       </div>
 
@@ -453,7 +439,7 @@ function KomponenPembelajaran() {
             <button onClick={() => sendQuickPrompt("Saya tak faham.")} className="bg-orange-100 text-orange-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-orange-200 shadow-sm">🤷‍♂️ Tak Faham</button>
             <button onClick={() => sendQuickPrompt("Boleh bagi hint?")} className="bg-green-100 text-green-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-green-200 shadow-sm">💡 Beri Hint</button>
             
-            {/* 🌟 BUTANG VIDEO KHAS UNTUK ARAS RENDAH */}
+            {/* BUTANG VIDEO KHAS UNTUK ARAS RENDAH */}
             {arasDariURL === "rendah" && (
               <button 
                 onClick={() => setShowVideoModal(true)} 
