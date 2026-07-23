@@ -14,6 +14,8 @@ function KandunganUjian() {
 
   const tingkatan = searchParams?.get("tingkatan") || "4";
   const bab = searchParams?.get("bab") || "Bab 1";
+  // 🌟 TAMBAHAN BARU: Tangkap jenis ujian dari URL (pre_test atau post_test)
+  const jenisUjian = searchParams?.get("jenisUjian") || "pre_test"; 
 
   const [soalanSenarai, setSoalanSenarai] = useState<any[]>([]);
   const [indexSemasa, setIndexSemasa] = useState(0);
@@ -65,11 +67,12 @@ function KandunganUjian() {
           }
         });
 
+        // 🌟 KEMASKINI: Hanya shuffle soalan objektif.
         const objektifDahShuffle = shuffleArray(soalanObjektif);
-        const strukturDahShuffle = shuffleArray(soalanStruktur);
         
-        // Cantumkan semula: Objektif dahulu, baru Struktur
-        setSoalanSenarai([...objektifDahShuffle, ...strukturDahShuffle]);
+        // 🌟 KEMASKINI: Soalan struktur dibiarkan mengikut susunan asal.
+        // Cantumkan semula: Objektif dahulu (shuffled), baru Struktur (tidak di-shuffle)
+        setSoalanSenarai([...objektifDahShuffle, ...soalanStruktur]);
       } catch (error) {
         console.error("Ralat tarik soalan:", error);
       } finally {
@@ -96,11 +99,6 @@ function KandunganUjian() {
             let jumlahMarkahStrukturAI = 0;
             let ulasanAIPenuh: Record<string, any> = {};
 
-            // =========================================================================
-            // 🌟 TAMBAHAN BARU: KELEWATAN RAWAK (JITTER) UNTUK 60 MURID
-            // Sistem akan pilih masa rawak antara 1 saat hingga 8 saat sebelum mula menanda.
-            // Ini mengelakkan 60 murid menyerang Server Google pada saat/milisaat yang sama.
-            // =========================================================================
             const masaGiliranRawak = Math.floor(Math.random() * 8000) + 1000;
             console.log(`Sistem menunggu giliran selama ${masaGiliranRawak}ms sebelum tembak API...`);
             await new Promise(resolve => setTimeout(resolve, masaGiliranRawak));
@@ -109,8 +107,6 @@ function KandunganUjian() {
               const detailSoalan = soalanSenarai.find(s => s.id === soalanId);
 
               if (detailSoalan) {
-                // 🌟 TAMBAHAN BARU: Letak try-catch dalam loop. 
-                // Kalau 1 soalan gagal/error, ia tak 'crash' kan sistem. Ia akan teruskan ke soalan lain.
                 try {
                   const res = await fetch("/api/semak-ai", {
                     method: "POST",
@@ -141,13 +137,13 @@ function KandunganUjian() {
                   };
                 }
 
-                // Rehat 2.5 saat sebelum tembak soalan seterusnya
                 await new Promise(resolve => setTimeout(resolve, 2500));
               }
             }
-            // =========================================================================
 
-            const docId = `${user.id}_t${tingkatan}_${bab}`;
+            // 🌟 KEMASKINI: Asingkan ID Dokumen untuk pre_test dan post_test 
+            // supaya post-test tak overwrite data pre-test
+            const docId = `${user.id}_t${tingkatan}_${bab}_${jenisUjian}`;
             const adaSoalanStruktur = Object.keys(jawapanStruktur).length > 0;
 
             let markahPenuhUjian = 0;
@@ -159,18 +155,13 @@ function KandunganUjian() {
               }
             });
 
-            // PENGIRAAN MARKAH AKHIR
             const skorAkhir = skor + jumlahMarkahStrukturAI;
             const peratus = markahPenuhUjian > 0 ? Math.round((skorAkhir / markahPenuhUjian) * 100) : 0;
 
-            // ==================================================
-            // 🌟 LOGIK I-RAGS ADAPTIF (PENENTUAN TAHAP INKUIRI)
-            // ==================================================
             let tahapBaru = "Rendah";
             if (peratus >= 80) tahapBaru = "Tinggi";
             else if (peratus >= 50) tahapBaru = "Sederhana";
 
-            // 1. Simpan ke jadual skor terperinci
             await setDoc(doc(db, "skor_murid", docId), {
               idMurid: user.id,
               namaMurid: user.name || user.nama,
@@ -186,23 +177,32 @@ function KandunganUjian() {
               skorAkhir: skorAkhir,
               statusPermarkahanEsei: adaSoalanStruktur ? "disemak_oleh_AI" : "tiada_esei",
               tarikh: new Date().toISOString(),
-              // Mesti letak jenisUjian untuk kenal pasti Pre-Test / Post Test
-              jenisUjian: "pre_test" // Secara automatik anggap ujian pertama ini pre_test
+              // 🌟 KEMASKINI: Simpan nilai sama ada ia pre_test atau post_test
+              jenisUjian: jenisUjian 
             });
 
-            // 2. KEMAS KINI JADUAL 'users' UNTUK DASHBOARD GURU
-            await updateDoc(doc(db, "users", user.id), {
-              markahTerkini: peratus,
-              tahapInkuiri: tahapBaru
-            });
+            // Kemas kini tahap hanya jika ini adalah Pre-Test 
+            // (Anda boleh buka syarat ini bergantung pada logik perniagaan anda)
+            if (jenisUjian === "pre_test") {
+              await updateDoc(doc(db, "users", user.id), {
+                markahTerkini: peratus,
+                tahapInkuiri: tahapBaru
+              });
+            } else {
+               // Update rekod untuk post-test jika perlukan field asing di jadual users
+               await updateDoc(doc(db, "users", user.id), {
+                markahPostTestTerkini: peratus
+              });
+            }
 
           } catch (error) {
             console.error("Ralat simpan data ke Firebase:", error);
           }
         }
 
+        // Tanda modul selesai
         const chapterId = bab.replace("Bab ", "");
-        const modKey = `t${tingkatan}-ch${chapterId}-mod1`;
+        const modKey = `t${tingkatan}-ch${chapterId}-mod-${jenisUjian}`; // Asingkan jenis modul selesai
         const completed = JSON.parse(localStorage.getItem("completedModules") || "[]");
         if (!completed.includes(modKey)) {
           completed.push(modKey);
@@ -214,7 +214,7 @@ function KandunganUjian() {
     };
 
     simpanMarkahFirebase();
-  }, [tamat, skor, soalanSenarai, tingkatan, bab, isClient, jawapanStruktur, telahDisimpan, jawapanObjektif]);
+  }, [tamat, skor, soalanSenarai, tingkatan, bab, isClient, jawapanStruktur, telahDisimpan, jawapanObjektif, jenisUjian]);
 
   const jawabSoalan = (jawapanDihantar: string) => {
     const soalanSemasa = soalanSenarai[indexSemasa];
@@ -245,6 +245,8 @@ function KandunganUjian() {
   };
 
   // UI RENDERING ==========================================
+  const paparanTajukUjian = jenisUjian === "post_test" ? "Pasca-Ujian (Post-Test)" : "Pra-Ujian (Pre-Test)";
+
   if (!isClient) return <div className="min-h-screen flex items-center justify-center font-bold text-sky-600">Sistem Memulakan Ujian...</div>;
   if (loading) return <div className="min-h-screen flex items-center justify-center text-sky-700 font-semibold">Memuatkan Soalan Firebase...</div>;
 
@@ -276,7 +278,7 @@ function KandunganUjian() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
         <div className="max-w-2xl w-full p-8 bg-white rounded-2xl shadow-xl text-center border-t-8 border-sky-500">
-          <h2 className="text-3xl font-extrabold mb-4 text-slate-800">Ujian Diagnostik Tamat</h2>
+          <h2 className="text-3xl font-extrabold mb-4 text-slate-800">{paparanTajukUjian} Tamat</h2>
           <p className="text-lg text-slate-600 mb-2">{bab} | Tingkatan {tingkatan}</p>
 
           <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-6 rounded-xl mb-6">
@@ -301,6 +303,14 @@ function KandunganUjian() {
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4">
       <div className="max-w-3xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-lg border border-slate-100">
+        
+        {/* Lencana (Badge) Menunjukkan Jenis Ujian */}
+        <div className="flex justify-center mb-6">
+           <span className="bg-indigo-100 text-indigo-800 border border-indigo-200 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm">
+             {paparanTajukUjian}
+           </span>
+        </div>
+
         <div className="flex justify-between items-center mb-8 border-b pb-4">
           <div>
             <h1 className="text-xl font-bold text-slate-800">{bab}</h1>
