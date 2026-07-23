@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { collection, query, where, getDocs, doc, setDoc, updateDoc } from "firebase/firestore"; 
+import { collection, query, where, getDocs, doc, setDoc, updateDoc, getDoc } from "firebase/firestore"; 
 import { db } from "../../lib/firebase";
 
 function KandunganUjian() {
@@ -14,7 +14,6 @@ function KandunganUjian() {
 
   const tingkatan = searchParams?.get("tingkatan") || "4";
   const bab = searchParams?.get("bab") || "Bab 1";
-  // 🌟 TAMBAHAN BARU: Tangkap jenis ujian dari URL (pre_test atau post_test)
   const jenisUjian = searchParams?.get("jenisUjian") || "pre_test"; 
 
   const [soalanSenarai, setSoalanSenarai] = useState<any[]>([]);
@@ -29,6 +28,11 @@ function KandunganUjian() {
   const [telahDisimpan, setTelahDisimpan] = useState(false);
   const [menganalisisAI, setMenganalisisAI] = useState(false);
 
+  // 🌟 TAMBAHAN: State untuk peratus, tahap murid & markah lulus
+  const [peratusAkhir, setPeratusAkhir] = useState<number | null>(null);
+  const [tahapMurid, setTahapMurid] = useState("Sederhana");
+  const [markahLulus, setMarkahLulus] = useState(50); // Default sementara
+
   // FUNGSI SHUFFLE KOCOK SOALAN & JAWAPAN
   const shuffleArray = (array: any[]) => {
     let shuffled = [...array];
@@ -38,6 +42,40 @@ function KandunganUjian() {
     }
     return shuffled;
   };
+
+  // 🌟 BARU: AMBIL TAHAP MURID DARI FIREBASE SEBELUM MULA
+  useEffect(() => {
+    if (!isClient) return;
+
+    const rawUser = localStorage.getItem("currentUser");
+    if (rawUser) {
+      const user = JSON.parse(rawUser);
+
+      const fetchTahapMurid = async () => {
+        try {
+          const userSnap = await getDoc(doc(db, "users", user.id));
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            const tahapData = data.tahapInkuiri || "Sederhana";
+            setTahapMurid(tahapData);
+
+            // Tentukan markah lulus mengikut tahap murid
+            if (tahapData === "Tinggi") {
+              setMarkahLulus(80);
+            } else if (tahapData === "Sederhana") {
+              setMarkahLulus(50);
+            } else if (tahapData === "Rendah") {
+              setMarkahLulus(40);
+            }
+          }
+        } catch (error) {
+          console.error("Gagal mendapatkan data tahap murid:", error);
+        }
+      };
+
+      fetchTahapMurid();
+    }
+  }, [isClient]);
 
   useEffect(() => {
     if (!isClient) return;
@@ -67,11 +105,10 @@ function KandunganUjian() {
           }
         });
 
-        // 🌟 KEMASKINI: Hanya shuffle soalan objektif.
+        // Hanya shuffle soalan objektif.
         const objektifDahShuffle = shuffleArray(soalanObjektif);
         
-        // 🌟 KEMASKINI: Soalan struktur dibiarkan mengikut susunan asal.
-        // Cantumkan semula: Objektif dahulu (shuffled), baru Struktur (tidak di-shuffle)
+        // Soalan struktur dibiarkan mengikut susunan asal.
         setSoalanSenarai([...objektifDahShuffle, ...soalanStruktur]);
       } catch (error) {
         console.error("Ralat tarik soalan:", error);
@@ -141,8 +178,6 @@ function KandunganUjian() {
               }
             }
 
-            // 🌟 KEMASKINI: Asingkan ID Dokumen untuk pre_test dan post_test 
-            // supaya post-test tak overwrite data pre-test
             const docId = `${user.id}_t${tingkatan}_${bab}_${jenisUjian}`;
             const adaSoalanStruktur = Object.keys(jawapanStruktur).length > 0;
 
@@ -157,10 +192,9 @@ function KandunganUjian() {
 
             const skorAkhir = skor + jumlahMarkahStrukturAI;
             const peratus = markahPenuhUjian > 0 ? Math.round((skorAkhir / markahPenuhUjian) * 100) : 0;
-
-            let tahapBaru = "Rendah";
-            if (peratus >= 80) tahapBaru = "Tinggi";
-            else if (peratus >= 50) tahapBaru = "Sederhana";
+            
+            // Simpan peratus akhir untuk UI
+            setPeratusAkhir(peratus);
 
             await setDoc(doc(db, "skor_murid", docId), {
               idMurid: user.id,
@@ -177,22 +211,49 @@ function KandunganUjian() {
               skorAkhir: skorAkhir,
               statusPermarkahanEsei: adaSoalanStruktur ? "disemak_oleh_AI" : "tiada_esei",
               tarikh: new Date().toISOString(),
-              // 🌟 KEMASKINI: Simpan nilai sama ada ia pre_test atau post_test
               jenisUjian: jenisUjian 
             });
 
-            // Kemas kini tahap hanya jika ini adalah Pre-Test 
-            // (Anda boleh buka syarat ini bergantung pada logik perniagaan anda)
+            // 🌟 PENGURUSAN STATUS LULUS/GAGAL & ULANG BIMBINGAN
+            const chapterId = bab.replace("Bab ", "");
+            const modKeyTest = `t${tingkatan}-ch${chapterId}-mod-${jenisUjian}`;
+            const modKeyBimbingan = `t${tingkatan}-ch${chapterId}-mod-bimbingan`; 
+            let completed = JSON.parse(localStorage.getItem("completedModules") || "[]");
+
             if (jenisUjian === "pre_test") {
+              let tahapBaru = "Rendah";
+              if (peratus >= 80) tahapBaru = "Tinggi";
+              else if (peratus >= 50) tahapBaru = "Sederhana";
+
+              if (!completed.includes(modKeyTest)) completed.push(modKeyTest);
+              localStorage.setItem("completedModules", JSON.stringify(completed));
+
               await updateDoc(doc(db, "users", user.id), {
                 markahTerkini: peratus,
                 tahapInkuiri: tahapBaru
               });
-            } else {
-               // Update rekod untuk post-test jika perlukan field asing di jadual users
-               await updateDoc(doc(db, "users", user.id), {
-                markahPostTestTerkini: peratus
-              });
+
+            } else if (jenisUjian === "post_test") {
+              if (peratus >= markahLulus) {
+                // JIKA LULUS POST-TEST
+                if (!completed.includes(modKeyTest)) completed.push(modKeyTest);
+                localStorage.setItem("completedModules", JSON.stringify(completed));
+
+                await updateDoc(doc(db, "users", user.id), {
+                  markahPostTestTerkini: peratus,
+                  statusBabTerkini: "Lulus"
+                });
+              } else {
+                // JIKA GAGAL POST-TEST
+                // Keluarkan log bimbingan dan ujian ini supaya ia reset di Dashboard
+                completed = completed.filter((mod: string) => mod !== modKeyBimbingan && mod !== modKeyTest);
+                localStorage.setItem("completedModules", JSON.stringify(completed));
+
+                await updateDoc(doc(db, "users", user.id), {
+                  markahPostTestTerkini: peratus,
+                  statusBabTerkini: "Ulang Bimbingan"
+                });
+              }
             }
 
           } catch (error) {
@@ -200,21 +261,12 @@ function KandunganUjian() {
           }
         }
 
-        // Tanda modul selesai
-        const chapterId = bab.replace("Bab ", "");
-        const modKey = `t${tingkatan}-ch${chapterId}-mod-${jenisUjian}`; // Asingkan jenis modul selesai
-        const completed = JSON.parse(localStorage.getItem("completedModules") || "[]");
-        if (!completed.includes(modKey)) {
-          completed.push(modKey);
-          localStorage.setItem("completedModules", JSON.stringify(completed));
-        }
-
         setMenganalisisAI(false);
       }
     };
 
     simpanMarkahFirebase();
-  }, [tamat, skor, soalanSenarai, tingkatan, bab, isClient, jawapanStruktur, telahDisimpan, jawapanObjektif, jenisUjian]);
+  }, [tamat, skor, soalanSenarai, tingkatan, bab, isClient, jawapanStruktur, telahDisimpan, jawapanObjektif, jenisUjian, markahLulus]); // Masukkan markahLulus dlm dependency array
 
   const jawabSoalan = (jawapanDihantar: string) => {
     const soalanSemasa = soalanSenarai[indexSemasa];
@@ -244,7 +296,6 @@ function KandunganUjian() {
     }
   };
 
-  // UI RENDERING ==========================================
   const paparanTajukUjian = jenisUjian === "post_test" ? "Pasca-Ujian (Post-Test)" : "Pra-Ujian (Pre-Test)";
 
   if (!isClient) return <div className="min-h-screen flex items-center justify-center font-bold text-sky-600">Sistem Memulakan Ujian...</div>;
@@ -262,8 +313,9 @@ function KandunganUjian() {
     </div>
   );
 
+  // 🌟 PAPARAN SELEPAS TAMAT UJIAN
   if (tamat) {
-    if (menganalisisAI) {
+    if (menganalisisAI || peratusAkhir === null) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-sky-600 mb-6"></div>
@@ -275,16 +327,32 @@ function KandunganUjian() {
       );
     }
 
+    const isLulus = peratusAkhir >= markahLulus;
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
         <div className="max-w-2xl w-full p-8 bg-white rounded-2xl shadow-xl text-center border-t-8 border-sky-500">
           <h2 className="text-3xl font-extrabold mb-4 text-slate-800">{paparanTajukUjian} Tamat</h2>
-          <p className="text-lg text-slate-600 mb-2">{bab} | Tingkatan {tingkatan}</p>
+          <p className="text-lg text-slate-600 mb-6">{bab} | Tingkatan {tingkatan}</p>
 
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-6 rounded-xl mb-6">
-            ✅ <strong>JAWAPAN BERJAYA DISIMPAN.</strong><br/>
-            Sila kembali ke Dashboard untuk melihat keputusan dan modul seterusnya.
-          </div>
+          {jenisUjian === "pre_test" ? (
+             <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 p-6 rounded-xl mb-6">
+               ✅ <strong>Ujian Selesai. (Skor: {peratusAkhir}%)</strong><br/>
+               Sistem telah menganalisis tahap kefahaman anda. Sila teruskan ke Modul Bimbingan di Dashboard.
+             </div>
+          ) : (
+             isLulus ? (
+               <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-6 rounded-xl mb-6">
+                 🎉 <strong>TAHNIAH! Anda Lulus dengan {peratusAkhir}%.</strong><br/>
+                 Sebagai pelajar Tahap {tahapMurid}, anda telah berjaya melepasi sasaran {markahLulus}%. Teruskan ke modul/bab seterusnya!
+               </div>
+             ) : (
+               <div className="bg-rose-50 border border-rose-200 text-rose-800 p-6 rounded-xl mb-6">
+                 ⚠️ <strong>Markah anda: {peratusAkhir}% (Sasaran Tahap {tahapMurid}: {markahLulus}%).</strong><br/>
+                 Oleh sebab markah belum mencapai sasaran peribadi anda, <b>Modul Bimbingan telah dibuka semula</b>. Sila ulangkaji bimbingan tersebut dan ambil semula ujian ini.
+               </div>
+             )
+          )}
 
           <button onClick={() => router.push('/murid')} className="w-full sm:w-auto bg-slate-800 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-700 transition">
             Kembali ke Laluan Pembelajaran
