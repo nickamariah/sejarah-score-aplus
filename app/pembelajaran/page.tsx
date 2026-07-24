@@ -499,4 +499,8 @@ function KomponenPembelajaran() {
 
 export default function SplitScreenLearning() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-cen
+    <Suspense fallback={<div className="flex h-screen items-center justify-center text-xl font-bold text-blue-600 animate-pulse">Sistem sedang dimuatkan...</div>}>
+      <KomponenPembelajaran />
+    </Suspense>
+  );
+}
