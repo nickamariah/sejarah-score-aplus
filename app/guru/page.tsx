@@ -12,7 +12,6 @@ import { collection, getDocs, query, orderBy, deleteDoc, doc, serverTimestamp, u
 import { db, app } from "../../lib/firebase"; 
 import { initializeApp, getApps } from "firebase/app"; 
 import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth";
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"; 
 
 // 🌟 TAMBAHAN BARU: Masukkan 'semakan' dalam TabKey
 type TabKey = "murid" | "pemantauan" | "kandungan" | "upload" | "soalan" | "analitik" | "semakan";
@@ -56,11 +55,11 @@ export default function GuruDashboard() {
   const [qJawapanBetul, setQJawapanBetul] = useState("A");
   const [qSkema, setQSkema] = useState("");
 
-  // STATE UPLOAD & EDIT BAHAN NOTA
+  // STATE UPLOAD & EDIT BAHAN NOTA (DIKEMAS KINI 🌟)
   const [bTingkatan, setBTingkatan] = useState("4");
   const [bBab, setBBab] = useState("Bab 1");
   const [bJudul, setBJudul] = useState("");
-  const [bFilePDF, setBFilePDF] = useState<File | null>(null);
+  const [bLinkNota, setBLinkNota] = useState(""); // 🌟 Ganti bFilePDF jadi bLinkNota
   const [isUploadingBahan, setIsUploadingBahan] = useState(false);
   const [senaraiBahan, setSenaraiBahan] = useState<any[]>([]);
   const [loadingBahan, setLoadingBahan] = useState(false);
@@ -69,7 +68,7 @@ export default function GuruDashboard() {
   const [editSubtopikId, setEditSubtopikId] = useState<string | null>(null);
   const [tempSubtopik, setTempSubtopik] = useState<any[]>([]);
 
-  // 🌟 TAMBAHAN BARU: STATE UNTUK SEMAKAN ESEI
+  // STATE UNTUK SEMAKAN ESEI
   const [senaraiSemakan, setSenaraiSemakan] = useState<any[]>([]);
   const [loadingSemakan, setLoadingSemakan] = useState(false);
 
@@ -145,17 +144,14 @@ export default function GuruDashboard() {
     } catch (error) { console.error(error); } finally { setLoadingBahan(false); }
   };
 
-  // 🌟 TAMBAHAN BARU: FUNGSI TARIK DATA SEMAKAN
   const tarikDataSemakan = async () => {
     setLoadingSemakan(true);
     try {
-      // Kita tarik semua rekod dari jadual skor_murid (susun yang terbaru)
       const q = query(collection(db, "skor_murid"), orderBy("tarikh", "desc"));
       const querySnapshot = await getDocs(q);
       const data: any[] = [];
       querySnapshot.forEach((doc) => { 
         const docData = doc.data();
-        // Hanya ambil rekod yang ada soalan esei sahaja untuk ditanda
         if (docData.statusPermarkahanEsei && docData.statusPermarkahanEsei !== "tiada_esei") {
            data.push({ id: doc.id, ...docData }); 
         }
@@ -168,7 +164,7 @@ export default function GuruDashboard() {
     tarikSoalanFirebase(); 
     tarikDataPenggunaFirebase(); 
     tarikBahanFirebase(); 
-    tarikDataSemakan(); // Panggil fungsi semakan
+    tarikDataSemakan();
   }, []);
 
   // FUNGSI PENGGUNA
@@ -244,39 +240,49 @@ export default function GuruDashboard() {
   const resetFormSoalan = () => { setIsCreatingSoalan(false); setIsEditingSoalan(false); setEditSoalanId(null); setQSoalan(""); setQTopik(""); setQSkema(""); setQImageUrl(""); setQPilihanA(""); setQPilihanB(""); setQPilihanC(""); setQPilihanD(""); setQJawapanBetul("A"); };
   const handlePadamSoalan = async (id: string) => { if (confirm("Padam soalan?")) { try { await deleteDoc(doc(db, "questionBank", id)); showToastMessage("Berjaya dipadam.", "success"); tarikSoalanFirebase(); } catch (error) { showToastMessage("Ralat.", "error"); } } };
 
-  // FUNGSI UPLOAD BAHAN NOTA
+  // FUNGSI UPLOAD BAHAN NOTA (🌟 DIKEMAS KINI KE GOOGLE DRIVE LINK)
   const handleSimpanBahan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bJudul || !bFilePDF) return showToastMessage("Isi tajuk & pilih fail!", "error");
+    if (!bJudul || !bLinkNota) return showToastMessage("Isi tajuk & masukkan pautan nota!", "error");
     setIsUploadingBahan(true);
-    const storage = getStorage();
+    
     const babNumber = bBab.replace(/\D/g, "");
     const documentId = `tingkatan${bTingkatan}_bab${babNumber}`;
 
     try {
-      const storageRef = ref(storage, `nota_pdf/${documentId}.pdf`);
-      await uploadBytes(storageRef, bFilePDF);
-      const pdfUrl = await getDownloadURL(storageRef);
-
       const listSub = senaraiSubtopik[bTingkatan]?.[bBab] || [];
       const subtopicsArray = listSub.map((sub: string, index: number) => {
         const parts = sub.split(" ");
         return { id: parts[0], title: parts.slice(1).join(" "), startPage: 1 };
       });
 
-      await setDoc(doc(db, "chapters", documentId), { title: bJudul, subject: "Sejarah", form: parseInt(bTingkatan), chapterUrl: pdfUrl, pdfFileName: documentId, subtopics: subtopicsArray, updatedAt: serverTimestamp() });
-      showToastMessage(`Berjaya muat naik Nota untuk ${bBab}!`, "success");
-      setBJudul(""); setBFilePDF(null); tarikBahanFirebase(); setActiveTab("kandungan"); 
-    } catch (error) { showToastMessage("Gagal muat naik fail.", "error"); } finally { setIsUploadingBahan(false); }
+      // Simpan terus link dari input ke pangkalan data (Firestore)
+      await setDoc(doc(db, "chapters", documentId), { 
+        title: bJudul, 
+        subject: "Sejarah", 
+        form: parseInt(bTingkatan), 
+        chapterUrl: bLinkNota, // <--- Ini perubahan utama
+        pdfFileName: documentId, 
+        subtopics: subtopicsArray, 
+        updatedAt: serverTimestamp() 
+      });
+      
+      showToastMessage(`Berjaya daftar Nota untuk ${bBab}!`, "success");
+      setBJudul(""); setBLinkNota(""); tarikBahanFirebase(); setActiveTab("kandungan"); 
+    } catch (error) { 
+      showToastMessage("Gagal menyimpan data.", "error"); 
+    } finally { 
+      setIsUploadingBahan(false); 
+    }
   };
 
   const handlePadamBahan = async (bahanId: string) => {
     if (confirm(`Pasti padam modul (${bahanId})? Tindakan ini kekal.`)) {
       try {
         await deleteDoc(doc(db, "chapters", bahanId));
-        const storage = getStorage(); const fileRef = ref(storage, `nota_pdf/${bahanId}.pdf`);
-        try { await deleteObject(fileRef); } catch (e) { console.log("Fail tidak dijumpai di storage."); }
-        showToastMessage("Bahan nota berjaya dipadam.", "success"); tarikBahanFirebase(); 
+        // Storage code dibuang sebab kita hanya simpan link.
+        showToastMessage("Bahan nota berjaya dipadam.", "success"); 
+        tarikBahanFirebase(); 
       } catch (error) { showToastMessage("Ralat memadam nota.", "error"); }
     }
   };
@@ -294,12 +300,11 @@ export default function GuruDashboard() {
       const title = parts.slice(1).join(" ");
       const wujud = existingSubs.find((e: any) => e.id === id);
       
-      // 🌟 KEKALKAN videoUrl JIKA SUDAH WUJUD
       return { 
         id, 
         title, 
         startPage: wujud ? wujud.startPage : 1,
-        videoUrl: wujud?.videoUrl || "" // <--- KITA TAMBAH INI
+        videoUrl: wujud?.videoUrl || ""
       };
     });
 
@@ -311,14 +316,13 @@ export default function GuruDashboard() {
     } catch (error) { showToastMessage("Ralat sync subtopik.", "error"); }
   };
 
-  // Fungsi handleSimpanMukaSurat KEKAL SAMA (Tak perlu ubah apa-apa)
   const handleSimpanMukaSurat = async (bahanId: string) => {
     try {
       await updateDoc(doc(db, "chapters", bahanId), {
         subtopics: tempSubtopik,
         updatedAt: serverTimestamp()
       });
-      showToastMessage("Nombor muka surat & Video berjaya disimpan!", "success"); // Saya tukar teks sikit je
+      showToastMessage("Nombor muka surat & Video berjaya disimpan!", "success");
       setEditSubtopikId(null);
       tarikBahanFirebase(); 
     } catch(error) {
@@ -343,7 +347,6 @@ export default function GuruDashboard() {
             <button onClick={() => setActiveTab("murid")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "murid" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><Users size={20} /> Pengurusan Pengguna</button>
             <button onClick={() => setActiveTab("pemantauan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "pemantauan" ? "bg-emerald-900/40 text-emerald-400 border border-emerald-800/50" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><Activity size={20} /> Pemantauan I-RAGS</button>
             
-            {/* 🌟 TAMBAHAN BARU: BUTANG SEMAKAN GURU DI SIDEBAR */}
             <button onClick={() => setActiveTab("semakan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "semakan" ? "bg-rose-900/40 text-rose-400 border border-rose-800/50 shadow-md" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><CheckSquare size={20} /> Semakan Esei Murid</button>
             
             <button onClick={() => setActiveTab("soalan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "soalan" ? "bg-cyan-900/40 text-cyan-400 border border-cyan-800/50" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><HelpCircle size={20} /> Bank Soalan Ujian</button>
@@ -446,7 +449,7 @@ export default function GuruDashboard() {
           )}
 
           {/* ========================================== */}
-          {/* 🌟 TAB TAMBAHAN BARU: SEMAKAN ESEI MURID */}
+          {/* 🌟 TAB SEMAKAN ESEI MURID */}
           {/* ========================================== */}
           {activeTab === "semakan" && (
             <div className="space-y-6 animate-in fade-in">
@@ -491,7 +494,6 @@ export default function GuruDashboard() {
                             statusText = "Selesai Ditanda AI";
                           }
 
-                          // PENGESANAN PINTAR (SMART DETECTION) JIKA AI GAGAL
                           let aiGagal = false;
                           if (rekod.ulasanAI) {
                             Object.values(rekod.ulasanAI).forEach((u: any) => {
@@ -501,7 +503,6 @@ export default function GuruDashboard() {
                             });
                           }
 
-                          // Jika AI gagal dan guru belum semak, kita kelip-kelipkan warna merah amaran!
                           if (aiGagal && status !== "disemak_oleh_guru") {
                             statusColor = "bg-rose-900/30 text-rose-400 border border-rose-800/50 animate-pulse ring-1 ring-rose-500/50";
                             statusText = "⚠️ AI Gagal - Sila Semak";
@@ -711,19 +712,33 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 5: MUAT NAIK BAHAN BAHARU (PDF) */}
+          {/* TAB 5: MUAT NAIK BAHAN BAHARU (LINK NOTA) 🌟 */}
           {activeTab === "upload" && (
              <div className="bg-[#1e293b] p-8 rounded-2xl border border-slate-800 max-w-2xl shadow-lg relative overflow-hidden animate-in fade-in">
-                <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-3"><UploadCloud className="text-blue-400 w-8 h-8"/> Muat Naik Bahan Modul Baru (PDF)</h3>
+                <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-3"><UploadCloud className="text-blue-400 w-8 h-8"/> Daftar Bahan Rujukan Baru</h3>
                 <p className="text-slate-400 text-sm mb-8 border-b border-slate-800 pb-6">Sistem akan menyusun nota ini mengikut subtopik yang telah diprogramkan di dalam memori.</p>
                 <form onSubmit={handleSimpanBahan} className="space-y-6 relative z-10">
                   <div className="grid grid-cols-2 gap-6">
                     <div><label className="block text-sm text-slate-400 mb-2">Tingkatan</label><select value={bTingkatan} onChange={e => setBTingkatan(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white"><option value="4">Tingkatan 4</option><option value="5">Tingkatan 5</option></select></div>
                     <div><label className="block text-sm text-slate-400 mb-2">Pilih Bab</label><select value={bBab} onChange={e => setBBab(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white">{[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}</select></div>
                   </div>
+                  
                   <div><label className="block text-sm text-slate-400 mb-2">Tajuk Buku / Nota</label><input type="text" value={bJudul} onChange={e => setBJudul(e.target.value)} placeholder="Contoh: Warisan Negara Bangsa" required className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white"/></div>
-                  <div className="bg-blue-900/20 p-6 rounded-xl border border-blue-800/50 border-dashed text-center"><label className="block text-sm text-blue-300 font-bold mb-4">Muat Naik Fail PDF Rasmi</label><input type="file" accept="application/pdf" onChange={e => setBFilePDF(e.target.files?.[0] || null)} required className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"/></div>
-                  <div className="flex justify-end pt-4"><button type="submit" disabled={isUploadingBahan} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-lg font-bold flex items-center shadow-lg disabled:opacity-50">{isUploadingBahan ? <Loader2 className="animate-spin mr-2" size={18} /> : <UploadCloud className="mr-2" size={18}/>}{isUploadingBahan ? "Memuat Naik..." : "Simpan & Proses Automatik"}</button></div>
+                  
+                  <div className="bg-blue-900/20 p-6 rounded-xl border border-blue-800/50 border-dashed text-center">
+                    <label className="block text-sm text-blue-300 font-bold mb-4">Pautan / Link Bahan Rujukan (Google Drive/Canva)</label>
+                    <p className="text-xs text-blue-400 mb-4 font-normal">Pastikan fail Google Drive cikgu telah ditetapkan kepada "Anyone with the link can view".</p>
+                    <input 
+                      type="url" 
+                      value={bLinkNota} 
+                      onChange={e => setBLinkNota(e.target.value)} 
+                      placeholder="https://drive.google.com/file/d/....." 
+                      required 
+                      className="w-full bg-[#0f172a] border border-blue-700 rounded-lg p-3 text-white focus:outline-none focus:border-blue-400"
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-4"><button type="submit" disabled={isUploadingBahan} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-lg font-bold flex items-center shadow-lg disabled:opacity-50">{isUploadingBahan ? <Loader2 className="animate-spin mr-2" size={18} /> : <UploadCloud className="mr-2" size={18}/>}{isUploadingBahan ? "Menyimpan..." : "Simpan Pautan & Proses Automatik"}</button></div>
                 </form>
              </div>
           )}

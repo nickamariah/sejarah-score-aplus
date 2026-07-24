@@ -151,7 +151,7 @@ function KomponenPembelajaran() {
   const currentSubInfo = subtopicsList.find((s: any) => s.id === currentSub);
   const pageNumber = currentSubInfo ? currentSubInfo.startPage : 3;
 
-  // 🌟 FUNGSI YOUTUBE EMBED (DIBETULKAN 100%)
+  // 🌟 FUNGSI YOUTUBE EMBED 
   const getBimbinganVideoUrl = () => {
     const rawUrl = currentSubInfo?.videoUrl;
     if (!rawUrl) return null;
@@ -167,6 +167,27 @@ function KomponenPembelajaran() {
     }
   };
   const videoKhas = getBimbinganVideoUrl();
+
+  // 🌟 FUNGSI PINTAR URL NOTA (Khas Untuk Google Drive & Canva)
+  const getNotaUrl = () => {
+    const url = chapterData?.chapterUrl;
+    
+    // Jika tiada URL, guna fail PDF asal (fallback)
+    if (!url) return `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`;
+
+    // Jika URL Google Drive, tukar 'view' jadi 'preview' supaya ia boleh dipaparkan dalam iFrame
+    if (url.includes("drive.google.com")) {
+      return url.replace(/\/view.*/, "/preview");
+    }
+
+    // Jika Canva atau platform lain, biarkan URL asal
+    if (url.includes("canva.com")) {
+      return url;
+    }
+
+    // Jika ia link URL PDF biasa
+    return `${url}#page=${pageNumber}&toolbar=1&view=FitH`;
+  };
 
   const gotoNextSubtopic = () => {
     if (currentIndex !== -1 && currentIndex + 1 < subtopicsList.length) {
@@ -283,9 +304,6 @@ function KomponenPembelajaran() {
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-slate-50 overflow-hidden font-sans relative">
       
-      {/* =============================================================== */}
-      {/* 1. PANEL KIRI (NOTA PDF DI BAWAH, VIDEO YOUTUBE MELAYANG DI ATAS) */}
-      {/* =============================================================== */}
       <div 
         className={`${showPdfMobile ? 'flex absolute inset-0 z-50 bg-white' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-xl lg:shadow-none h-full lg:w-[var(--left-width)]`}
         style={{ "--left-width": `${leftWidth}%` } as React.CSSProperties}
@@ -305,7 +323,7 @@ function KomponenPembelajaran() {
        <div className="flex-1 w-full h-full bg-gray-200 relative flex flex-col">
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
           
-          {/* 🌟 LAPISAN DEPAN: VIDEO (CSS Opacity menghalang Chrome daripada memadam PDF di belakang) */}
+          {/* LAPISAN DEPAN: VIDEO */}
           <div className={`absolute inset-0 z-40 flex flex-col bg-slate-900 transition-all duration-300 ${showVideoModal ? "opacity-100 visible pointer-events-auto" : "opacity-0 invisible pointer-events-none"}`}>
                <div className="bg-red-600 text-white p-3 flex justify-between items-center px-4 shadow-md z-20">
                   <span className="font-bold text-sm flex items-center gap-2">📺 Tonton & Fahamkan Video Ini</span>
@@ -333,18 +351,17 @@ function KomponenPembelajaran() {
                </div>
           </div>
 
-          {/* 🌟 LAPISAN BELAKANG: NOTA PDF (Kekal statik tanpa key, jadi ia tidak akan crash/reload) */}
+          {/* 🌟 LAPISAN BELAKANG: NOTA DIPERBAHARUI (GUNA getNotaUrl) */}
           <div className="absolute inset-0 w-full h-full z-10 bg-white">
               <iframe 
-                src={chapterData?.chapterUrl ? `${chapterData.chapterUrl}#page=${pageNumber}&toolbar=1&view=FitH` : `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`}
+                src={getNotaUrl()}
                 className="w-full h-full border-0" 
-                title="PDF Viewer" 
+                title="Nota/Slaid Bimbingan" 
               />
           </div>
         </div>
       </div>
 
-      {/* 2. DRAG RESIZER BAR */}
       <div 
         className="hidden lg:flex flex-col justify-center items-center w-2 bg-gray-200 hover:bg-blue-500 active:bg-blue-600 cursor-col-resize z-30 transition-colors"
         onMouseDown={() => setIsDragging(true)}
@@ -352,7 +369,7 @@ function KomponenPembelajaran() {
         <div className="h-12 w-1 bg-gray-400 rounded-full"></div>
       </div>
 
-      {/* 3. PANEL KANAN (CHAT AI) */}
+      {/* PANEL KANAN (CHAT AI) */}
       <div className="w-full lg:flex-1 h-full bg-white shadow-2xl flex flex-col border-t-4 lg:border-t-0 z-10 relative">
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-3 lg:p-5 flex flex-col gap-2 shadow-md shrink-0">
           <div className="flex items-center justify-between mb-2">
@@ -482,8 +499,4 @@ function KomponenPembelajaran() {
 
 export default function SplitScreenLearning() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center text-xl font-bold text-blue-600 animate-pulse">Sistem sedang dimuatkan...</div>}>
-      <KomponenPembelajaran />
-    </Suspense>
-  );
-}
+    <Suspense fallback={<div className="flex h-screen items-cen
