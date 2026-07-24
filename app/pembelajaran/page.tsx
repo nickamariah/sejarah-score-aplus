@@ -149,7 +149,7 @@ function KomponenPembelajaran() {
   const currentIndex = subtopicsList.findIndex((s: any) => s.id === currentSub);
   
   const currentSubInfo = subtopicsList.find((s: any) => s.id === currentSub);
-  const pageNumber = currentSubInfo ? currentSubInfo.startPage : 3;
+  const pageNumber = currentSubInfo ? currentSubInfo.startPage : 1;
 
   // 🌟 FUNGSI YOUTUBE EMBED 
   const getBimbinganVideoUrl = () => {
@@ -168,25 +168,33 @@ function KomponenPembelajaran() {
   };
   const videoKhas = getBimbinganVideoUrl();
 
-  // 🌟 FUNGSI PINTAR URL NOTA (Khas Untuk Google Drive & Canva)
+  // 🌟 FUNGSI PINTAR URL NOTA (DIKEMAS KINI UNTUK BACA LINK SUBTOPIK DULU)
   const getNotaUrl = () => {
-    const url = chapterData?.chapterUrl;
+    // 1. SEMAK LINK KHAS SUBTOPIK DAHULU
+    const subtopicUrl = currentSubInfo?.notaUrl;
     
-    // Jika tiada URL, guna fail PDF asal (fallback)
-    if (!url) return `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`;
-
-    // Jika URL Google Drive, tukar 'view' jadi 'preview' supaya ia boleh dipaparkan dalam iFrame
-    if (url.includes("drive.google.com")) {
-      return url.replace(/\/view.*/, "/preview");
+    if (subtopicUrl && subtopicUrl.trim() !== "") {
+      if (subtopicUrl.includes("drive.google.com")) {
+        return subtopicUrl.replace(/\/view.*/, "/preview");
+      }
+      return subtopicUrl;
     }
 
-    // Jika Canva atau platform lain, biarkan URL asal
-    if (url.includes("canva.com")) {
-      return url;
+    // 2. JIKA TIADA LINK KHAS, BARU GUNA LINK UTAMA BAB
+    const mainUrl = chapterData?.chapterUrl;
+    
+    if (!mainUrl) return `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`;
+
+    if (mainUrl.includes("drive.google.com")) {
+      return mainUrl.replace(/\/view.*/, "/preview");
     }
 
-    // Jika ia link URL PDF biasa
-    return `${url}#page=${pageNumber}&toolbar=1&view=FitH`;
+    if (mainUrl.includes("canva.com")) {
+      return mainUrl;
+    }
+
+    // Jika ia link URL PDF biasa di server kita
+    return `${mainUrl}#page=${pageNumber}&toolbar=1&view=FitH`;
   };
 
   const gotoNextSubtopic = () => {
@@ -351,7 +359,7 @@ function KomponenPembelajaran() {
                </div>
           </div>
 
-          {/* 🌟 LAPISAN BELAKANG: NOTA DIPERBAHARUI (GUNA getNotaUrl) */}
+          {/* 🌟 LAPISAN BELAKANG: NOTA (AUTO TUKAR IKUT LINK SUBTOPIK) */}
           <div className="absolute inset-0 w-full h-full z-10 bg-white">
               <iframe 
                 src={getNotaUrl()}
