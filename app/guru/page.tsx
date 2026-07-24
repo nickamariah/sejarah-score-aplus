@@ -13,14 +13,12 @@ import { db, app } from "../../lib/firebase";
 import { initializeApp, getApps } from "firebase/app"; 
 import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 
-// 🌟 TAMBAHAN BARU: Masukkan 'semakan' dalam TabKey
 type TabKey = "murid" | "pemantauan" | "kandungan" | "upload" | "soalan" | "analitik" | "semakan";
 
 export default function GuruDashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>("murid");
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
-  // STATE PENGURUSAN PENGGUNA 
   const [senaraiPengguna, setSenaraiPengguna] = useState<any[]>([]);
   const [loadingPengguna, setLoadingPengguna] = useState(true);
   const [isEditingUser, setIsEditingUser] = useState(false);
@@ -35,7 +33,6 @@ export default function GuruDashboard() {
   const [uIsSubmitting, setUIsSubmitting] = useState(false);
   const [statistik, setStatistik] = useState({ jumlah: 0, tinggi: 0, sederhana: 0, rendah: 0 });
 
-  // STATE BANK SOALAN
   const [soalanList, setSoalanList] = useState<any[]>([]);
   const [loadingSoalan, setLoadingSoalan] = useState(true);
   const [isCreatingSoalan, setIsCreatingSoalan] = useState(false);
@@ -55,26 +52,20 @@ export default function GuruDashboard() {
   const [qJawapanBetul, setQJawapanBetul] = useState("A");
   const [qSkema, setQSkema] = useState("");
 
-  // STATE UPLOAD & EDIT BAHAN NOTA (DIKEMAS KINI 🌟)
   const [bTingkatan, setBTingkatan] = useState("4");
   const [bBab, setBBab] = useState("Bab 1");
   const [bJudul, setBJudul] = useState("");
-  const [bLinkNota, setBLinkNota] = useState(""); // 🌟 Ganti bFilePDF jadi bLinkNota
+  const [bLinkNota, setBLinkNota] = useState(""); 
   const [isUploadingBahan, setIsUploadingBahan] = useState(false);
   const [senaraiBahan, setSenaraiBahan] = useState<any[]>([]);
   const [loadingBahan, setLoadingBahan] = useState(false);
   
-  // STATE KHAS UNTUK EDIT MUKA SURAT
   const [editSubtopikId, setEditSubtopikId] = useState<string | null>(null);
   const [tempSubtopik, setTempSubtopik] = useState<any[]>([]);
 
-  // STATE UNTUK SEMAKAN ESEI
   const [senaraiSemakan, setSenaraiSemakan] = useState<any[]>([]);
   const [loadingSemakan, setLoadingSemakan] = useState(false);
 
-  // ==========================================
-  // SENARAI SUBTOPIK SEJARAH (Rujukan Utama)
-  // ==========================================
   const senaraiSubtopik: any = {
     "4": {
       "Bab 1": ["1.1 Warisan Negara Bangsa", "1.2 Ciri-ciri Negara Bangsa", "1.3 Keunggulan Sistem Pentadbiran", "1.4 Peranan Pemerintah dan Rakyat"],
@@ -167,7 +158,6 @@ export default function GuruDashboard() {
     tarikDataSemakan();
   }, []);
 
-  // FUNGSI PENGGUNA
   const handleSimpanPengguna = async (e: React.FormEvent) => {
     e.preventDefault();
     if (uKataLaluan.length < 6) return showToastMessage("Kata laluan sekurang-kurangnya 6 aksara!", "error");
@@ -214,7 +204,6 @@ export default function GuruDashboard() {
   const setEditPengguna = (u: any) => { setIsEditingUser(true); setEditUserId(u.id); setURole(u.role || "murid"); setUNama(u.nama || ""); setUKataLaluan(u.kataLaluan || ""); setUTingkatan(u.tingkatan || "4"); setUKelas(u.kelas || ""); setUTahapInkuiri(u.tahapInkuiri || "Rendah"); setUKumpulan(u.kumpulan || "Eksperimen"); };
   const resetFormPengguna = () => { setIsEditingUser(false); setEditUserId(null); setURole("murid"); setUNama(""); setUKataLaluan(""); setUTingkatan("4"); setUKelas(""); setUTahapInkuiri("Rendah"); setUKumpulan("Eksperimen"); };
 
-  // FUNGSI BANK SOALAN
   const handleSimpanSoalan = async () => {
     if (!qSoalan || !qTopik) return showToastMessage("Isi Soalan & Subtopik!", "error");
     setUIsSubmitting(true);
@@ -240,7 +229,6 @@ export default function GuruDashboard() {
   const resetFormSoalan = () => { setIsCreatingSoalan(false); setIsEditingSoalan(false); setEditSoalanId(null); setQSoalan(""); setQTopik(""); setQSkema(""); setQImageUrl(""); setQPilihanA(""); setQPilihanB(""); setQPilihanC(""); setQPilihanD(""); setQJawapanBetul("A"); };
   const handlePadamSoalan = async (id: string) => { if (confirm("Padam soalan?")) { try { await deleteDoc(doc(db, "questionBank", id)); showToastMessage("Berjaya dipadam.", "success"); tarikSoalanFirebase(); } catch (error) { showToastMessage("Ralat.", "error"); } } };
 
-  // FUNGSI UPLOAD BAHAN NOTA (🌟 DIKEMAS KINI KE GOOGLE DRIVE LINK)
   const handleSimpanBahan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bJudul || !bLinkNota) return showToastMessage("Isi tajuk & masukkan pautan nota!", "error");
@@ -256,12 +244,11 @@ export default function GuruDashboard() {
         return { id: parts[0], title: parts.slice(1).join(" "), startPage: 1 };
       });
 
-      // Simpan terus link dari input ke pangkalan data (Firestore)
       await setDoc(doc(db, "chapters", documentId), { 
         title: bJudul, 
         subject: "Sejarah", 
         form: parseInt(bTingkatan), 
-        chapterUrl: bLinkNota, // <--- Ini perubahan utama
+        chapterUrl: bLinkNota, 
         pdfFileName: documentId, 
         subtopics: subtopicsArray, 
         updatedAt: serverTimestamp() 
@@ -280,7 +267,6 @@ export default function GuruDashboard() {
     if (confirm(`Pasti padam modul (${bahanId})? Tindakan ini kekal.`)) {
       try {
         await deleteDoc(doc(db, "chapters", bahanId));
-        // Storage code dibuang sebab kita hanya simpan link.
         showToastMessage("Bahan nota berjaya dipadam.", "success"); 
         tarikBahanFirebase(); 
       } catch (error) { showToastMessage("Ralat memadam nota.", "error"); }
@@ -300,11 +286,13 @@ export default function GuruDashboard() {
       const title = parts.slice(1).join(" ");
       const wujud = existingSubs.find((e: any) => e.id === id);
       
+      // 🌟 KEKALKAN videoUrl DAN notaUrl JIKA SUDAH WUJUD
       return { 
         id, 
         title, 
         startPage: wujud ? wujud.startPage : 1,
-        videoUrl: wujud?.videoUrl || ""
+        videoUrl: wujud?.videoUrl || "",
+        notaUrl: wujud?.notaUrl || "" // <-- TAMBAHAN BARU
       };
     });
 
@@ -322,7 +310,7 @@ export default function GuruDashboard() {
         subtopics: tempSubtopik,
         updatedAt: serverTimestamp()
       });
-      showToastMessage("Nombor muka surat & Video berjaya disimpan!", "success");
+      showToastMessage("Maklumat Subtopik berjaya disimpan!", "success");
       setEditSubtopikId(null);
       tarikBahanFirebase(); 
     } catch(error) {
@@ -346,9 +334,7 @@ export default function GuruDashboard() {
           <nav className="space-y-2">
             <button onClick={() => setActiveTab("murid")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "murid" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><Users size={20} /> Pengurusan Pengguna</button>
             <button onClick={() => setActiveTab("pemantauan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "pemantauan" ? "bg-emerald-900/40 text-emerald-400 border border-emerald-800/50" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><Activity size={20} /> Pemantauan I-RAGS</button>
-            
             <button onClick={() => setActiveTab("semakan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "semakan" ? "bg-rose-900/40 text-rose-400 border border-rose-800/50 shadow-md" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><CheckSquare size={20} /> Semakan Esei Murid</button>
-            
             <button onClick={() => setActiveTab("soalan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "soalan" ? "bg-cyan-900/40 text-cyan-400 border border-cyan-800/50" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><HelpCircle size={20} /> Bank Soalan Ujian</button>
             <button onClick={() => setActiveTab("kandungan")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "kandungan" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><BookOpen size={20} /> Senarai Bahan Nota</button>
             <button onClick={() => setActiveTab("upload")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "upload" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50 hover:text-white"}`}><FileText size={20} /> Tambah Bahan Baru</button>
@@ -363,9 +349,9 @@ export default function GuruDashboard() {
         <header className="mb-8 border-b border-slate-800 pb-6"><p className="text-amber-500 text-sm font-semibold tracking-wider uppercase mb-1">Makmal Penyelidikan</p><h2 className="text-3xl font-bold text-white mb-2">Dashboard Admin PhD</h2></header>
 
        <main>
-          {/* TAB 1: PENGURUSAN PENGGUNA */}
-          {activeTab === "murid" && (
-            <div className="space-y-6 animate-in fade-in">
+          {/* TAB 1 TO TAB 3 (Pengguna, Pemantauan, Semakan, Soalan) HIDDEN FOR BREVITY BUT KEPT IN CODE */}
+          {activeTab === "murid" && ( /*... Same as before ...*/ 
+             <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-between items-center bg-[#1e293b] p-6 rounded-2xl border border-slate-800">
                 <div><h3 className="text-xl font-bold text-white mb-1">Pengurusan Pengguna (Firebase)</h3><p className="text-slate-400 text-sm">Daftar dan urus akaun Admin, Guru, dan Murid.</p></div>
               </div>
@@ -419,9 +405,8 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 2: PEMANTAUAN I-RAGS */}
-          {activeTab === "pemantauan" && (
-            <div className="space-y-6 animate-in fade-in">
+          {activeTab === "pemantauan" && ( 
+             <div className="space-y-6 animate-in fade-in">
               <div className="mb-6"><h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-3"><Activity className="text-emerald-400" size={24}/> Analitik Prestasi Inkuiri Adaptif</h3><p className="text-slate-400 text-sm">Pantau tahap inkuiri semasa murid secara automasi.</p></div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <div className="bg-[#1e293b] rounded-2xl border border-slate-800 p-6 flex flex-col items-center shadow-lg"><span className="text-slate-400 text-xs font-bold uppercase mb-2">Jumlah Murid</span><span className="text-4xl font-bold text-blue-400">{statistik.jumlah}</span></div>
@@ -448,10 +433,7 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* ========================================== */}
-          {/* 🌟 TAB SEMAKAN ESEI MURID */}
-          {/* ========================================== */}
-          {activeTab === "semakan" && (
+          {activeTab === "semakan" && ( 
             <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-between items-center bg-[#1e293b] p-6 rounded-2xl border border-slate-800 shadow-lg">
                 <div>
@@ -480,8 +462,6 @@ export default function GuruDashboard() {
                       </thead>
                       <tbody>
                         {senaraiSemakan.length > 0 ? senaraiSemakan.map((rekod, i) => {
-                          
-                          // Pengurusan Warna dan Label Status
                           const status = rekod.statusPermarkahanEsei || "tiada_esei";
                           let statusColor = "bg-slate-800 text-slate-400 border border-slate-700";
                           let statusText = status.replace(/_/g, " ");
@@ -544,7 +524,6 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 3: BANK SOALAN UJIAN */}
           {activeTab === "soalan" && (
             <div className="space-y-6 animate-in fade-in">
               {!isCreatingSoalan ? (
@@ -603,22 +582,24 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 4: SENARAI BAHAN NOTA DENGAN EDIT MUKA SURAT */}
+          {/* ========================================== */}
+          {/* TAB 4: SENARAI BAHAN NOTA (DIKEMAS KINI 🌟) */}
+          {/* ========================================== */}
           {activeTab === "kandungan" && (
             <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-between items-center bg-[#1e293b] p-6 rounded-2xl border border-slate-800">
                 <div>
                   <h3 className="text-xl font-bold text-white mb-1 flex items-center gap-2"><BookOpen className="text-blue-400" size={20}/> Senarai Bahan Rujukan & Nota</h3>
-                  <p className="text-slate-400 text-sm">Urus modul PDF dan tetapkan muka surat (Page Number) bagi setiap subtopik.</p>
+                  <p className="text-slate-400 text-sm">Urus modul PDF dan letakkan Link Khas bagi setiap subtopik jika mahu pecahkan nota.</p>
                 </div>
                 <button onClick={() => setActiveTab("upload")} className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-medium flex items-center">
                   <Plus size={18} className="mr-2" /> Tambah Nota
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {loadingBahan ? (
-                  <p className="text-slate-400 animate-pulse col-span-3">Memuat turun data nota...</p>
+                  <p className="text-slate-400 animate-pulse col-span-2">Memuat turun data nota...</p>
                 ) : senaraiBahan.length > 0 ? (
                   senaraiBahan.map((bahan, idx) => (
                     <div key={idx} className="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 hover:border-blue-500 transition-colors shadow-lg flex flex-col h-full">
@@ -628,15 +609,14 @@ export default function GuruDashboard() {
                           Tingkatan {bahan.form}
                         </span>
                         
-                        {/* KUMPULAN BUTANG TINDAKAN */}
                         <div className="flex gap-2">
-                          <button onClick={() => { setEditSubtopikId(bahan.id); setTempSubtopik(bahan.subtopics || []); }} className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-white hover:bg-amber-600 transition-colors" title="Tetapkan Muka Surat PDF">
+                          <button onClick={() => { setEditSubtopikId(bahan.id); setTempSubtopik(bahan.subtopics || []); }} className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-white hover:bg-amber-600 transition-colors" title="Edit Subtopik & Link">
                             <Edit3 size={16}/>
                           </button>
                           <button onClick={() => handleKemaskiniSubtopik(bahan)} className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-white hover:bg-emerald-600 transition-colors" title="Auto-Sync Subtopik">
                             <RefreshCw size={16}/>
                           </button>
-                          <a href={bahan.chapterUrl} target="_blank" rel="noreferrer" className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-white hover:bg-blue-600 transition-colors" title="Lihat PDF">
+                          <a href={bahan.chapterUrl} target="_blank" rel="noreferrer" className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-white hover:bg-blue-600 transition-colors" title="Lihat Pautan Induk">
                             <FileText size={16}/>
                           </a>
                           <button onClick={() => handlePadamBahan(bahan.id)} className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-white hover:bg-red-600 transition-colors" title="Padam Nota">
@@ -648,71 +628,88 @@ export default function GuruDashboard() {
                       <h4 className="text-xl font-bold text-white mb-2">{bahan.title}</h4>
                       <p className="text-sm text-slate-400 mb-2 font-mono text-amber-500/80">ID: {bahan.id}</p>
                       
-                      {/* BAHAGIAN PAPARAN / EDIT SUBTOPIK */}
+                      {/* ============================================== */}
+                      {/* 🌟 EDIT SUBTOPIK MODAL (DENGAN LINK KHAS)      */}
+                      {/* ============================================== */}
                       {editSubtopikId === bahan.id ? (
                         <div className="mt-3 bg-slate-900/50 p-4 rounded-lg border border-amber-600/50">
-                          <p className="text-xs text-amber-400 font-bold mb-3 uppercase flex items-center gap-2"><Edit3 size={14}/> Tetapkan Muka Surat & Video:</p>
-                          <div className="space-y-3 mb-4 max-h-64 overflow-y-auto pr-2">
+                          <p className="text-xs text-amber-400 font-bold mb-3 uppercase flex items-center gap-2"><Edit3 size={14}/> Tetapkan Link Khas & Video:</p>
+                          <div className="space-y-4 mb-4 max-h-80 overflow-y-auto pr-2">
                             {tempSubtopik.map((sub, i) => (
-                               <div key={i} className="flex flex-col gap-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                               <div key={i} className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
                                  
-                                 {/* BARIS ATAS: ID, INPUT MUKA SURAT, TAJUK */}
-                                 <div className="flex items-center gap-3">
-                                   <span className="text-xs font-bold text-blue-400 w-8 shrink-0">{sub.id}</span>
-                                   <input type="number" min="1" value={sub.startPage || 1} onChange={(e) => {
-                                     const newSubs = [...tempSubtopik];
-                                     newSubs[i].startPage = Number(e.target.value);
-                                     setTempSubtopik(newSubs);
-                                   }} className="w-16 bg-slate-800 text-amber-400 font-bold text-sm p-1.5 rounded border border-slate-600 focus:border-amber-500 outline-none text-center" title="Muka surat di dalam PDF" />
-                                   <span className="text-xs text-slate-300 truncate" title={sub.title}>{sub.title}</span>
+                                 {/* BARIS ATAS: ID & TAJUK SUBTOPIK */}
+                                 <div className="flex items-center gap-3 border-b border-slate-700/50 pb-2">
+                                   <span className="text-sm font-extrabold text-blue-400 shrink-0">{sub.id}</span>
+                                   <span className="text-sm text-slate-200 font-medium">{sub.title}</span>
                                  </div>
 
-                                 {/* 🌟 BARIS BAWAH: INPUT LINK YOUTUBE */}
+                                 {/* 🌟 BARIS 2: INPUT LINK NOTA KHAS (CANVA/DRIVE) */}
+                                 <div className="flex items-center gap-2 mt-1">
+                                   <span className="text-[10px] text-blue-400 font-bold uppercase shrink-0 w-16 text-right" title="Link Nota Bebas">🔗 Nota:</span>
+                                   <input 
+                                     type="text" 
+                                     value={sub.notaUrl || ""} 
+                                     placeholder="Link Canva/Drive Khas Subtopik ini (Jika tiada, sistem guna link Bab)" 
+                                     onChange={(e) => {
+                                       const newSubs = [...tempSubtopik];
+                                       newSubs[i].notaUrl = e.target.value;
+                                       setTempSubtopik(newSubs);
+                                     }} 
+                                     className="flex-1 bg-[#0f172a] text-slate-300 font-mono text-[10px] p-2 rounded border border-slate-700 focus:border-blue-500 outline-none" 
+                                   />
+                                 </div>
+
+                                 {/* 🌟 BARIS 3: INPUT LINK YOUTUBE */}
                                  <div className="flex items-center gap-2">
-                                   <span className="text-[10px] text-red-400 font-bold uppercase shrink-0 w-8 text-center" title="Video YouTube">📺</span>
+                                   <span className="text-[10px] text-red-400 font-bold uppercase shrink-0 w-16 text-right" title="Video YouTube">📺 Video:</span>
                                    <input 
                                      type="text" 
                                      value={sub.videoUrl || ""} 
-                                     placeholder="Tampal Link YouTube (Contoh: https://youtu.be/...)" 
+                                     placeholder="Link YouTube Khas Subtopik (Contoh: https://youtu.be/...)" 
                                      onChange={(e) => {
                                        const newSubs = [...tempSubtopik];
                                        newSubs[i].videoUrl = e.target.value;
                                        setTempSubtopik(newSubs);
                                      }} 
-                                     className="flex-1 bg-[#0f172a] text-slate-300 font-mono text-[10px] p-1.5 rounded border border-slate-700 focus:border-red-500 outline-none" 
+                                     className="flex-1 bg-[#0f172a] text-slate-300 font-mono text-[10px] p-2 rounded border border-slate-700 focus:border-red-500 outline-none" 
                                    />
                                  </div>
                                </div>
                             ))}
                           </div>
-                          <div className="flex gap-2">
-                            <button onClick={() => setEditSubtopikId(null)} className="flex-1 bg-slate-800 text-slate-400 text-xs font-bold py-2 rounded-lg hover:bg-slate-700">Batal</button>
-                            <button onClick={() => handleSimpanMukaSurat(bahan.id)} className="flex-1 bg-amber-600 text-white font-bold text-xs py-2 rounded-lg hover:bg-amber-500 shadow-lg">Simpan</button>
+                          <div className="flex gap-2 pt-2 border-t border-slate-700/50">
+                            <button onClick={() => setEditSubtopikId(null)} className="flex-1 bg-slate-800 text-slate-400 text-sm font-bold py-2.5 rounded-lg hover:bg-slate-700">Batal</button>
+                            <button onClick={() => handleSimpanMukaSurat(bahan.id)} className="flex-1 bg-amber-600 text-white font-bold text-sm py-2.5 rounded-lg hover:bg-amber-500 shadow-lg">Simpan Tetapan</button>
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800 flex-1 overflow-y-auto max-h-48 mt-3">
-                           <p className="text-[11px] text-slate-500 font-bold uppercase mb-2">Senarai Subtopik & Muka Surat (Page):</p>
-                           <ul className="text-sm text-slate-300 space-y-1.5">
+                        <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800 flex-1 overflow-y-auto max-h-60 mt-3">
+                           <p className="text-[11px] text-slate-500 font-bold uppercase mb-3">Pautan Khusus Subtopik:</p>
+                           <ul className="text-sm text-slate-300 space-y-3">
                              {bahan.subtopics?.map((sub: any, i: number) => (
-                               <li key={i} className="flex items-center gap-2">
-                                 <span className="bg-slate-800 text-amber-400 font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0">pg {sub.startPage || 1}</span>
-                                 <span className="text-blue-400 font-bold shrink-0">{sub.id}</span> 
-                                 <span className="truncate text-xs">{sub.title}</span>
+                               <li key={i} className="flex flex-col gap-1 border-b border-slate-800 pb-2 last:border-0 last:pb-0">
+                                 <div className="flex items-center gap-2">
+                                    <span className="text-blue-400 font-bold shrink-0">{sub.id}</span> 
+                                    <span className="truncate text-xs font-medium">{sub.title}</span>
+                                 </div>
+                                 <div className="flex items-center gap-2 ml-7 text-[10px]">
+                                   {sub.notaUrl ? <span className="text-blue-300 bg-blue-900/30 px-2 py-0.5 rounded">🔗 Khas</span> : <span className="text-slate-500 bg-slate-800 px-2 py-0.5 rounded">🔗 Ikut Induk Bab</span>}
+                                   {sub.videoUrl ? <span className="text-red-300 bg-red-900/30 px-2 py-0.5 rounded">📺 Ada Video</span> : null}
+                                 </div>
                                </li>
                              ))}
                            </ul>
                         </div>
                       )}
-
                     </div>
                   ))
-                ) : <p className="text-slate-500 col-span-3">Belum ada nota dimuat naik.</p>}
+                ) : <p className="text-slate-500 col-span-2">Belum ada nota didaftarkan.</p>}
               </div>
             </div>
           )}
 
-          {/* TAB 5: MUAT NAIK BAHAN BAHARU (LINK NOTA) 🌟 */}
+          {/* TAB 5: MUAT NAIK BAHAN BAHARU (LINK NOTA) */}
           {activeTab === "upload" && (
              <div className="bg-[#1e293b] p-8 rounded-2xl border border-slate-800 max-w-2xl shadow-lg relative overflow-hidden animate-in fade-in">
                 <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-3"><UploadCloud className="text-blue-400 w-8 h-8"/> Daftar Bahan Rujukan Baru</h3>
@@ -723,11 +720,11 @@ export default function GuruDashboard() {
                     <div><label className="block text-sm text-slate-400 mb-2">Pilih Bab</label><select value={bBab} onChange={e => setBBab(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white">{[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}</select></div>
                   </div>
                   
-                  <div><label className="block text-sm text-slate-400 mb-2">Tajuk Buku / Nota</label><input type="text" value={bJudul} onChange={e => setBJudul(e.target.value)} placeholder="Contoh: Warisan Negara Bangsa" required className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white"/></div>
+                  <div><label className="block text-sm text-slate-400 mb-2">Tajuk Buku / Nota Induk</label><input type="text" value={bJudul} onChange={e => setBJudul(e.target.value)} placeholder="Contoh: Warisan Negara Bangsa" required className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white"/></div>
                   
                   <div className="bg-blue-900/20 p-6 rounded-xl border border-blue-800/50 border-dashed text-center">
-                    <label className="block text-sm text-blue-300 font-bold mb-4">Pautan / Link Bahan Rujukan (Google Drive/Canva)</label>
-                    <p className="text-xs text-blue-400 mb-4 font-normal">Pastikan fail Google Drive cikgu telah ditetapkan kepada "Anyone with the link can view".</p>
+                    <label className="block text-sm text-blue-300 font-bold mb-2">Pautan / Link Utama (Google Drive/Canva)</label>
+                    <p className="text-xs text-blue-400 mb-4 font-normal">Pastikan fail Google Drive cikgu telah ditetapkan kepada "Anyone with the link can view". Anda masih boleh tukar link untuk setiap subtopik di ruangan edit nanti.</p>
                     <input 
                       type="url" 
                       value={bLinkNota} 
