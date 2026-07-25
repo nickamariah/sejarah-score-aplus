@@ -142,7 +142,6 @@ function KomponenPembelajaran() {
   const currentSubInfo = subtopicsList.find((s: any) => s.id === currentSub);
   const pageNumber = currentSubInfo ? currentSubInfo.startPage : 1;
 
-  // 🌟 MUAT NAIK MAKLUMAT TAJUK SEBENAR (Untuk elak AI melalut)
   const namaBabSebenar = chapterData?.title || "";
   const namaSubtopikSebenar = currentSubInfo?.title || "";
 
@@ -229,7 +228,8 @@ function KomponenPembelajaran() {
     return () => unsubscribe();
   }, [sessionId, chapterId, studentId, chapterData]); 
 
-  const sendMessage = async (e: React.FormEvent) => {
+  // 🌟 KEMAS KINI FUNGSI SEND MESSAGE (ADA AUTO-TRIGGER NEXT PHASE)
+  const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim()) return;
 
@@ -243,24 +243,16 @@ function KomponenPembelajaran() {
     try {
       await addDoc(messagesCollectionRef, { role: "user", content: teksMurid, timestamp: serverTimestamp() });
 
-      // 🌟 KUTIP TEKS BUKU TEKS DARI FIREBASE UNTUK DIHANTAR KE OTAK AI
       const teksRujukanAI = currentSubInfo?.teksAI || "";
 
+      // 1. Tembak soalan murid ke AI
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          studentId, 
-          chapterId, 
-          text: teksMurid, 
-          currentPhase, 
-          aras: arasDariURL,
-          soalanUjian: koleksiSoalan, 
-          skemaJawapan: koleksiSkema,
-          tajukBab: namaBabSebenar,
-          tajukSubtopik: namaSubtopikSebenar,
-          kodSubtopik: currentSub,
-          teksRujukanAI: teksRujukanAI, // <--- 🌟 TAMBAHAN BARU DI SINI
+          studentId, chapterId, text: teksMurid, currentPhase, aras: arasDariURL,
+          soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema,
+          tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, 
           previousMessages: messages.slice(-4).map(m => ({ role: m.role, content: m.content })) 
         })
       });
@@ -268,19 +260,42 @@ function KomponenPembelajaran() {
       const data = await response.json(); 
 
       if (data.reply) {
+        // 2. Simpan jawapan/pujian dari AI
         await addDoc(messagesCollectionRef, { role: "assistant", content: data.reply, timestamp: serverTimestamp() });
 
+        // 3. JIKA MURID LULUS FASA INI
         if (data.isPhaseComplete) {
           if (currentPhase < maxFasa) {
             const nextPhase = currentPhase + 1;
             setCurrentPhase(nextPhase);
             await updateDoc(sessionDocRef, { currentPhase: nextPhase });
             
+            // Paparkan mesej sistem (Tahniah)
             await addDoc(messagesCollectionRef, {
               role: "assistant",
               content: `✨ Tahniah! Awak dah lepasi Fasa ${currentPhase}. Mari kita ke **Fasa ${nextPhase} (${phaseNames[nextPhase-1]})** pula.`,
               timestamp: serverTimestamp()
             });
+
+            // 🌟 4. AUTO-TRIGGER AI UNTUK TANYA SOALAN FASA BAHARU
+            const autoTriggerResponse = await fetch('/api/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                studentId, chapterId, aras: arasDariURL,
+                currentPhase: nextPhase, // Mesti hantar nombor fasa baru!
+                text: `[SISTEM AUTO]: Murid telah lulus fasa tadi. Sila berikan SOALAN PERTAMA anda untuk menguji murid bagi FASA ${nextPhase} pula. Terus tanya soalan, jangan berbasa-basi.`, 
+                soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema,
+                tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, 
+                previousMessages: [] // Kosongkan chat lama supaya AI fokus soalan baru
+              })
+            });
+
+            const autoData = await autoTriggerResponse.json();
+            if (autoData.reply) {
+              await addDoc(messagesCollectionRef, { role: "assistant", content: autoData.reply, timestamp: serverTimestamp() });
+            }
+
           } else if (currentPhase === maxFasa) {
             setIsMastered(true);
             await updateDoc(sessionDocRef, { status: "completed" });
