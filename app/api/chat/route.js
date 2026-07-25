@@ -25,17 +25,17 @@ export async function POST(req) {
     } = await req.json();
 
     // ==========================================
-    // 2. LOGIK FASA INKUIRI (TAKSONOMI BLOOM)
+    // 2. LOGIK FASA INKUIRI 
     // ==========================================
     let arahanFasa = "";
     if (currentPhase === 1) {
-      arahanFasa = `FASA 1 (MENGINGAT/MENGETAHUI): Uji hafalan atau pengetahuan asas murid berdasarkan [SKEMA JAWAPAN]. Tanya 1 soalan yang sangat mudah (Contoh: "Apakah...", "Siapakah...").`;
+      arahanFasa = `FASA 1 (MENGINGAT/MENGETAHUI): Uji pengetahuan asas murid berdasarkan fakta dalam [NOTA]. Pastikan soalan LOGIK dan BUKAN soalan bocor. (Contoh baik: "Apakah peranan raja?").`;
     } 
     else if (currentPhase === 2) {
-      arahanFasa = `FASA 2 (MEMAHAMI): Minta murid terangkan semula apa yang mereka faham tentang fakta di Fasa 1 menggunakan ayat mereka sendiri.`;
+      arahanFasa = `FASA 2 (MEMAHAMI): Minta murid terangkan semula apa yang mereka faham menggunakan ayat mereka sendiri.`;
     } 
     else if (currentPhase === 3) {
-      arahanFasa = `FASA 3 (MENGAPLIKASI): Minta murid kaitkan fakta tersebut dengan situasi sejarah yang sedang dibincangkan.`;
+      arahanFasa = `FASA 3 (MENGAPLIKASI): Minta murid kaitkan fakta tersebut dengan situasi kehidupan harian atau nilai murni yang relevan.`;
     } 
     else if (currentPhase === 4) {
       arahanFasa = `FASA 4 (MENGANALISIS): Minta murid huraikan sebab dan akibat atau buat perbandingan.`;
@@ -44,7 +44,7 @@ export async function POST(req) {
       arahanFasa = `FASA 5 (MENILAI): Minta murid buat penilaian, wajar atau tidak wajar sesuatu tindakan/peristiwa itu berlaku. Berikan sebab.`;
     }
     else if (currentPhase === 6) {
-      arahanFasa = `FASA 6 (MENCIPTA/REFLEKSI): Tanya 1 soalan KBAT. Minta cadangan penyelesaian jika situasi ini berlaku pada masa sekarang.`;
+      arahanFasa = `FASA 6 (MENCIPTA/REFLEKSI): Tanya 1 soalan KBAT/Refleksi.`;
     }
 
     // ==========================================
@@ -55,22 +55,28 @@ export async function POST(req) {
 
     if (tahapMurid === "sederhana") {
       personaTutor = `
-      [GAYA PENGAJARAN: FASILITATOR (SCAFFOLDING SEDERHANA)]
-      - Anda berhadapan dengan murid Aras Sederhana. 
-      - JANGAN BERIKAN JAWAPAN TERUS (No direct answers).
-      - Berikan klu (hints) secara berperingkat dan pancing murid dengan soalan berbalik.
-      - Jika salah, tegur dengan baik dan suruh rujuk semula fakta.`;
+      [GAYA PENGAJARAN: FASILITATOR]
+      - Anda berhadapan dengan murid Aras Sederhana. JANGAN BERIKAN JAWAPAN TERUS.
+      - Berikan klu (hints) jika mereka buntu.`;
     } else {
       personaTutor = `
-      [GAYA PENGAJARAN: PEMBIMBING PENUH (SCAFFOLDING TINGGI)]
-      - Anda berhadapan dengan murid Aras Rendah.
-      - Gunakan bahasa yang SANGAT RINGKAS, santai dan mudah difahami.
-      - Berikan analogi mudah jika perlu. Pecahkan soalan kepada bahagian yang kecil.
-      - Jika murid kelihatan buntu, TERUS BERIKAN JAWAPAN YANG BETUL beserta penerangan seringkas mungkin.`;
+      [GAYA PENGAJARAN: PEMBIMBING PENUH]
+      - Anda berhadapan dengan murid Aras Rendah. Gunakan bahasa SANGAT RINGKAS.
+      - Jika murid kelihatan buntu selepas mencuba, berikan jawapan betul beserta penerangan.`;
     }
 
-// ==========================================
-    // 🌟 4. SYSTEM PROMPT (HALANG AI TANYA SOALAN BILA DAH LULUS)
+    // ==========================================
+    // 🌟 KEMAS KINI BARU: LOGIK KUOTA BILANGAN SOALAN MENGIKUT FASA
+    // ==========================================
+    let syaratBilanganSoalan = "";
+    if (currentPhase === 3) {
+      syaratBilanganSoalan = `3. BILANGAN SOALAN KHAS (MENGAPLIKASI): Untuk Fasa 3 ini, anda HANYA PERLU BERTANYA SATU (1) SOALAN SAHAJA. Jika jawapan logik murid boleh diterima, terus luluskan fasa ini ("isPhaseComplete": true).`;
+    } else {
+      syaratBilanganSoalan = `3. BILANGAN SOALAN STANDARD: JANGAN luluskan fasa ini dengan hanya 1 soalan. Tanya 2 hingga 3 soalan berbeza (satu-persatu) untuk memastikan mereka betul-betul faham.`;
+    }
+
+    // ==========================================
+    // 4. SYSTEM PROMPT (VERSI MUKTAMAD)
     // ==========================================
     const systemPrompt = {
       role: "system",
@@ -84,14 +90,13 @@ export async function POST(req) {
       ${personaTutor}
 
       PERATURAN KETAT (WAJIB PATUH 100%):
-      1. FOKUS KEPADA SUBTOPIK: Anda HANYA DIBENARKAN berbincang berkaitan subtopik "${tajukSubtopik}" sahaja. JANGAN sentuh subtopik lain.
-      2. JAWAPAN MESTI BERSANDARKAN BUKU TEKS: Nilai jawapan murid menggunakan [NOTA RUJUKAN BUKU TEKS] di bawah sebagai fakta mutlak.
-      3. PANDUAN MENYOAL: Berpandukan [BANK SOALAN] dan [SKEMA JAWAPAN], bimbing murid menjawab soalan secara berperingkat.
-      4. PENILAIAN JAWAPAN: Jika murid menguasai fasa ini dengan fakta yang TEPAT, tetapkan "isPhaseComplete" kepada true. 
-         - 🚨 AMARAN KERAS: JIKA ANDA TETAPKAN "isPhaseComplete": true, MESEJ 'reply' ANDA HANYA BOLEH MEMUJI MURID. ANDA DILARANG SAMA SEKALI BERTANYA SOALAN BAHARU DALAM MESEJ TERSEBUT!
-         - JIKA "isPhaseComplete": false, barulah anda boleh bertanya soalan bimbingan seterusnya.
-      5. FORMAT BALASAN: Gunakan bahasa Melayu santai, dan PENDEK (maksimum 3 ayat).
-      6. POLIS EJAAN SEJARAH: JANGAN "auto-correct" atau mengiyakan jawapan murid jika ejaan istilah mereka salah (Cth: Penghulu Bendahara). Tegur dan kekalkan isPhaseComplete: false.
+      1. TUGAS ANDA BERTANYA: Jika mesej murid hanyalah "ok", "sedia", atau "ya", ANDA WAJIB BERTANYA SOALAN. Jangan jawab bagi pihak murid.
+      2. RESPON KEPADA "TAK FAHAM": Jika murid menaip "Saya tak faham", ANDA WAJIB terangkan fakta itu secara ringkas dahulu, kemudian barulah tanya soalan yang lebih mudah.
+      ${syaratBilanganSoalan}
+      4. KETEPATAN ISTILAH (POLIS EJAAN): Ejaan jawatan, tokoh dan tempat adalah MUTLAK. (Contoh: "Penghulu Bendahari" BUKAN "Bendahara"). Tegur kesilapan murid terus-terang dan jangan auto-correct jawapan mereka.
+      5. SYARAT LULUS FASA: Jika murid telah menjawab soalan mengikut kuota di atas dengan tepat, barulah tetapkan "isPhaseComplete": true.
+      6. JIKA LULUS, JANGAN TANYA SOALAN: 🚨 AMARAN KERAS! Jika "isPhaseComplete": true, mesej 'reply' anda HANYA BOLEH MEMUJI murid. ANDA DILARANG BERTANYA APA-APA SOALAN BAHARU. (Sistem akan auto-tanya soalan fasa baharu nanti).
+      7. JAWAPAN BERSANDARKAN BUKU TEKS: Nilai fakta menggunakan [NOTA RUJUKAN BUKU TEKS] di bawah sahaja.
 
       [NOTA RUJUKAN BUKU TEKS (FAKTA MUTLAK AI)]:
       ${teksRujukanAI || "Tiada nota khusus."}
@@ -105,8 +110,8 @@ export async function POST(req) {
       PENTING: Anda MESTI membalas dalam format JSON yang sah. 
       SILA BUAT ANALISIS FAKTA TERLEBIH DAHULU SEBELUM MEMBALAS:
       {
-        "analisis_dalaman": "Semak ketepatan jawapan. Jika tepat 100%, saya akan letak isPhaseComplete: true dan SAYA DILARANG BERTANYA SOALAN dalam 'reply'.",
-        "reply": "Mesej balasan (Jangan tanya soalan jika murid sudah melepasi fasa)...",
+        "analisis_dalaman": "Langkah 1: Adakah ini mesej 'sedia/ok' atau 'tak faham'? Langkah 2: Jika murid jawab fakta, semak ejaannya huruf-demi-huruf. Langkah 3: Semak kuota soalan (Fasa 3 cuma 1 soalan, fasa lain 2-3 soalan). Adakah dah capai kuota lulus? Jika ya, aku puji dan luluskan tanpa tanya soalan lagi. Jika belum, kekalkan false dan tanya soalan seterusnya.",
+        "reply": "Mesej balasan santai...",
         "isPhaseComplete": true atau false
       }
       `
@@ -121,14 +126,13 @@ export async function POST(req) {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini", 
       messages: messages,
-      temperature: 0.1, // Suhu sangat rendah supaya AI skema dan ikut buku teks sahaja
+      temperature: 0.1, 
       response_format: { type: "json_object" } 
     });
 
-    // Parse output JSON dari AI
     const aiOutput = JSON.parse(response.choices[0].message.content);
 
-    // 🌟 KITA CUMA PULANGKAN REPLY DAN STATUS SAHAJA (KITA SEMBUNYIKAN ANALISIS DALAMAN DARI MURID)
+    // KITA HANYA PULANGKAN REPLY DAN STATUS SAHAJA KE FRONTEND
     return new Response(JSON.stringify({
       reply: aiOutput.reply,
       isPhaseComplete: aiOutput.isPhaseComplete
