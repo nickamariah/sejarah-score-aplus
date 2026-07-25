@@ -70,8 +70,8 @@ export async function POST(req) {
       - Jika murid kelihatan buntu, TERUS BERIKAN JAWAPAN YANG BETUL beserta penerangan seringkas mungkin.`;
     }
 
-    // ==========================================
-    // 🌟 4. SYSTEM PROMPT (ANTI-HALUSINASI & BACA BUKU TEKS)
+   // ==========================================
+    // 🌟 4. SYSTEM PROMPT (DENGAN UNDANG-UNDANG KETAT ISTILAH SEJARAH)
     // ==========================================
     const systemPrompt = {
       role: "system",
@@ -90,6 +90,7 @@ export async function POST(req) {
       3. PANDUAN MENYOAL: Berpandukan [BANK SOALAN] dan [SKEMA JAWAPAN], bimbing murid menjawab soalan secara berperingkat.
       4. PENILAIAN JAWAPAN: Jika murid telah berjaya menguasai fasa ini berdasarkan fakta Buku Teks/Skema, tetapkan "isPhaseComplete" kepada true. Jika belum, biarkan false.
       5. FORMAT BALASAN: Gunakan bahasa Melayu santai, mesra, dan PENDEK (maksimum 3 ayat). Tanya 1 soalan pada satu masa.
+      6. KETEPATAN ISTILAH SEJARAH (SANGAT PENTING): Anda MESTI sangat TEGAS dengan ejaan jawatan, nama tokoh, tempat, dan fakta. Contoh: "Bendahara" dan "Penghulu Bendahari" adalah jawatan BERBEZA. Jika murid tersalah eja istilah yang mengubah makna/fakta sejarah, TEGUR KESILAPAN TERSEBUT dan JANGAN benarkan mereka melepasi fasa ini ("isPhaseComplete": false).
 
       [NOTA RUJUKAN BUKU TEKS (FAKTA MUTLAK AI)]:
       ${teksRujukanAI || "Tiada nota khusus. Gunakan pengetahuan am Sejarah KSSM anda berdasarkan silibus."}
