@@ -4,7 +4,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// 🌟 TAMBAHAN PENTING: Paksa pelayan (Vercel) tak timeout awal
 export const maxDuration = 60; 
 
 export async function POST(req) {
@@ -25,58 +24,63 @@ export async function POST(req) {
     } = await req.json();
 
     // ==========================================
-    // 2. LOGIK FASA INKUIRI 
+    // 🌟 2. LOGIK FASA INKUIRI (PENGUATKUASAAN KATA TUGAS BLOOM)
     // ==========================================
     let arahanFasa = "";
     if (currentPhase === 1) {
-      arahanFasa = `FASA 1 (MENGINGAT/MENGETAHUI): Uji pengetahuan asas murid berdasarkan fakta dalam [NOTA]. Pastikan soalan LOGIK dan BUKAN soalan bocor. (Contoh baik: "Apakah peranan raja?").`;
+      arahanFasa = `FASA 1 (MENGINGAT/MENGETAHUI)
+      - FOKUS: Uji hafalan fakta asas sejarah dari nota.
+      - KATA TUGAS WAJIB: "Apakah...", "Siapakah...", "Nyatakan...", "Senaraikan...".
+      - CONTOH SOALAN: "Apakah ciri-ciri negara bangsa kerajaan Alam Melayu?"`;
     } 
     else if (currentPhase === 2) {
-      arahanFasa = `FASA 2 (MEMAHAMI): Minta murid terangkan semula apa yang mereka faham menggunakan ayat mereka sendiri.`;
+      arahanFasa = `FASA 2 (MEMAHAMI)
+      - FOKUS: Uji kefahaman. Minta murid hurai atau terang dengan ayat sendiri.
+      - KATA TUGAS WAJIB: "Terangkan...", "Jelaskan mengapa...", "Apakah maksud...".
+      - AMARAN KERAS: DILARANG menggunakan soalan "Nyatakan" atau "Senaraikan" pada fasa ini!
+      - CONTOH SOALAN: "Boleh awak terangkan dengan ayat sendiri, mengapa undang-undang penting kepada kerajaan?"`;
     } 
     else if (currentPhase === 3) {
-      arahanFasa = `FASA 3 (MENGAPLIKASI): Minta murid kaitkan fakta tersebut dengan situasi kehidupan harian atau nilai murni yang relevan.`;
+      arahanFasa = `FASA 3 (MENGAPLIKASI)
+      - FOKUS: Kaitkan fakta sejarah dengan kehidupan harian murid, nilai patriotisme, atau situasi masa kini.
+      - KATA TUGAS WAJIB: "Bagaimanakah cara...", "Sebagai seorang murid...", "Beri contoh...".
+      - AMARAN KERAS: DILARANG menanya soalan fakta buku teks di fasa ini.
+      - CONTOH SOALAN: "Sebagai seorang pelajar, bagaimanakah awak boleh menunjukkan sifat taat setia kepada raja pada hari ini?"`;
     } 
     else if (currentPhase === 4) {
-      arahanFasa = `FASA 4 (MENGANALISIS): Minta murid huraikan sebab dan akibat atau buat perbandingan.`;
+      arahanFasa = `FASA 4 (MENGANALISIS): Minta murid huraikan sebab dan akibat atau buat perbandingan. Guna kata tugas: "Bandingkan", "Mengapakah".`;
     } 
     else if (currentPhase === 5) {
-      arahanFasa = `FASA 5 (MENILAI): Minta murid buat penilaian, wajar atau tidak wajar sesuatu tindakan/peristiwa itu berlaku. Berikan sebab.`;
+      arahanFasa = `FASA 5 (MENILAI): Minta murid buat penilaian. Guna kata tugas: "Wajarkah", "Buktikan".`;
     }
     else if (currentPhase === 6) {
-      arahanFasa = `FASA 6 (MENCIPTA/REFLEKSI): Tanya 1 soalan KBAT/Refleksi.`;
+      arahanFasa = `FASA 6 (MENCIPTA/REFLEKSI): Tanya 1 soalan KBAT tinggi. Guna kata tugas: "Cadangkan", "Ramalkan".`;
     }
 
     // ==========================================
-    // 3. LOGIK ADAPTIF (PERSONA BERBEZA MENGIKUT ARAS)
+    // 3. LOGIK ADAPTIF
     // ==========================================
     let personaTutor = "";
     const tahapMurid = aras ? aras.toLowerCase() : "rendah"; 
 
     if (tahapMurid === "sederhana") {
-      personaTutor = `
-      [GAYA PENGAJARAN: FASILITATOR]
-      - Anda berhadapan dengan murid Aras Sederhana. JANGAN BERIKAN JAWAPAN TERUS.
-      - Berikan klu (hints) jika mereka buntu.`;
+      personaTutor = `[GAYA PENGAJARAN: FASILITATOR]. Anda berhadapan dengan murid Aras Sederhana. Berikan klu (hints) jika mereka buntu, JANGAN terus bagi jawapan penuh.`;
     } else {
-      personaTutor = `
-      [GAYA PENGAJARAN: PEMBIMBING PENUH]
-      - Anda berhadapan dengan murid Aras Rendah. Gunakan bahasa SANGAT RINGKAS.
-      - Jika murid kelihatan buntu selepas mencuba, berikan jawapan betul beserta penerangan.`;
+      personaTutor = `[GAYA PENGAJARAN: PEMBIMBING]. Anda berhadapan dengan murid Aras Rendah. Gunakan bahasa SANGAT RINGKAS. Jika buntu, beri jawapan terus dan terangkan.`;
     }
 
     // ==========================================
-    // 🌟 KEMAS KINI BARU: LOGIK KUOTA BILANGAN SOALAN MENGIKUT FASA
+    // KAWALAN BILANGAN SOALAN
     // ==========================================
     let syaratBilanganSoalan = "";
     if (currentPhase === 3) {
-      syaratBilanganSoalan = `3. BILANGAN SOALAN KHAS (MENGAPLIKASI): Untuk Fasa 3 ini, anda HANYA PERLU BERTANYA SATU (1) SOALAN SAHAJA. Jika jawapan logik murid boleh diterima, terus luluskan fasa ini ("isPhaseComplete": true).`;
+      syaratBilanganSoalan = `BILANGAN SOALAN FASA 3: Tanya HANYA SATU (1) soalan sahaja. Luluskan (isPhaseComplete: true) jika idea murid logik dan boleh diterima.`;
     } else {
-      syaratBilanganSoalan = `3. BILANGAN SOALAN STANDARD: JANGAN luluskan fasa ini dengan hanya 1 soalan. Tanya 2 hingga 3 soalan berbeza (satu-persatu) untuk memastikan mereka betul-betul faham.`;
+      syaratBilanganSoalan = `BILANGAN SOALAN STANDARD: Jangan luluskan dengan hanya 1 soalan. Tanya 2 hingga 3 soalan berbeza secara berperingkat sebelum luluskan.`;
     }
 
     // ==========================================
-    // 4. SYSTEM PROMPT (VERSI MUKTAMAD)
+    // 4. SYSTEM PROMPT
     // ==========================================
     const systemPrompt = {
       role: "system",
@@ -90,27 +94,23 @@ export async function POST(req) {
       ${personaTutor}
 
       PERATURAN KETAT (WAJIB PATUH 100%):
-      1. TUGAS ANDA BERTANYA: Jika mesej murid hanyalah "ok", "sedia", atau "ya", ANDA WAJIB BERTANYA SOALAN. Jangan jawab bagi pihak murid.
+      1. TUGAS ANDA BERTANYA: Jika mesej murid hanyalah "ok", "sedia", atau "ya", ANDA WAJIB BERTANYA SOALAN.
       2. RESPON KEPADA "TAK FAHAM": Jika murid menaip "Saya tak faham", ANDA WAJIB terangkan fakta itu secara ringkas dahulu, kemudian barulah tanya soalan yang lebih mudah.
-      ${syaratBilanganSoalan}
-      4. KETEPATAN ISTILAH (POLIS EJAAN): Ejaan jawatan, tokoh dan tempat adalah MUTLAK. (Contoh: "Penghulu Bendahari" BUKAN "Bendahara"). Tegur kesilapan murid terus-terang dan jangan auto-correct jawapan mereka.
-      5. SYARAT LULUS FASA: Jika murid telah menjawab soalan mengikut kuota di atas dengan tepat, barulah tetapkan "isPhaseComplete": true.
-      6. JIKA LULUS, JANGAN TANYA SOALAN: 🚨 AMARAN KERAS! Jika "isPhaseComplete": true, mesej 'reply' anda HANYA BOLEH MEMUJI murid. ANDA DILARANG BERTANYA APA-APA SOALAN BAHARU. (Sistem akan auto-tanya soalan fasa baharu nanti).
-      7. JAWAPAN BERSANDARKAN BUKU TEKS: Nilai fakta menggunakan [NOTA RUJUKAN BUKU TEKS] di bawah sahaja.
+      3. ${syaratBilanganSoalan}
+      4. KETEPATAN KATA TUGAS BLOOM: Pastikan soalan yang ditanya SANGAT SESUAI dengan Arahan Fasa semasa. Rujuk kata tugas wajib untuk fasa tersebut. 
+      5. KETEPATAN ISTILAH (POLIS EJAAN): Ejaan jawatan dan tokoh adalah MUTLAK. (Contoh: "Penghulu Bendahari" BUKAN "Bendahara"). Tegur jika salah.
+      6. JIKA LULUS, JANGAN TANYA SOALAN: Jika "isPhaseComplete": true, mesej 'reply' anda HANYA BOLEH MEMUJI murid. DILARANG BERTANYA SOALAN BAHARU.
 
       [NOTA RUJUKAN BUKU TEKS (FAKTA MUTLAK AI)]:
       ${teksRujukanAI || "Tiada nota khusus."}
 
-      [BANK SOALAN UJIAN]:
+      [BANK SOALAN UJIAN (JADIKAN RUJUKAN KONTEKS SAHAJA)]:
       ${soalanUjian || "Tiada rekod soalan."}
-      
-      [SKEMA JAWAPAN UJIAN]:
-      ${skemaJawapan || "Tiada rekod skema."}
 
       PENTING: Anda MESTI membalas dalam format JSON yang sah. 
       SILA BUAT ANALISIS FAKTA TERLEBIH DAHULU SEBELUM MEMBALAS:
       {
-        "analisis_dalaman": "Langkah 1: Adakah ini mesej 'sedia/ok' atau 'tak faham'? Langkah 2: Jika murid jawab fakta, semak ejaannya huruf-demi-huruf. Langkah 3: Semak kuota soalan (Fasa 3 cuma 1 soalan, fasa lain 2-3 soalan). Adakah dah capai kuota lulus? Jika ya, aku puji dan luluskan tanpa tanya soalan lagi. Jika belum, kekalkan false dan tanya soalan seterusnya.",
+        "analisis_dalaman": "Langkah 1: Semak ejaan jawapan murid. Langkah 2: Adakah murid ini sudah capai syarat lulus untuk Fasa ${currentPhase}? Jika belum lulus, aku mesti pastikan soalan seterusnya yang aku nak tanya ini menggunakan KATA TUGAS yang dibenarkan untuk FASA ${currentPhase}.",
         "reply": "Mesej balasan santai...",
         "isPhaseComplete": true atau false
       }
@@ -132,7 +132,6 @@ export async function POST(req) {
 
     const aiOutput = JSON.parse(response.choices[0].message.content);
 
-    // KITA HANYA PULANGKAN REPLY DAN STATUS SAHAJA KE FRONTEND
     return new Response(JSON.stringify({
       reply: aiOutput.reply,
       isPhaseComplete: aiOutput.isPhaseComplete
@@ -144,7 +143,7 @@ export async function POST(req) {
   } catch (error) {
     console.error("Ralat pada API Chat I-RAGs:", error);
     return new Response(JSON.stringify({ 
-        reply: "Maaf, sistem pemikiran saya sedang memproses terlalu banyak data (Server Sibuk). Boleh awak ulang semula jawapan tadi?", 
+        reply: "Maaf, sistem pemikiran saya sedang memproses terlalu banyak data. Boleh awak ulang semula jawapan tadi?", 
         isPhaseComplete: false 
     }), {
       status: 500,
