@@ -9,7 +9,6 @@ export const maxDuration = 60;
 
 export async function POST(req) {
   try {
-    // 🌟 1. TANGKAP SEMUA DATA DINAMIK DARI FRONTEND TERMASUK TEKS NOTA
     const { 
       studentId, 
       chapterId, 
@@ -17,12 +16,12 @@ export async function POST(req) {
       previousMessages, 
       currentPhase, 
       aras,
-      soalanUjian,      // <-- Data dari Bank Soalan (Firebase)
-      skemaJawapan,     // <-- Data dari Bank Soalan (Firebase)
-      tajukBab,         // <-- Nama Bab Sebenar
-      tajukSubtopik,    // <-- Nama Subtopik Sebenar
-      kodSubtopik,      // <-- Contoh: 1.1, 1.2
-      teksRujukanAI     // <-- 🌟 TEKS BUKU TEKS YANG CIKGU PASTE DI ADMIN
+      soalanUjian,      
+      skemaJawapan,     
+      tajukBab,         
+      tajukSubtopik,    
+      kodSubtopik,      
+      teksRujukanAI     
     } = await req.json();
 
     // ==========================================
@@ -71,7 +70,7 @@ export async function POST(req) {
     }
 
    // ==========================================
-    // 🌟 4. SYSTEM PROMPT (DENGAN UNDANG-UNDANG KETAT ISTILAH SEJARAH)
+    // 🌟 4. SYSTEM PROMPT (DENGAN ANALISIS DALAMAN / CHAIN OF THOUGHT)
     // ==========================================
     const systemPrompt = {
       role: "system",
@@ -101,9 +100,11 @@ export async function POST(req) {
       [SKEMA JAWAPAN UJIAN]:
       ${skemaJawapan || "Tiada rekod skema."}
 
-      PENTING: Anda MESTI membalas dalam format JSON yang sah (valid JSON) seperti ini:
+      PENTING: Anda MESTI membalas dalam format JSON yang sah. 
+      SILA BUAT ANALISIS FAKTA TERLEBIH DAHULU SEBELUM MEMBALAS:
       {
-        "reply": "Mesej balasan anda kepada murid...",
+        "analisis_dalaman": "Lakukan semakan ejaan istilah murid vs Buku Teks di sini. Adakah ia tepat 100%? Jika salah eja walaupun 1 huruf yang menukar maksud, tuliskan teguran di sini.",
+        "reply": "Mesej balasan santai yang akan dibaca oleh murid...",
         "isPhaseComplete": true atau false
       }
       `
@@ -118,21 +119,24 @@ export async function POST(req) {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini", 
       messages: messages,
-      temperature: 0.1, // Suhu sangat rendah supaya AI "skema" dan lurus ikut Buku Teks sahaja
+      temperature: 0.1, // Suhu sangat rendah supaya AI skema dan ikut buku teks sahaja
       response_format: { type: "json_object" } 
     });
 
     // Parse output JSON dari AI
     const aiOutput = JSON.parse(response.choices[0].message.content);
 
-    return new Response(JSON.stringify(aiOutput), {
+    // 🌟 KITA CUMA PULANGKAN REPLY DAN STATUS SAHAJA (KITA SEMBUNYIKAN ANALISIS DALAMAN DARI MURID)
+    return new Response(JSON.stringify({
+      reply: aiOutput.reply,
+      isPhaseComplete: aiOutput.isPhaseComplete
+    }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
 
   } catch (error) {
     console.error("Ralat pada API Chat I-RAGs:", error);
-    // Kembalikan JSON yang betul supaya sistem frontend tak "crash"
     return new Response(JSON.stringify({ 
         reply: "Maaf, sistem pemikiran saya sedang memproses terlalu banyak data (Server Sibuk). Boleh awak ulang semula jawapan tadi?", 
         isPhaseComplete: false 
