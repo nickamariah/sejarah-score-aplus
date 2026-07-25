@@ -4,50 +4,29 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// 🌟 TAMBAHAN PENTING: Paksa pelayan (Vercel) tak timeout awal
+export const maxDuration = 60; 
+
 export async function POST(req) {
   try {
-    // 🌟 TAMBAHAN BARU: Kita pastikan 'aras' diterima dari Frontend
-    const { studentId, chapterId, text, previousMessages, currentPhase, aras } = await req.json();
+    // 🌟 1. TANGKAP SEMUA DATA DINAMIK DARI FRONTEND TERMASUK TEKS NOTA
+    const { 
+      studentId, 
+      chapterId, 
+      text, 
+      previousMessages, 
+      currentPhase, 
+      aras,
+      soalanUjian,      // <-- Data dari Bank Soalan (Firebase)
+      skemaJawapan,     // <-- Data dari Bank Soalan (Firebase)
+      tajukBab,         // <-- Nama Bab Sebenar
+      tajukSubtopik,    // <-- Nama Subtopik Sebenar
+      kodSubtopik,      // <-- Contoh: 1.1, 1.2
+      teksRujukanAI     // <-- 🌟 TEKS BUKU TEKS YANG CIKGU PASTE DI ADMIN
+    } = await req.json();
 
     // ==========================================
-    // 1. RAG DINAMIK: SUBTOPIK, BANK SOALAN & INKUIRI
-    // ==========================================
-    let notaRujukan = "";
-    let soalanSebenar = "";
-    
-    // PEMBOLEH UBAH DINAMIK UNTUK SOALAN INKUIRI
-    let soalanTanya = "";
-    let soalanTeroka = "";
-    let soalanAnalisis = "";
-    let soalanRefleksi = "";
-
-    if (chapterId === "tingkatan4_bab1_sub1.1" || chapterId === "tingkatan4_bab1") {
-      notaRujukan = `
-        Subtopik 1.1: Konsep Alam Melayu.
-        Kerajaan Alam Melayu mempunyai 4 ciri-ciri asas pembentukan negara bangsa: Raja, Undang-undang, Wilayah Pengaruh, dan Rakyat.
-      `;
-      soalanSebenar = `- Soalan SPM: Jelaskan ciri-ciri negara bangsa kerajaan Alam Melayu. (4 Markah)`;
-      
-      soalanTanya = "Mengapakah kerajaan Alam Melayu boleh dianggap sebagai sebuah negara bangsa?";
-      soalanTeroka = "Cuba cari dalam nota. Apakah bukti pertama yang anda temui?";
-      soalanAnalisis = "Antara raja dan undang-undang, yang manakah lebih penting dalam pembentukan negara bangsa? Mengapa?";
-      soalanRefleksi = "Jika sesebuah negara tiada undang-undang hari ini, adakah ia boleh kekal stabil seperti kerajaan dahulu?";
-    } 
-    else if (chapterId === "tingkatan4_bab1_sub1.2") {
-      notaRujukan = `
-        Subtopik 1.2: Ciri-ciri Negara Bangsa Kesultanan Melayu Melaka.
-        Kerajaan Melaka mempunyai ciri seperti kerajaan, rakyat, kedaulatan, wilayah pengaruh, undang-undang, dan lambang kebesaran.
-      `;
-      soalanSebenar = `- Soalan SPM: Nyatakan ciri negara bangsa Kesultanan Melayu Melaka. (4 Markah)`;
-      
-      soalanTanya = "Apakah yang membuatkan Kesultanan Melayu Melaka diiktiraf sebagai model negara bangsa yang sangat unggul?";
-      soalanTeroka = "Berdasarkan nota, cuba cari satu ciri Kesultanan Melayu Melaka yang tiada pada kerajaan sebelumnya.";
-      soalanAnalisis = "Mengapakah 'lambang kebesaran' sangat penting kepada Sultan Melaka pada waktu itu berbanding sekarang?";
-      soalanRefleksi = "Pada pendapat awak, adakah ciri-ciri Kesultanan Melayu Melaka ini masih diamalkan di Malaysia hari ini?";
-    }
-
-    // ==========================================
-    // 1. LOGIK FASA INKUIRI (TAKSONOMI BLOOM)
+    // 2. LOGIK FASA INKUIRI (TAKSONOMI BLOOM)
     // ==========================================
     let arahanFasa = "";
     if (currentPhase === 1) {
@@ -70,49 +49,56 @@ export async function POST(req) {
     }
 
     // ==========================================
-    // 🌟 3. LOGIK ADAPTIF (PERSONA BERBEZA MENGIKUT ARAS)
+    // 3. LOGIK ADAPTIF (PERSONA BERBEZA MENGIKUT ARAS)
     // ==========================================
     let personaTutor = "";
-    const tahapMurid = aras ? aras.toLowerCase() : "rendah"; // Default ke rendah jika tiada data
+    const tahapMurid = aras ? aras.toLowerCase() : "rendah"; 
 
     if (tahapMurid === "sederhana") {
       personaTutor = `
       [GAYA PENGAJARAN: FASILITATOR (SCAFFOLDING SEDERHANA)]
       - Anda berhadapan dengan murid Aras Sederhana. 
       - JANGAN BERIKAN JAWAPAN TERUS (No direct answers).
-      - Berikan klu (hints) secara berperingkat dan pancing murid dengan soalan berbalik (probing questions).
-      - Jika murid salah, tegur dengan baik dan suruh mereka rujuk semula [KONTEKS BUKU TEKS].`;
+      - Berikan klu (hints) secara berperingkat dan pancing murid dengan soalan berbalik.
+      - Jika salah, tegur dengan baik dan suruh rujuk semula fakta.`;
     } else {
       personaTutor = `
       [GAYA PENGAJARAN: PEMBIMBING PENUH (SCAFFOLDING TINGGI)]
       - Anda berhadapan dengan murid Aras Rendah.
       - Gunakan bahasa yang SANGAT RINGKAS, santai dan mudah difahami.
       - Berikan analogi mudah jika perlu. Pecahkan soalan kepada bahagian yang kecil.
-      - Jika murid kelihatan buntu atau masih salah selepas diberi hint, TERUS BERIKAN JAWAPAN YANG BETUL beserta penerangan seringkas mungkin.`;
+      - Jika murid kelihatan buntu, TERUS BERIKAN JAWAPAN YANG BETUL beserta penerangan seringkas mungkin.`;
     }
 
     // ==========================================
-    // 4. SYSTEM PROMPT (DENGAN OUTPUT JSON & ANTI-HALUSINASI)
+    // 🌟 4. SYSTEM PROMPT (ANTI-HALUSINASI & BACA BUKU TEKS)
     // ==========================================
     const systemPrompt = {
       role: "system",
-      content: `Anda ialah "I-RAGS", tutor maya Sejarah.
+      content: `Anda ialah "I-RAGS", tutor maya Sejarah Malaysia KSSM.
       
+      TOPIK PEMBELAJARAN SEKARANG: ${tajukBab || "Silibus KSSM"}
+      SUBTOPIK KHUSUS: ${kodSubtopik || ""} - ${tajukSubtopik || "Topik Am"}
+
       STATUS MURID SEKARANG: ${arahanFasa}
       
       ${personaTutor}
 
       PERATURAN KETAT (WAJIB PATUH 100%):
-      1. SUMBER FAKTA: Nilai jawapan murid berdasarkan [KONTEKS BUKU TEKS] di bawah SAHAJA. JANGAN berhalusinasi atau tambah fakta luar.
-      2. PANDUAN MENYOAL: Berpandukan [BANK SOALAN SEBENAR], bimbing murid supaya mereka dapat menjawab soalan aras peperiksaan tersebut.
-      3. PENILAIAN JAWAPAN: Jika murid telah berjaya menjawab tugasan Fasa ini dengan betul, tetapkan "isPhaseComplete" kepada true dan puji usaha mereka. Jika belum capai objektif, "isPhaseComplete" mestilah false.
-      4. FORMAT BALASAN: Gunakan bahasa Melayu santai, mesra, dan PENDEK (maksimum 3 ayat).
+      1. FOKUS KEPADA SUBTOPIK: Anda HANYA DIBENARKAN berbincang berkaitan subtopik "${tajukSubtopik}" sahaja. JANGAN sentuh subtopik lain.
+      2. JAWAPAN MESTI BERSANDARKAN BUKU TEKS: Nilai dan bimbing murid menggunakan [NOTA RUJUKAN BUKU TEKS] yang dibekalkan di bawah sebagai fakta mutlak. Jangan reka fakta sendiri.
+      3. PANDUAN MENYOAL: Berpandukan [BANK SOALAN] dan [SKEMA JAWAPAN], bimbing murid menjawab soalan secara berperingkat.
+      4. PENILAIAN JAWAPAN: Jika murid telah berjaya menguasai fasa ini berdasarkan fakta Buku Teks/Skema, tetapkan "isPhaseComplete" kepada true. Jika belum, biarkan false.
+      5. FORMAT BALASAN: Gunakan bahasa Melayu santai, mesra, dan PENDEK (maksimum 3 ayat). Tanya 1 soalan pada satu masa.
 
-      [BANK SOALAN SEBENAR (JADIKAN PANDUAN BERTANYA)]:
-      ${soalanSebenar}
+      [NOTA RUJUKAN BUKU TEKS (FAKTA MUTLAK AI)]:
+      ${teksRujukanAI || "Tiada nota khusus. Gunakan pengetahuan am Sejarah KSSM anda berdasarkan silibus."}
+
+      [BANK SOALAN UJIAN (MATLAMAT AKHIR PEMBELAJARAN)]:
+      ${soalanUjian || "Tiada rekod soalan untuk subtopik ini."}
       
-      [KONTEKS BUKU TEKS]:
-      ${notaRujukan}
+      [SKEMA JAWAPAN UJIAN]:
+      ${skemaJawapan || "Tiada rekod skema."}
 
       PENTING: Anda MESTI membalas dalam format JSON yang sah (valid JSON) seperti ini:
       {
@@ -131,7 +117,7 @@ export async function POST(req) {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini", 
       messages: messages,
-      temperature: 0.1, // Suhu sangat rendah supaya AI skema dan ikut buku teks sahaja
+      temperature: 0.1, // Suhu sangat rendah supaya AI "skema" dan lurus ikut Buku Teks sahaja
       response_format: { type: "json_object" } 
     });
 
@@ -145,8 +131,13 @@ export async function POST(req) {
 
   } catch (error) {
     console.error("Ralat pada API Chat I-RAGs:", error);
-    return new Response(JSON.stringify({ error: "Maaf, sistem I-RAGs sedang berehat sebentar." }), {
+    // Kembalikan JSON yang betul supaya sistem frontend tak "crash"
+    return new Response(JSON.stringify({ 
+        reply: "Maaf, sistem pemikiran saya sedang memproses terlalu banyak data (Server Sibuk). Boleh awak ulang semula jawapan tadi?", 
+        isPhaseComplete: false 
+    }), {
       status: 500,
+      headers: { "Content-Type": "application/json" }
     });
   }
 }

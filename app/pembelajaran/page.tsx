@@ -14,19 +14,14 @@ function KomponenPembelajaran() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
-  // STATE UNTUK VIDEO BIMBINGAN
   const [showVideoModal, setShowVideoModal] = useState(false);
-  
   const [currentPhase, setCurrentPhase] = useState(1);
   const [isMastered, setIsMastered] = useState(false);
-  
   const [showPdfMobile, setShowPdfMobile] = useState(false);
   
-  // STATE UNTUK SPLIT SCREEN
   const [leftWidth, setLeftWidth] = useState(60); 
   const [isDragging, setIsDragging] = useState(false);
 
-  // STATE UNTUK DATA
   const [chapterData, setChapterData] = useState<any>(null);
   const [koleksiSoalan, setKoleksiSoalan] = useState("");
   const [koleksiSkema, setKoleksiSkema] = useState("");
@@ -50,7 +45,6 @@ function KomponenPembelajaran() {
     ? ["Mengingat", "Memahami", "Mengaplikasi"] 
     : ["Mengetahui", "Memahami", "Mengaplikasi", "Menganalisis", "Menilai", "Mencipta Idea"];
 
-  // 1. TARIK DATA SUBTOPIK
   useEffect(() => {
     const fetchChapterData = async () => {
       try {
@@ -67,7 +61,6 @@ function KomponenPembelajaran() {
   const ekstrakSubtopik = (id: string) => id.includes("_sub") ? id.split("_sub")[1] : "1.1";
   const currentSub = ekstrakSubtopik(chapterId);
 
-  // 2. TARIK BANK SOALAN
   useEffect(() => {
     const tarikSoalanPeperiksaan = async () => {
       const tg = chapterId.includes("tingkatan4") ? "4" : "5";
@@ -106,7 +99,6 @@ function KomponenPembelajaran() {
         }
         setKoleksiSoalan(soalanGabungan);
         setKoleksiSkema(skemaGabungan);
-
       } catch (error) {
         console.error("Ralat tarik bank soalan:", error);
       }
@@ -118,7 +110,6 @@ function KomponenPembelajaran() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // FUNGSI RESIZABLE
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
@@ -151,7 +142,10 @@ function KomponenPembelajaran() {
   const currentSubInfo = subtopicsList.find((s: any) => s.id === currentSub);
   const pageNumber = currentSubInfo ? currentSubInfo.startPage : 1;
 
-  // 🌟 FUNGSI YOUTUBE EMBED 
+  // 🌟 MUAT NAIK MAKLUMAT TAJUK SEBENAR (Untuk elak AI melalut)
+  const namaBabSebenar = chapterData?.title || "";
+  const namaSubtopikSebenar = currentSubInfo?.title || "";
+
   const getBimbinganVideoUrl = () => {
     const rawUrl = currentSubInfo?.videoUrl;
     if (!rawUrl) return null;
@@ -168,32 +162,16 @@ function KomponenPembelajaran() {
   };
   const videoKhas = getBimbinganVideoUrl();
 
-  // 🌟 FUNGSI PINTAR URL NOTA (DIKEMAS KINI UNTUK BACA LINK SUBTOPIK DULU)
   const getNotaUrl = () => {
-    // 1. SEMAK LINK KHAS SUBTOPIK DAHULU
     const subtopicUrl = currentSubInfo?.notaUrl;
-    
     if (subtopicUrl && subtopicUrl.trim() !== "") {
-      if (subtopicUrl.includes("drive.google.com")) {
-        return subtopicUrl.replace(/\/view.*/, "/preview");
-      }
+      if (subtopicUrl.includes("drive.google.com")) return subtopicUrl.replace(/\/view.*/, "/preview");
       return subtopicUrl;
     }
-
-    // 2. JIKA TIADA LINK KHAS, BARU GUNA LINK UTAMA BAB
     const mainUrl = chapterData?.chapterUrl;
-    
     if (!mainUrl) return `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`;
-
-    if (mainUrl.includes("drive.google.com")) {
-      return mainUrl.replace(/\/view.*/, "/preview");
-    }
-
-    if (mainUrl.includes("canva.com")) {
-      return mainUrl;
-    }
-
-    // Jika ia link URL PDF biasa di server kita
+    if (mainUrl.includes("drive.google.com")) return mainUrl.replace(/\/view.*/, "/preview");
+    if (mainUrl.includes("canva.com")) return mainUrl;
     return `${mainUrl}#page=${pageNumber}&toolbar=1&view=FitH`;
   };
 
@@ -228,7 +206,7 @@ function KomponenPembelajaran() {
 
         await addDoc(messagesCollectionRef, {
           role: "assistant",
-          content: `Hai! Saya I-RAGs 🤖. Jom mulakan sesi inkuiri untuk **${formatTajuk(chapterId).toUpperCase()}**. Boleh beritahu saya apa persoalan utama yang bermain di fikiran awak tentang topik ini?`,
+          content: `Hai! Saya I-RAGs 🤖. Jom mulakan sesi inkuiri untuk topik **${namaBabSebenar.toUpperCase()} (${currentSub} ${namaSubtopikSebenar})**. Boleh beritahu saya apa persoalan utama yang bermain di fikiran awak tentang tajuk ini?`,
           timestamp: serverTimestamp()
         });
       } else {
@@ -237,7 +215,10 @@ function KomponenPembelajaran() {
         if (dataSesi.status === "completed") setIsMastered(true);
       }
     };
-    inisialisasiSesi();
+    
+    if (chapterData) {
+      inisialisasiSesi();
+    }
 
     const q = query(messagesCollectionRef, orderBy("timestamp", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -246,7 +227,7 @@ function KomponenPembelajaran() {
     });
 
     return () => unsubscribe();
-  }, [sessionId, chapterId, studentId]);
+  }, [sessionId, chapterId, studentId, chapterData]); 
 
   const sendMessage = async (e: React.FormEvent) => {
     e?.preventDefault();
@@ -262,12 +243,24 @@ function KomponenPembelajaran() {
     try {
       await addDoc(messagesCollectionRef, { role: "user", content: teksMurid, timestamp: serverTimestamp() });
 
+      // 🌟 KUTIP TEKS BUKU TEKS DARI FIREBASE UNTUK DIHANTAR KE OTAK AI
+      const teksRujukanAI = currentSubInfo?.teksAI || "";
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          studentId, chapterId, text: teksMurid, currentPhase, aras: arasDariURL,
-          soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema, 
+          studentId, 
+          chapterId, 
+          text: teksMurid, 
+          currentPhase, 
+          aras: arasDariURL,
+          soalanUjian: koleksiSoalan, 
+          skemaJawapan: koleksiSkema,
+          tajukBab: namaBabSebenar,
+          tajukSubtopik: namaSubtopikSebenar,
+          kodSubtopik: currentSub,
+          teksRujukanAI: teksRujukanAI, // <--- 🌟 TAMBAHAN BARU DI SINI
           previousMessages: messages.slice(-4).map(m => ({ role: m.role, content: m.content })) 
         })
       });
@@ -331,7 +324,6 @@ function KomponenPembelajaran() {
        <div className="flex-1 w-full h-full bg-gray-200 relative flex flex-col">
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
           
-          {/* LAPISAN DEPAN: VIDEO */}
           <div className={`absolute inset-0 z-40 flex flex-col bg-slate-900 transition-all duration-300 ${showVideoModal ? "opacity-100 visible pointer-events-auto" : "opacity-0 invisible pointer-events-none"}`}>
                <div className="bg-red-600 text-white p-3 flex justify-between items-center px-4 shadow-md z-20">
                   <span className="font-bold text-sm flex items-center gap-2">📺 Tonton & Fahamkan Video Ini</span>
@@ -359,7 +351,6 @@ function KomponenPembelajaran() {
                </div>
           </div>
 
-          {/* 🌟 LAPISAN BELAKANG: NOTA (AUTO TUKAR IKUT LINK SUBTOPIK) */}
           <div className="absolute inset-0 w-full h-full z-10 bg-white">
               <iframe 
                 src={getNotaUrl()}
@@ -377,7 +368,6 @@ function KomponenPembelajaran() {
         <div className="h-12 w-1 bg-gray-400 rounded-full"></div>
       </div>
 
-      {/* PANEL KANAN (CHAT AI) */}
       <div className="w-full lg:flex-1 h-full bg-white shadow-2xl flex flex-col border-t-4 lg:border-t-0 z-10 relative">
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-3 lg:p-5 flex flex-col gap-2 shadow-md shrink-0">
           <div className="flex items-center justify-between mb-2">
@@ -464,7 +454,6 @@ function KomponenPembelajaran() {
             <button onClick={() => sendQuickPrompt("Saya tak faham.")} className="bg-orange-100 text-orange-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-orange-200 shadow-sm">🤷‍♂️ Tak Faham</button>
             <button onClick={() => sendQuickPrompt("Boleh bagi hint?")} className="bg-green-100 text-green-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-green-200 shadow-sm">💡 Beri Hint</button>
             
-            {/* BUTANG VIDEO KHAS UNTUK ARAS RENDAH */}
             {arasDariURL === "rendah" && (
               <button 
                 onClick={() => setShowVideoModal(true)} 

@@ -286,13 +286,14 @@ export default function GuruDashboard() {
       const title = parts.slice(1).join(" ");
       const wujud = existingSubs.find((e: any) => e.id === id);
       
-      // 🌟 KEKALKAN videoUrl DAN notaUrl JIKA SUDAH WUJUD
+      // 🌟 KEKALKAN videoUrl, notaUrl DAN teksAI JIKA SUDAH WUJUD
       return { 
         id, 
         title, 
         startPage: wujud ? wujud.startPage : 1,
         videoUrl: wujud?.videoUrl || "",
-        notaUrl: wujud?.notaUrl || "" // <-- TAMBAHAN BARU
+        notaUrl: wujud?.notaUrl || "",
+        teksAI: wujud?.teksAI || "" // <-- 🌟 TAMBAHAN: Jaga memori AI
       };
     });
 
@@ -349,8 +350,8 @@ export default function GuruDashboard() {
         <header className="mb-8 border-b border-slate-800 pb-6"><p className="text-amber-500 text-sm font-semibold tracking-wider uppercase mb-1">Makmal Penyelidikan</p><h2 className="text-3xl font-bold text-white mb-2">Dashboard Admin PhD</h2></header>
 
        <main>
-          {/* TAB 1 TO TAB 3 (Pengguna, Pemantauan, Semakan, Soalan) HIDDEN FOR BREVITY BUT KEPT IN CODE */}
-          {activeTab === "murid" && ( /*... Same as before ...*/ 
+          {/* TAB 1: PENGURUSAN PENGGUNA */}
+          {activeTab === "murid" && (
              <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-between items-center bg-[#1e293b] p-6 rounded-2xl border border-slate-800">
                 <div><h3 className="text-xl font-bold text-white mb-1">Pengurusan Pengguna (Firebase)</h3><p className="text-slate-400 text-sm">Daftar dan urus akaun Admin, Guru, dan Murid.</p></div>
@@ -405,6 +406,7 @@ export default function GuruDashboard() {
             </div>
           )}
 
+          {/* TAB 2: PEMANTAUAN I-RAGS */}
           {activeTab === "pemantauan" && ( 
              <div className="space-y-6 animate-in fade-in">
               <div className="mb-6"><h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-3"><Activity className="text-emerald-400" size={24}/> Analitik Prestasi Inkuiri Adaptif</h3><p className="text-slate-400 text-sm">Pantau tahap inkuiri semasa murid secara automasi.</p></div>
@@ -433,6 +435,7 @@ export default function GuruDashboard() {
             </div>
           )}
 
+          {/* TAB SEMAKAN ESEI MURID */}
           {activeTab === "semakan" && ( 
             <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-between items-center bg-[#1e293b] p-6 rounded-2xl border border-slate-800 shadow-lg">
@@ -524,6 +527,7 @@ export default function GuruDashboard() {
             </div>
           )}
 
+          {/* TAB BANK SOALAN UJIAN */}
           {activeTab === "soalan" && (
             <div className="space-y-6 animate-in fade-in">
               {!isCreatingSoalan ? (
@@ -629,14 +633,15 @@ export default function GuruDashboard() {
                       <p className="text-sm text-slate-400 mb-2 font-mono text-amber-500/80">ID: {bahan.id}</p>
                       
                       {/* ============================================== */}
-                      {/* 🌟 EDIT SUBTOPIK MODAL (DENGAN LINK KHAS)      */}
+                      {/* 🌟 EDIT SUBTOPIK MODAL (DENGAN KOTAK TEKS AI)  */}
                       {/* ============================================== */}
                       {editSubtopikId === bahan.id ? (
                         <div className="mt-3 bg-slate-900/50 p-4 rounded-lg border border-amber-600/50">
-                          <p className="text-xs text-amber-400 font-bold mb-3 uppercase flex items-center gap-2"><Edit3 size={14}/> Tetapkan Link Khas & Video:</p>
-                          <div className="space-y-4 mb-4 max-h-80 overflow-y-auto pr-2">
+                          <p className="text-xs text-amber-400 font-bold mb-3 uppercase flex items-center gap-2"><Edit3 size={14}/> Tetapkan Link Khas & Teks AI:</p>
+                          
+                          <div className="space-y-4 mb-4 max-h-96 overflow-y-auto pr-2">
                             {tempSubtopik.map((sub, i) => (
-                               <div key={i} className="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                               <div key={i} className="flex flex-col gap-3 bg-slate-800/50 p-4 rounded-lg border border-slate-700">
                                  
                                  {/* BARIS ATAS: ID & TAJUK SUBTOPIK */}
                                  <div className="flex items-center gap-3 border-b border-slate-700/50 pb-2">
@@ -644,13 +649,13 @@ export default function GuruDashboard() {
                                    <span className="text-sm text-slate-200 font-medium">{sub.title}</span>
                                  </div>
 
-                                 {/* 🌟 BARIS 2: INPUT LINK NOTA KHAS (CANVA/DRIVE) */}
+                                 {/* BARIS 2: INPUT LINK NOTA KHAS (CANVA/DRIVE UNTUK MURID) */}
                                  <div className="flex items-center gap-2 mt-1">
                                    <span className="text-[10px] text-blue-400 font-bold uppercase shrink-0 w-16 text-right" title="Link Nota Bebas">🔗 Nota:</span>
                                    <input 
                                      type="text" 
                                      value={sub.notaUrl || ""} 
-                                     placeholder="Link Canva/Drive Khas Subtopik ini (Jika tiada, sistem guna link Bab)" 
+                                     placeholder="Link Canva/Drive Khas Subtopik ini (Untuk paparan Murid)" 
                                      onChange={(e) => {
                                        const newSubs = [...tempSubtopik];
                                        newSubs[i].notaUrl = e.target.value;
@@ -660,13 +665,13 @@ export default function GuruDashboard() {
                                    />
                                  </div>
 
-                                 {/* 🌟 BARIS 3: INPUT LINK YOUTUBE */}
+                                 {/* BARIS 3: INPUT LINK YOUTUBE */}
                                  <div className="flex items-center gap-2">
                                    <span className="text-[10px] text-red-400 font-bold uppercase shrink-0 w-16 text-right" title="Video YouTube">📺 Video:</span>
                                    <input 
                                      type="text" 
                                      value={sub.videoUrl || ""} 
-                                     placeholder="Link YouTube Khas Subtopik (Contoh: https://youtu.be/...)" 
+                                     placeholder="Link YouTube Khas Subtopik" 
                                      onChange={(e) => {
                                        const newSubs = [...tempSubtopik];
                                        newSubs[i].videoUrl = e.target.value;
@@ -675,9 +680,27 @@ export default function GuruDashboard() {
                                      className="flex-1 bg-[#0f172a] text-slate-300 font-mono text-[10px] p-2 rounded border border-slate-700 focus:border-red-500 outline-none" 
                                    />
                                  </div>
+
+                                 {/* 🌟 TAMBAHAN BARU: KOTAK TEKS UNTUK OTAK AI MEMBACA */}
+                                 <div className="flex flex-col gap-1 mt-2">
+                                   <span className="text-[10px] text-emerald-400 font-bold uppercase" title="Teks Buku Teks">🧠 Teks Rujukan Khusus (Untuk AI Baca):</span>
+                                   <textarea 
+                                     rows={3}
+                                     value={sub.teksAI || ""} 
+                                     placeholder="Copy & Paste perenggan fakta dari Buku Teks / Nota di sini supaya AI boleh baca dan jadikan rujukan mutlak..." 
+                                     onChange={(e) => {
+                                       const newSubs = [...tempSubtopik];
+                                       newSubs[i].teksAI = e.target.value;
+                                       setTempSubtopik(newSubs);
+                                     }} 
+                                     className="w-full bg-[#0f172a] text-emerald-100 font-sans text-xs p-3 rounded-lg border border-emerald-800/50 focus:border-emerald-500 outline-none resize-y" 
+                                   />
+                                 </div>
+
                                </div>
                             ))}
                           </div>
+
                           <div className="flex gap-2 pt-2 border-t border-slate-700/50">
                             <button onClick={() => setEditSubtopikId(null)} className="flex-1 bg-slate-800 text-slate-400 text-sm font-bold py-2.5 rounded-lg hover:bg-slate-700">Batal</button>
                             <button onClick={() => handleSimpanMukaSurat(bahan.id)} className="flex-1 bg-amber-600 text-white font-bold text-sm py-2.5 rounded-lg hover:bg-amber-500 shadow-lg">Simpan Tetapan</button>
@@ -696,6 +719,7 @@ export default function GuruDashboard() {
                                  <div className="flex items-center gap-2 ml-7 text-[10px]">
                                    {sub.notaUrl ? <span className="text-blue-300 bg-blue-900/30 px-2 py-0.5 rounded">🔗 Khas</span> : <span className="text-slate-500 bg-slate-800 px-2 py-0.5 rounded">🔗 Ikut Induk Bab</span>}
                                    {sub.videoUrl ? <span className="text-red-300 bg-red-900/30 px-2 py-0.5 rounded">📺 Ada Video</span> : null}
+                                   {sub.teksAI ? <span className="text-emerald-300 bg-emerald-900/30 px-2 py-0.5 rounded">🧠 Ada Teks AI</span> : null}
                                  </div>
                                </li>
                              ))}
