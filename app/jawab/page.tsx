@@ -145,16 +145,18 @@ function KandunganUjian() {
 
               if (detailSoalan) {
                 try {
-                  const res = await fetch("/api/semak-ai", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      soalan: detailSoalan.soalan,
-                      jawapanMurid: jawapanMurid,
-                      markahPenuh: Number(detailSoalan.markah) || 0,
-                      skemaJawapan: detailSoalan.skemaJawapan || ""
-                    })
-                  });
+                  // Di dalam fail jawab/page.tsx (bahagian fetch API AI)
+const res = await fetch("/api/semak-ai", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    soalan: detailSoalan.soalan,
+    jawapanMurid: jawapanMurid,
+    markahPenuh: Number(detailSoalan.markah) || 0,
+    // 🔥 TAMBAH INI: Sebagai persediaan jika Firebase simpan sebagai 'jawapan' dan bukannya 'skemaJawapan'
+    skemaJawapan: detailSoalan.skemaJawapan || detailSoalan.jawapan || ""
+  })
+});
 
                   if (!res.ok) throw new Error("Ralat dari server AI");
 
@@ -277,7 +279,11 @@ function KandunganUjian() {
         [soalanSemasa.id]: jawapanDihantar
       }));
 
-      if (jawapanDihantar === soalanSemasa.jawapan) {
+      // 🔥 KOD BARU: Sanitasi (bersihkan) teks sebelum bandingkan
+      const jawapanBersih = String(jawapanDihantar).trim().toLowerCase();
+      const skemaBersih = String(soalanSemasa.jawapan).trim().toLowerCase();
+
+      if (jawapanBersih === skemaBersih) {
         setSkor(prev => prev + 1);
       }
     } else {

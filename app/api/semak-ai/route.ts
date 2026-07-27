@@ -30,19 +30,22 @@ export async function POST(req: Request) {
         }
     });
 
-    const prompt = `Anda adalah Pemeriksa Kertas Ujian Sejarah yang SANGAT TEGAS dan PANTAS.
+    // 🌟 KEMAS KINI PROMPT: Lebih spesifik supaya tidak kedekut markah
+ // 🌟 KEMAS KINI PROMPT: Lebih spesifik supaya tidak kedekut markah
+    const prompt = `Anda adalah Pemeriksa Kertas Ujian Sejarah KSSM yang adil.
       
 [MAKLUMAT SOALAN]
 Soalan: "${soalan}"
-Markah Penuh: ${markahPenuh}
+Markah Penuh Maksimum: ${markahPenuh}
 Jawapan Murid: "${jawapanMurid}"
 Skema Rasmi Cikgu: "${skemaJawapan || 'Tiada skema disediakan.'}"
 
-[ARAHAN KETAT]
-1. ANDA DILARANG MENGGUNAKAN PENGETAHUAN AM ANDA. Rujuk Skema Rasmi Cikgu SAHAJA.
-2. Jika Jawapan Murid membawa maksud yang sama atau fakta selari dengan Skema, ia MESTI DITERIMA.
-3. Berikan markah wajar (Maksimum: ${markahPenuh}). Jika tiada kaitan langsung, beri markah 0.
-4. Berikan 1 AYAT PENDEK sahaja untuk komen.
+[ARAHAN KETAT PEMARKAHAN]
+1. PERBANDINGAN TEPAT: Jika Jawapan Murid sama sejibik dengan Skema Rasmi (TOLONG ABAIKAN perbezaan huruf besar/huruf kecil, jarak kosong, titik atau koma), ANDA WAJIB MEMBERIKAN MARKAH PENUH (${markahPenuh}).
+2. Jika jawapan murid ditulis menggunakan ayat sendiri tetapi membawa MAKSUD ATAU FAKTA YANG SAMA dengan skema, ia MESTI DITERIMA dan diberi markah penuh.
+3. ANDA DILARANG MENGGUNAKAN PENGETAHUAN AM ANDA. Rujuk Skema Rasmi Cikgu SAHAJA.
+4. Jika tiada kaitan langsung dengan skema, barulah beri markah 0.
+5. Berikan 1 AYAT PENDEK sahaja untuk komen menyokong markah yang diberi.
 
 Hasilkan output format JSON SAHAJA seperti struktur tepat begini:
 {"markahDicadangkan": (nombor integer), "komen": "(ayat ringkas)"}`;
