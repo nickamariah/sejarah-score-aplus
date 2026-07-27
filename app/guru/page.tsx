@@ -42,13 +42,14 @@ export default function GuruDashboard() {
   const [qBab, setQBab] = useState("Bab 1");
   const [qTopik, setQTopik] = useState("");
   const [qJenis, setQJenis] = useState("objektif"); 
-  
-  // STATE UNTUK KEGUNAAN SOALAN
   const [qKegunaan, setQKegunaan] = useState("semua");
 
   const [qSoalan, setQSoalan] = useState("");
   const [qMarkah, setQMarkah] = useState("1");
+  
+  // STATE UNTUK GAMBAR SOALAN
   const [qImageUrl, setQImageUrl] = useState("");
+  
   const [qPilihanA, setQPilihanA] = useState("");
   const [qPilihanB, setQPilihanB] = useState("");
   const [qPilihanC, setQPilihanC] = useState("");
@@ -217,12 +218,12 @@ export default function GuruDashboard() {
         bab: qBab, 
         topik: qTopik, 
         jenis: qJenis, 
-        kegunaan: qKegunaan, // <-- Simpan label ke DB
+        kegunaan: qKegunaan, 
         soalan: qSoalan, 
         markah: parseInt(qMarkah), 
-        imageUrl: qImageUrl 
+        imageUrl: qImageUrl // <-- Link gambar disimpan
       };
-      
+
       if (qJenis === "objektif") { 
         if (!qPilihanA || !qPilihanB) return showToastMessage("Isi pilihan!", "error"); 
         dataSoalan.pilihan = { A: qPilihanA, B: qPilihanB, C: qPilihanC, D: qPilihanD }; 
@@ -258,7 +259,7 @@ export default function GuruDashboard() {
     setQBab(q.bab || "Bab 1"); 
     setQTopik(q.topik || ""); 
     setQJenis(q.jenis || "objektif"); 
-    setQKegunaan(q.kegunaan || "semua"); // <-- Tarik label sedia ada
+    setQKegunaan(q.kegunaan || "semua"); 
     setQSoalan(q.soalan || ""); 
     setQMarkah(q.markah?.toString() || "1"); 
     setQImageUrl(q.imageUrl || ""); 
@@ -269,14 +270,14 @@ export default function GuruDashboard() {
     } 
     setIsCreatingSoalan(true); 
   };
-  
+
   const resetFormSoalan = () => { 
     setIsCreatingSoalan(false); 
     setIsEditingSoalan(false); 
     setEditSoalanId(null); 
     setQSoalan(""); 
     setQTopik(""); 
-    setQKegunaan("semua"); // <-- Reset
+    setQKegunaan("semua"); 
     setQSkema(""); 
     setQImageUrl(""); 
     setQPilihanA(""); 
@@ -285,7 +286,6 @@ export default function GuruDashboard() {
     setQPilihanD(""); 
     setQJawapanBetul("A"); 
   };
-  
   const handlePadamSoalan = async (id: string) => { if (confirm("Padam soalan?")) { try { await deleteDoc(doc(db, "questionBank", id)); showToastMessage("Berjaya dipadam.", "success"); tarikSoalanFirebase(); } catch (error) { showToastMessage("Ralat.", "error"); } } };
 
   const handleSimpanBahan = async (e: React.FormEvent) => {
@@ -585,7 +585,7 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 4: BANK SOALAN UJIAN (DIKEMAS KINI 🌟) */}
+          {/* TAB 4: BANK SOALAN UJIAN */}
           {activeTab === "soalan" && (
             <div className="space-y-6 animate-in fade-in">
               {!isCreatingSoalan ? (
@@ -604,7 +604,6 @@ export default function GuruDashboard() {
                               <td className="p-4 text-slate-400 text-sm font-bold text-amber-500">{q.id}</td>
                               <td className="p-4 text-slate-200">{q.topik}</td>
                               <td className="p-4">
-                                {/* 🌟 TAMBAHAN: Lencana untuk SIMPANAN */}
                                 <span className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider ${
                                   q.kegunaan === 'pre_test' ? 'bg-indigo-900/30 text-indigo-400' : 
                                   q.kegunaan === 'post_test' ? 'bg-emerald-900/30 text-emerald-400' : 
@@ -641,7 +640,6 @@ export default function GuruDashboard() {
                         <option value="semua">Pre-Test & Post-Test</option>
                         <option value="pre_test">Khas Pre-Test Sahaja</option>
                         <option value="post_test">Khas Post-Test Sahaja</option>
-                        {/* 🌟 TAMBAHAN: Pilihan Simpanan Draf */}
                         <option value="simpanan">Simpanan Sahaja (Draf)</option>
                       </select>
                     </div>
@@ -651,6 +649,25 @@ export default function GuruDashboard() {
 
                   <div className="mb-6"><label className="block text-sm text-slate-400 mb-2">Soalan</label><textarea rows={4} value={qSoalan} onChange={e => setQSoalan(e.target.value)} placeholder="Taip soalan..." className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-4 text-white resize-none text-lg"></textarea></div>
                   
+                  {/* 🌟 TAMBAHAN BARU: INPUT LINK GAMBAR SOALAN */}
+                  <div className="mb-6">
+                    <label className="block text-sm text-slate-400 mb-2">Pautan (URL) Gambar Rujukan Soalan <span className="text-slate-500 font-normal">(Pilihan - Biarkan kosong jika tiada gambar)</span></label>
+                    <input 
+                      type="url" 
+                      value={qImageUrl} 
+                      onChange={e => setQImageUrl(e.target.value)} 
+                      placeholder="Tampal link gambar (Cth: https://imgur.com/.../gambar.png)" 
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500"
+                    />
+                    {/* Tunjuk preview kalau cikgu dah letak link */}
+                    {qImageUrl && qImageUrl.trim() !== "" && (
+                      <div className="mt-3 border border-slate-700 p-2 rounded-lg inline-block bg-slate-800/50">
+                        <p className="text-[10px] text-slate-400 mb-1">Pratonton Gambar:</p>
+                        <img src={qImageUrl} alt="Pratonton Soalan" className="max-h-32 object-contain rounded" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                      </div>
+                    )}
+                  </div>
+
                   {qJenis === "objektif" ? (
                     <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 mb-8">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
