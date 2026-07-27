@@ -37,6 +37,8 @@ function KomponenPembelajaran() {
   const pdfFileName = chapterId.split('_sub')[0]; 
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // 🌟 TAMBAHAN KOD: Rujukan untuk kotak input auto-fokus
+  const inputRef = useRef<HTMLInputElement>(null);
   const isInitializing = useRef(false);
   
   const maxFasa = arasDariURL === "rendah" ? 3 : 6;
@@ -109,6 +111,16 @@ function KomponenPembelajaran() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // 🌟 TAMBAHAN KOD: useEffect untuk auto-fokus kotak chat
+  useEffect(() => {
+    // Jika AI dah siap loading (bukan isLoading) dan murid belum habis semua fasa
+    if (!isLoading && inputRef.current && !isMastered) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [isLoading, isMastered]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -228,7 +240,6 @@ function KomponenPembelajaran() {
     return () => unsubscribe();
   }, [sessionId, chapterId, studentId, chapterData]); 
 
-  // 🌟 KEMAS KINI FUNGSI SEND MESSAGE (ADA AUTO-TRIGGER NEXT PHASE)
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim()) return;
@@ -270,24 +281,23 @@ function KomponenPembelajaran() {
             setCurrentPhase(nextPhase);
             await updateDoc(sessionDocRef, { currentPhase: nextPhase });
             
-            // Paparkan mesej sistem (Tahniah)
             await addDoc(messagesCollectionRef, {
               role: "assistant",
               content: `✨ Tahniah! Awak dah lepasi Fasa ${currentPhase}. Mari kita ke **Fasa ${nextPhase} (${phaseNames[nextPhase-1]})** pula.`,
               timestamp: serverTimestamp()
             });
 
-            // 🌟 4. AUTO-TRIGGER AI UNTUK TANYA SOALAN FASA BAHARU
+            // 🌟 4. AUTO-TRIGGER AI
             const autoTriggerResponse = await fetch('/api/chat', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 studentId, chapterId, aras: arasDariURL,
-                currentPhase: nextPhase, // Mesti hantar nombor fasa baru!
+                currentPhase: nextPhase, 
                 text: `[SISTEM AUTO]: Murid telah lulus fasa tadi. Sila berikan SOALAN PERTAMA anda untuk menguji murid bagi FASA ${nextPhase} pula. Terus tanya soalan, jangan berbasa-basi.`, 
                 soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema,
                 tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, 
-                previousMessages: [] // Kosongkan chat lama supaya AI fokus soalan baru
+                previousMessages: [] 
               })
             });
 
@@ -315,7 +325,13 @@ function KomponenPembelajaran() {
     }
   };
 
-  const sendQuickPrompt = (text: string) => setInput(text);
+  const sendQuickPrompt = (text: string) => {
+    setInput(text);
+    // Tambah sedikit delay untuk pastikan state 'input' di-set sebelum kursor difokuskan
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
 
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-slate-50 overflow-hidden font-sans relative">
@@ -496,8 +512,13 @@ function KomponenPembelajaran() {
         ) : (
           <form onSubmit={sendMessage} className="p-3 lg:p-4 bg-white border-t border-gray-200 flex gap-2 items-center shadow-inner shrink-0">
             <input 
-              type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Taip jawapan..." 
-              className="flex-1 border-2 border-gray-300 rounded-full px-4 py-2.5 text-sm lg:text-base focus:outline-none focus:border-blue-500" disabled={isLoading} 
+              ref={inputRef} // 🌟 TAMBAHAN KOD: Ikat rujukan ke elemen input ini
+              type="text" 
+              value={input} 
+              onChange={(e) => setInput(e.target.value)} 
+              placeholder="Taip jawapan..." 
+              className="flex-1 border-2 border-gray-300 rounded-full px-4 py-2.5 text-sm lg:text-base focus:outline-none focus:border-blue-500" 
+              disabled={isLoading} 
             />
             <button type="submit" className="bg-blue-600 text-white rounded-full w-10 h-10 lg:w-12 lg:h-12 flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 text-xl" disabled={isLoading || !input.trim()}>
               ➤
