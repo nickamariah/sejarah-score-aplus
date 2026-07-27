@@ -88,7 +88,6 @@ export default function MuridDashboard() {
       const userLokal = JSON.parse(rawUser);
 
       try {
-        // TARIK DATA KUMPULAN DARI FIREBASE BERDASARKAN ID
         const docRef = doc(db, "users", userLokal.id);
         const docSnap = await getDoc(docRef);
         
@@ -102,7 +101,6 @@ export default function MuridDashboard() {
 
         if (userPenuh.tingkatan?.toString() === "5") setActiveLevel("t5");
         
-        // TARIK SKOR MURID
         const tingkatanSemasa = activeLevel === "t4" ? "4" : "5";
         const qSkor = query(collection(db, "skor_murid"), where("idMurid", "==", userPenuh.id), where("tingkatan", "==", tingkatanSemasa));
         const snapSkor = await getDocs(qSkor);
@@ -112,13 +110,16 @@ export default function MuridDashboard() {
         snapSkor.forEach((docSnap) => {
           const data = docSnap.data();
           const babNum = parseInt(data.bab.replace("Bab ", ""));
-          loadedScores[babNum] = data.skor;
-          loadedDocIds[babNum] = docSnap.id; 
+          
+          // Memastikan hanya ambil skor ujian Pre-Test untuk paparan bar Dashboard
+          if (data.jenisUjian === "pre_test" || !data.jenisUjian) {
+             loadedScores[babNum] = data.skor;
+             loadedDocIds[babNum] = docSnap.id; 
+          }
         });
         setSkorBab(loadedScores);
         setDocIds(loadedDocIds); 
 
-        // TARIK CHAT AI (Hanya relevan untuk Kumpulan Eksperimen)
         const qChat = query(collection(db, "chat_sessions"), where("studentId", "==", userPenuh.id), where("status", "==", "completed"));
         const snapChat = await getDocs(qChat);
         const selesaiChat: string[] = [];
@@ -158,11 +159,19 @@ export default function MuridDashboard() {
     return `sub${chapterData.subtopics[chapterData.subtopics.length - 1].id}`;
   };
 
+  // 🌟 KEMAS KINI: HALA TUJU POST TEST KE FAIL UJIAN
   const openModule = (chapterId: number, moduleId: number, aras: string, subSemasa: string) => {
     const t = activeLevel === "t4" ? "4" : "5";
-    if (moduleId === 1) window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}`;
-    else if (moduleId === 2) window.location.href = `/pembelajaran?bab=tingkatan${t}_bab${chapterId}_${subSemasa}&aras=${aras}`;
-    else if (moduleId === 3) window.location.href = `/post-test?tingkatan=${t}&bab=${chapterId}`;
+    if (moduleId === 1) {
+       window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}&jenisUjian=pre_test`;
+    }
+    else if (moduleId === 2) {
+       window.location.href = `/pembelajaran?bab=tingkatan${t}_bab${chapterId}_${subSemasa}&aras=${aras}`;
+    }
+    else if (moduleId === 3) {
+       // KINI PERGI KE URL FAIL /JAWAB DENGAN PARAMETER post_test
+       window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}&jenisUjian=post_test`;
+    }
   };
 
   const getAdaptiveMeta = (chapterId: number, moduleId: number, chapterData: any): AdaptiveMeta => {
@@ -170,19 +179,16 @@ export default function MuridDashboard() {
     const skor = skorBab[chapterId];
     const kumpulanMurid = userData?.kumpulan || "Eksperimen";
 
-    // 🌟 LOGIK KHAS UNTUK KUMPULAN KAWALAN 🌟
     if (kumpulanMurid === "Kawalan") {
       if (moduleId === 2) {
-        meta.hidden = true; // Sembunyikan Bimbingan AI untuk Kumpulan Kawalan
+        meta.hidden = true; 
       }
       if (moduleId === 3) {
-        // Post Test dibuka JIKA Ujian Diagnostik dah siap
         meta.adaptiveLocked = skor === undefined; 
       }
       return meta;
     }
 
-    // 🌟 LOGIK ASAL (ADAPTIF I-RAGS) UNTUK KUMPULAN EKSPERIMEN 🌟
     let isBimbinganSelesai = false;
     if (chapterData && chapterData.subtopics && chapterData.subtopics.length > 0) {
       const totalSub = chapterData.subtopics.length;
@@ -195,7 +201,7 @@ export default function MuridDashboard() {
       isBimbinganSelesai = aiSelesai.some(id => id.includes(`tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapterId}`));
     }
 
-    const isPostTestSelesai = completedModules.includes(`${activeLevel}-ch${chapterId}-mod3`);
+    const isPostTestSelesai = completedModules.includes(`t${activeLevel === "t4" ? "4" : "5"}-ch${chapterId}-mod-post_test`);
 
     if (skor === undefined) {
       if (moduleId !== 1) meta.adaptiveLocked = true;
@@ -215,16 +221,14 @@ export default function MuridDashboard() {
 
   const getChapterStatus = (chapterId: number) => {
     const skor = skorBab[chapterId];
-    const isPostTestSelesai = completedModules.includes(`${activeLevel}-ch${chapterId}-mod3`);
+    const isPostTestSelesai = completedModules.includes(`t${activeLevel === "t4" ? "4" : "5"}-ch${chapterId}-mod-post_test`);
     
-    // Status ringkas untuk Kawalan
     if (userData?.kumpulan === "Kawalan") {
       if (skor === undefined) return { label: "Ujian Diagnostik", color: "bg-slate-100 text-slate-500 border-slate-200", bar: "w-0", icon: "⚪" };
       if (isPostTestSelesai) return { label: "Selesai", color: "bg-emerald-50 text-emerald-700 border-emerald-200", bar: "w-full bg-emerald-500", icon: "✅" };
       return { label: "Ujian Pasca", color: "bg-sky-50 text-sky-700 border-sky-200", bar: "w-1/2 bg-sky-500", icon: "📝" };
     }
 
-    // Status penuh untuk Eksperimen
     if (skor === undefined) return { label: "Belum Mula", color: "bg-slate-100 text-slate-500 border-slate-200", bar: "w-0", icon: "⚪" };
     if (skor >= 80 || isPostTestSelesai) return { label: "Kuasai", color: "bg-emerald-50 text-emerald-700 border-emerald-200", bar: "w-full bg-emerald-500", icon: "✅" };
     if (aiSelesai.some(id => id.includes(`bab${chapterId}`))) return { label: "Sedia Ujian", color: "bg-sky-50 text-sky-700 border-sky-200", bar: "w-3/4 bg-sky-500", icon: "🚀" };
@@ -299,9 +303,7 @@ export default function MuridDashboard() {
           </div>
         </motion.div>
 
-        {/* BUTANG PILIHAN TINGKATAN (LOGIK PINTAR) */}
         <div className="mb-6 flex gap-3">
-          {/* Jika Tingkatan 5, keluar t4 & t5. Jika Tingkatan 4, keluar t4 sahaja */}
           {(userData?.tingkatan?.toString() === "5" ? ["t4", "t5"] : ["t4"]).map((level) => (
             <button
               key={level}
@@ -315,7 +317,6 @@ export default function MuridDashboard() {
           ))}
         </div>
 
-        {/* NOTA UNTUK KAWALAN */}
         {userData?.kumpulan === "Kawalan" && (
            <div className="mb-6 bg-slate-100 border border-slate-300 p-4 rounded-xl flex gap-3 items-center text-slate-600 shadow-sm">
              <Info className="shrink-0 text-slate-500" />
@@ -356,12 +357,13 @@ export default function MuridDashboard() {
                         const Icon = module.icon;
                         const adaptive = getAdaptiveMeta(chapter.id, module.id, chapter);
                         
-                        // JIKA HIDDEN (Sama ada dah pass ujian atau Kumpulan Kawalan modul 2)
                         if (adaptive.hidden) return null;
                         
                         const subSemasa = getCurrentSubtopic(chapter.id, chapter);
                         const isModul1Completed = module.id === 1 && skorBab[chapter.id] !== undefined;
-                        const isPostTestCompleted = module.id === 3 && completedModules.includes(`${activeLevel}-ch${chapter.id}-mod3`);
+                        // 🌟 KEMAS KINI NAMA KEY UNTUK COMPLETED POST TEST
+                        const isPostTestCompleted = module.id === 3 && completedModules.includes(`t${activeLevel === "t4" ? "4" : "5"}-ch${chapter.id}-mod-post_test`);
+                        
                         const isButtonDisabled = adaptive.adaptiveLocked || (module.id === 1 && isModul1Completed) || isPostTestCompleted;
 
                         return (
@@ -381,36 +383,33 @@ export default function MuridDashboard() {
                                 ) : <div />}
                                 
                                 <div className="flex gap-2">
-  {module.id === 1 && isModul1Completed ? (
-    
-    /* 🌟 KOD BARU: Terus semak kalau markah >= 80 */
-    (skorBab[chapter.id] >= 80) ? (
-      <button
-        onClick={() => window.location.href = `/student/semakan-ujian/${docIds[chapter.id]}`}
-        className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition"
-      >
-        🔍 Semakan
-      </button>
-    ) : (
-      
-      <span className="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-lg text-sm font-medium italic border border-gray-200 flex items-center">
-        Sila ke Bimbingan AI 👉
-      </span>
-    )
-  ) : (
-    <button 
-      onClick={() => openModule(chapter.id, module.id, adaptive.aras, subSemasa)}
-      disabled={isButtonDisabled}
-      className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all shadow-sm border ${
-        isButtonDisabled 
-          ? 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed' 
-          : 'bg-sky-600 text-white hover:bg-sky-700 border-sky-700 hover:shadow-md'
-      }`}
-    >
-      {adaptive.adaptiveLocked ? 'Terkunci 🔒' : module.id === 1 || module.id === 3 ? 'Jawab Ujian 📝' : 'Buka Modul 🚀'}
-    </button>
-  )}
-</div>
+                                  {module.id === 1 && isModul1Completed ? (
+                                    (skorBab[chapter.id] >= 80) ? (
+                                      <button
+                                        onClick={() => window.location.href = `/student/semakan-ujian/${docIds[chapter.id]}`}
+                                        className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-bold text-sm transition"
+                                      >
+                                        🔍 Semakan
+                                      </button>
+                                    ) : (
+                                      <span className="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-lg text-sm font-medium italic border border-gray-200 flex items-center">
+                                        Sila ke Bimbingan AI 👉
+                                      </span>
+                                    )
+                                  ) : (
+                                    <button 
+                                      onClick={() => openModule(chapter.id, module.id, adaptive.aras, subSemasa)}
+                                      disabled={isButtonDisabled}
+                                      className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all shadow-sm border ${
+                                        isButtonDisabled 
+                                          ? 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed' 
+                                          : 'bg-sky-600 text-white hover:bg-sky-700 border-sky-700 hover:shadow-md'
+                                      }`}
+                                    >
+                                      {adaptive.adaptiveLocked ? 'Terkunci 🔒' : module.id === 1 || module.id === 3 ? 'Jawab Ujian 📝' : 'Buka Modul 🚀'}
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>

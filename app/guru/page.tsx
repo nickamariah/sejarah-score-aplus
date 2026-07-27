@@ -4,10 +4,8 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, HelpCircle, Save, Zap, Sparkles, Activity, UploadCloud, RefreshCw, CheckSquare } from "lucide-react";
 
-// IMPORT KOMPONEN MAKMAL DATA KAJIAN
 import MakmalDataKajian from "../../utils/MakmalDataKajian";
 
-// IMPORT FIREBASE 
 import { collection, getDocs, query, orderBy, deleteDoc, doc, serverTimestamp, updateDoc, setDoc } from "firebase/firestore";
 import { db, app } from "../../lib/firebase"; 
 import { initializeApp, getApps } from "firebase/app"; 
@@ -42,6 +40,10 @@ export default function GuruDashboard() {
   const [qBab, setQBab] = useState("Bab 1");
   const [qTopik, setQTopik] = useState("");
   const [qJenis, setQJenis] = useState("objektif"); 
+  
+  // 🌟 TAMBAHAN BARU: STATE UNTUK KEGUNAAN SOALAN (Pre-Test / Post-Test)
+  const [qKegunaan, setQKegunaan] = useState("semua");
+
   const [qSoalan, setQSoalan] = useState("");
   const [qMarkah, setQMarkah] = useState("1");
   const [qImageUrl, setQImageUrl] = useState("");
@@ -204,29 +206,84 @@ export default function GuruDashboard() {
   const setEditPengguna = (u: any) => { setIsEditingUser(true); setEditUserId(u.id); setURole(u.role || "murid"); setUNama(u.nama || ""); setUKataLaluan(u.kataLaluan || ""); setUTingkatan(u.tingkatan || "4"); setUKelas(u.kelas || ""); setUTahapInkuiri(u.tahapInkuiri || "Rendah"); setUKumpulan(u.kumpulan || "Eksperimen"); };
   const resetFormPengguna = () => { setIsEditingUser(false); setEditUserId(null); setURole("murid"); setUNama(""); setUKataLaluan(""); setUTingkatan("4"); setUKelas(""); setUTahapInkuiri("Rendah"); setUKumpulan("Eksperimen"); };
 
+  // 🌟 KEMAS KINI: Simpan nilai Kegunaan Soalan (qKegunaan)
   const handleSimpanSoalan = async () => {
     if (!qSoalan || !qTopik) return showToastMessage("Isi Soalan & Subtopik!", "error");
     setUIsSubmitting(true);
     try {
-      const dataSoalan: any = { tingkatan: qTingkatan, bab: qBab, topik: qTopik, jenis: qJenis, soalan: qSoalan, markah: parseInt(qMarkah), imageUrl: qImageUrl };
-      if (qJenis === "objektif") { if (!qPilihanA || !qPilihanB) return showToastMessage("Isi pilihan!", "error"); dataSoalan.pilihan = { A: qPilihanA, B: qPilihanB, C: qPilihanC, D: qPilihanD }; dataSoalan.jawapan = qJawapanBetul; } 
-      else { if (!qSkema) return showToastMessage("Isi Skema!", "error"); dataSoalan.skemaJawapan = qSkema; }
+      const dataSoalan: any = { 
+        tingkatan: qTingkatan, 
+        bab: qBab, 
+        topik: qTopik, 
+        jenis: qJenis, 
+        kegunaan: qKegunaan, // <-- SIMPAN MAKLUMAT PRE/POST KE FIREBASE
+        soalan: qSoalan, 
+        markah: parseInt(qMarkah), 
+        imageUrl: qImageUrl 
+      };
 
-      if (isEditingSoalan && editSoalanId) { dataSoalan.updatedAt = serverTimestamp(); await updateDoc(doc(db, "questionBank", editSoalanId), dataSoalan); showToastMessage(`Dikemas kini!`, "success"); } 
+      if (qJenis === "objektif") { 
+        if (!qPilihanA || !qPilihanB) return showToastMessage("Isi pilihan!", "error"); 
+        dataSoalan.pilihan = { A: qPilihanA, B: qPilihanB, C: qPilihanC, D: qPilihanD }; 
+        dataSoalan.jawapan = qJawapanBetul; 
+      } 
+      else { 
+        if (!qSkema) return showToastMessage("Isi Skema!", "error"); 
+        dataSoalan.skemaJawapan = qSkema; 
+      }
+
+      if (isEditingSoalan && editSoalanId) { 
+        dataSoalan.updatedAt = serverTimestamp(); 
+        await updateDoc(doc(db, "questionBank", editSoalanId), dataSoalan); 
+        showToastMessage(`Dikemas kini!`, "success"); 
+      } 
       else {
         dataSoalan.createdAt = serverTimestamp();
         const babNum = qBab.replace(/\D/g, ""); const typeChar = qJenis === "objektif" ? "Q" : "S"; const awalanSoalan = `B${babNum}${typeChar}`; 
         const soalanSamaAwalan = soalanList.filter(s => s.id && s.id.startsWith(awalanSoalan));
         let maxNum = 0; soalanSamaAwalan.forEach(s => { const numPart = parseInt(s.id.substring(awalanSoalan.length)); if (!isNaN(numPart) && numPart > maxNum) maxNum = numPart; });
         const customIdSoalan = `${awalanSoalan}${String(maxNum + 1).padStart(3, '0')}`;
-        await setDoc(doc(db, "questionBank", customIdSoalan), dataSoalan); showToastMessage(`Ditambah!`, "success");
+        await setDoc(doc(db, "questionBank", customIdSoalan), dataSoalan); 
+        showToastMessage(`Ditambah!`, "success");
       }
       resetFormSoalan(); tarikSoalanFirebase();
     } catch (error) { showToastMessage("Ralat.", "error"); } finally { setUIsSubmitting(false); }
   };
 
-  const handleEditSoalan = (q: any) => { setIsEditingSoalan(true); setEditSoalanId(q.id); setQTingkatan(q.tingkatan || "4"); setQBab(q.bab || "Bab 1"); setQTopik(q.topik || ""); setQJenis(q.jenis || "objektif"); setQSoalan(q.soalan || ""); setQMarkah(q.markah?.toString() || "1"); setQImageUrl(q.imageUrl || ""); if (q.jenis === "objektif" && q.pilihan) { setQPilihanA(q.pilihan.A || ""); setQPilihanB(q.pilihan.B || ""); setQPilihanC(q.pilihan.C || ""); setQPilihanD(q.pilihan.D || ""); setQJawapanBetul(q.jawapan || "A"); } else { setQSkema(q.skemaJawapan || ""); } setIsCreatingSoalan(true); };
-  const resetFormSoalan = () => { setIsCreatingSoalan(false); setIsEditingSoalan(false); setEditSoalanId(null); setQSoalan(""); setQTopik(""); setQSkema(""); setQImageUrl(""); setQPilihanA(""); setQPilihanB(""); setQPilihanC(""); setQPilihanD(""); setQJawapanBetul("A"); };
+  const handleEditSoalan = (q: any) => { 
+    setIsEditingSoalan(true); 
+    setEditSoalanId(q.id); 
+    setQTingkatan(q.tingkatan || "4"); 
+    setQBab(q.bab || "Bab 1"); 
+    setQTopik(q.topik || ""); 
+    setQJenis(q.jenis || "objektif"); 
+    setQKegunaan(q.kegunaan || "semua"); // <-- Tarik nilai bila edit
+    setQSoalan(q.soalan || ""); 
+    setQMarkah(q.markah?.toString() || "1"); 
+    setQImageUrl(q.imageUrl || ""); 
+    if (q.jenis === "objektif" && q.pilihan) { 
+      setQPilihanA(q.pilihan.A || ""); setQPilihanB(q.pilihan.B || ""); setQPilihanC(q.pilihan.C || ""); setQPilihanD(q.pilihan.D || ""); setQJawapanBetul(q.jawapan || "A"); 
+    } else { 
+      setQSkema(q.skemaJawapan || ""); 
+    } 
+    setIsCreatingSoalan(true); 
+  };
+
+  const resetFormSoalan = () => { 
+    setIsCreatingSoalan(false); 
+    setIsEditingSoalan(false); 
+    setEditSoalanId(null); 
+    setQSoalan(""); 
+    setQTopik(""); 
+    setQKegunaan("semua"); // <-- Reset nilai
+    setQSkema(""); 
+    setQImageUrl(""); 
+    setQPilihanA(""); 
+    setQPilihanB(""); 
+    setQPilihanC(""); 
+    setQPilihanD(""); 
+    setQJawapanBetul("A"); 
+  };
   const handlePadamSoalan = async (id: string) => { if (confirm("Padam soalan?")) { try { await deleteDoc(doc(db, "questionBank", id)); showToastMessage("Berjaya dipadam.", "success"); tarikSoalanFirebase(); } catch (error) { showToastMessage("Ralat.", "error"); } } };
 
   const handleSimpanBahan = async (e: React.FormEvent) => {
@@ -286,14 +343,13 @@ export default function GuruDashboard() {
       const title = parts.slice(1).join(" ");
       const wujud = existingSubs.find((e: any) => e.id === id);
       
-      // 🌟 KEKALKAN videoUrl, notaUrl DAN teksAI JIKA SUDAH WUJUD
       return { 
         id, 
         title, 
         startPage: wujud ? wujud.startPage : 1,
         videoUrl: wujud?.videoUrl || "",
         notaUrl: wujud?.notaUrl || "",
-        teksAI: wujud?.teksAI || "" // <-- 🌟 TAMBAHAN: Jaga memori AI
+        teksAI: wujud?.teksAI || "" 
       };
     });
 
@@ -527,25 +583,34 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB BANK SOALAN UJIAN */}
+          {/* TAB 4: BANK SOALAN UJIAN (DIKEMAS KINI 🌟) */}
           {activeTab === "soalan" && (
             <div className="space-y-6 animate-in fade-in">
               {!isCreatingSoalan ? (
                 <>
                   <div className="flex justify-between items-center bg-[#1e293b] p-6 rounded-2xl border border-slate-800">
-                    <div><h3 className="text-xl font-bold text-white mb-1">Bank Soalan Ujian</h3><p className="text-slate-400 text-sm">Uruskan soalan Objektif dan Struktur.</p></div>
+                    <div><h3 className="text-xl font-bold text-white mb-1">Bank Soalan Ujian</h3><p className="text-slate-400 text-sm">Uruskan soalan dan tetapkan sasaran ujian (Pre / Post).</p></div>
                     <button onClick={() => { resetFormSoalan(); setIsCreatingSoalan(true); }} className="bg-cyan-500 hover:bg-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium flex items-center"><Plus size={18} className="mr-2" /> Bina Soalan Baru</button>
                   </div>
                   <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden">
                     {loadingSoalan ? ( <div className="p-12 text-center text-slate-400 animate-pulse">Memuat turun Bank Soalan... ⏳</div> ) : (
                       <table className="w-full text-left border-collapse min-w-max">
-                        <thead><tr className="border-b border-slate-800 bg-slate-900/50"><th className="p-4 font-semibold text-sm text-slate-300">ID</th><th className="p-4 font-semibold text-sm text-slate-300">Topik</th><th className="p-4 font-semibold text-sm text-slate-300">Jenis</th><th className="p-4 font-semibold text-sm text-slate-300">Soalan</th><th className="p-4 font-semibold text-sm text-slate-300 text-right">Tindakan</th></tr></thead>
+                        <thead><tr className="border-b border-slate-800 bg-slate-900/50"><th className="p-4 font-semibold text-sm text-slate-300">ID</th><th className="p-4 font-semibold text-sm text-slate-300">Topik</th><th className="p-4 font-semibold text-sm text-slate-300">Kegunaan</th><th className="p-4 font-semibold text-sm text-slate-300">Jenis</th><th className="p-4 font-semibold text-sm text-slate-300">Soalan</th><th className="p-4 font-semibold text-sm text-slate-300 text-right">Tindakan</th></tr></thead>
                         <tbody>
                           {soalanList.length > 0 ? soalanList.map((q, i) => (
                             <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30">
-                              <td className="p-4 text-slate-400 text-sm font-bold text-amber-500">{q.id}</td><td className="p-4 text-slate-200">{q.topik}</td><td className="p-4"><span className={`text-xs px-2 py-1 rounded-md font-bold ${q.jenis === 'objektif' ? 'bg-amber-900/30 text-amber-400' : 'bg-purple-900/30 text-purple-400'}`}>{q.jenis?.toUpperCase()}</span></td><td className="p-4 text-slate-300 text-sm truncate max-w-xs">{q.soalan}</td><td className="p-4 flex gap-3 justify-end"><button onClick={() => handleEditSoalan(q)} className="text-slate-500 hover:text-amber-400"><Edit3 size={18} /></button><button onClick={() => handlePadamSoalan(q.id)} className="text-slate-500 hover:text-red-400"><Trash2 size={18} /></button></td>
+                              <td className="p-4 text-slate-400 text-sm font-bold text-amber-500">{q.id}</td>
+                              <td className="p-4 text-slate-200">{q.topik}</td>
+                              <td className="p-4">
+                                <span className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider ${q.kegunaan === 'pre_test' ? 'bg-indigo-900/30 text-indigo-400' : q.kegunaan === 'post_test' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-blue-900/30 text-blue-400'}`}>
+                                  {q.kegunaan === 'semua' || !q.kegunaan ? "PRE & POST" : q.kegunaan}
+                                </span>
+                              </td>
+                              <td className="p-4"><span className={`text-xs px-2 py-1 rounded-md font-bold ${q.jenis === 'objektif' ? 'bg-amber-900/30 text-amber-400' : 'bg-purple-900/30 text-purple-400'}`}>{q.jenis?.toUpperCase()}</span></td>
+                              <td className="p-4 text-slate-300 text-sm truncate max-w-xs">{q.soalan}</td>
+                              <td className="p-4 flex gap-3 justify-end"><button onClick={() => handleEditSoalan(q)} className="text-slate-500 hover:text-amber-400"><Edit3 size={18} /></button><button onClick={() => handlePadamSoalan(q.id)} className="text-slate-500 hover:text-red-400"><Trash2 size={18} /></button></td>
                             </tr>
-                          )) : <tr><td colSpan={5} className="p-8 text-center text-slate-500">Belum ada soalan dicipta.</td></tr>}
+                          )) : <tr><td colSpan={6} className="p-8 text-center text-slate-500">Belum ada soalan dicipta.</td></tr>}
                         </tbody>
                       </table>
                     )}
@@ -554,16 +619,29 @@ export default function GuruDashboard() {
               ) : (
                 <div className="bg-[#1e293b] p-8 rounded-2xl border border-cyan-800/50 shadow-lg max-w-4xl relative overflow-hidden">
                   <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3"><HelpCircle className="text-cyan-400 w-8 h-8" /> {isEditingSoalan ? `Kemas Kini Soalan (${editSoalanId})` : "Cipta Soalan Baharu"}</h3>
+                  
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <div><label className="block text-sm text-slate-400 mb-2">Tingkatan</label><select value={qTingkatan} onChange={e => setQTingkatan(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white"><option value="4">Tingkatan 4</option><option value="5">Tingkatan 5</option></select></div>
                     <div><label className="block text-sm text-slate-400 mb-2">Bab</label><select value={qBab} onChange={e => setQBab(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white">{[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}</select></div>
                     <div><label className="block text-sm text-slate-400 mb-2">Topik</label><select value={qTopik} onChange={e => setQTopik(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white">{subtopikPilihan.map((sub: string, index: number) => (<option key={index} value={sub}>{sub}</option>))}</select></div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  
+                  {/* 🌟 BARIS BARU DENGAN DROP-DOWN KEGUNAAN SOALAN */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                      <label className="block text-sm text-emerald-400 font-bold mb-2">Sasaran Ujian</label>
+                      <select value={qKegunaan} onChange={e => setQKegunaan(e.target.value)} className="w-full bg-emerald-900/20 border-2 border-emerald-800/50 rounded-lg p-3 text-emerald-300 font-bold outline-none">
+                        <option value="semua">Pre-Test & Post-Test</option>
+                        <option value="pre_test">Khas Pre-Test Sahaja</option>
+                        <option value="post_test">Khas Post-Test Sahaja</option>
+                      </select>
+                    </div>
                     <div><label className="block text-sm text-slate-400 mb-2">Jenis Soalan</label><select value={qJenis} onChange={e => setQJenis(e.target.value)} className="w-full bg-slate-800 border-2 border-slate-600 rounded-lg p-3 text-white font-bold"><option value="objektif">Objektif</option><option value="struktur">Struktur / Esei</option></select></div>
                     <div><label className="block text-sm text-slate-400 mb-2">Markah</label><input type="number" value={qMarkah} onChange={e => setQMarkah(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white"/></div>
                   </div>
+
                   <div className="mb-6"><label className="block text-sm text-slate-400 mb-2">Soalan</label><textarea rows={4} value={qSoalan} onChange={e => setQSoalan(e.target.value)} placeholder="Taip soalan..." className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-4 text-white resize-none text-lg"></textarea></div>
+                  
                   {qJenis === "objektif" ? (
                     <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 mb-8">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
@@ -575,7 +653,7 @@ export default function GuruDashboard() {
                       <div><label className="block text-sm text-emerald-400 font-bold mb-2">Jawapan Betul</label><select value={qJawapanBetul} onChange={e => setQJawapanBetul(e.target.value)} className="w-full md:w-1/2 bg-emerald-900/30 border border-emerald-500/50 rounded-lg p-3 text-emerald-300 font-bold"><option value="A">Pilihan A</option><option value="B">Pilihan B</option><option value="C">Pilihan C</option><option value="D">Pilihan D</option></select></div>
                     </div>
                   ) : (
-                    <div className="bg-purple-900/20 p-6 rounded-xl border border-purple-800/50 mb-8"><h4 className="text-purple-400 font-bold mb-2 flex items-center gap-2"><Sparkles size={18}/> Skema Jawapan (Untuk AI)</h4><textarea rows={5} value={qSkema} onChange={e => setQSkema(e.target.value)} className="w-full bg-[#0f172a] border border-purple-700/50 rounded-lg p-4 text-white resize-none"></textarea></div>
+                    <div className="bg-purple-900/20 p-6 rounded-xl border border-purple-800/50 mb-8"><h4 className="text-purple-400 font-bold mb-2 flex items-center gap-2"><Sparkles size={18}/> Skema Jawapan (Untuk AI / Skema Pemeriksa)</h4><textarea rows={5} value={qSkema} onChange={e => setQSkema(e.target.value)} className="w-full bg-[#0f172a] border border-purple-700/50 rounded-lg p-4 text-white resize-none"></textarea></div>
                   )}
                   <div className="flex justify-end gap-4 pt-4 border-t border-slate-800">
                     <button onClick={resetFormSoalan} className="px-6 py-3 rounded-lg font-bold text-slate-400 hover:text-white hover:bg-slate-800">Batal</button>
@@ -586,9 +664,7 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* ========================================== */}
-          {/* TAB 4: SENARAI BAHAN NOTA (DIKEMAS KINI 🌟) */}
-          {/* ========================================== */}
+          {/* TAB 5: SENARAI BAHAN NOTA */}
           {activeTab === "kandungan" && (
             <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-between items-center bg-[#1e293b] p-6 rounded-2xl border border-slate-800">
@@ -632,9 +708,7 @@ export default function GuruDashboard() {
                       <h4 className="text-xl font-bold text-white mb-2">{bahan.title}</h4>
                       <p className="text-sm text-slate-400 mb-2 font-mono text-amber-500/80">ID: {bahan.id}</p>
                       
-                      {/* ============================================== */}
-                      {/* 🌟 EDIT SUBTOPIK MODAL (DENGAN KOTAK TEKS AI)  */}
-                      {/* ============================================== */}
+                      {/* EDIT SUBTOPIK MODAL */}
                       {editSubtopikId === bahan.id ? (
                         <div className="mt-3 bg-slate-900/50 p-4 rounded-lg border border-amber-600/50">
                           <p className="text-xs text-amber-400 font-bold mb-3 uppercase flex items-center gap-2"><Edit3 size={14}/> Tetapkan Link Khas & Teks AI:</p>
@@ -643,13 +717,11 @@ export default function GuruDashboard() {
                             {tempSubtopik.map((sub, i) => (
                                <div key={i} className="flex flex-col gap-3 bg-slate-800/50 p-4 rounded-lg border border-slate-700">
                                  
-                                 {/* BARIS ATAS: ID & TAJUK SUBTOPIK */}
                                  <div className="flex items-center gap-3 border-b border-slate-700/50 pb-2">
                                    <span className="text-sm font-extrabold text-blue-400 shrink-0">{sub.id}</span>
                                    <span className="text-sm text-slate-200 font-medium">{sub.title}</span>
                                  </div>
 
-                                 {/* BARIS 2: INPUT LINK NOTA KHAS (CANVA/DRIVE UNTUK MURID) */}
                                  <div className="flex items-center gap-2 mt-1">
                                    <span className="text-[10px] text-blue-400 font-bold uppercase shrink-0 w-16 text-right" title="Link Nota Bebas">🔗 Nota:</span>
                                    <input 
@@ -665,7 +737,6 @@ export default function GuruDashboard() {
                                    />
                                  </div>
 
-                                 {/* BARIS 3: INPUT LINK YOUTUBE */}
                                  <div className="flex items-center gap-2">
                                    <span className="text-[10px] text-red-400 font-bold uppercase shrink-0 w-16 text-right" title="Video YouTube">📺 Video:</span>
                                    <input 
@@ -681,7 +752,6 @@ export default function GuruDashboard() {
                                    />
                                  </div>
 
-                                 {/* 🌟 TAMBAHAN BARU: KOTAK TEKS UNTUK OTAK AI MEMBACA */}
                                  <div className="flex flex-col gap-1 mt-2">
                                    <span className="text-[10px] text-emerald-400 font-bold uppercase" title="Teks Buku Teks">🧠 Teks Rujukan Khusus (Untuk AI Baca):</span>
                                    <textarea 
@@ -733,7 +803,7 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 5: MUAT NAIK BAHAN BAHARU (LINK NOTA) */}
+          {/* TAB 6: MUAT NAIK BAHAN BAHARU */}
           {activeTab === "upload" && (
              <div className="bg-[#1e293b] p-8 rounded-2xl border border-slate-800 max-w-2xl shadow-lg relative overflow-hidden animate-in fade-in">
                 <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-3"><UploadCloud className="text-blue-400 w-8 h-8"/> Daftar Bahan Rujukan Baru</h3>
@@ -764,7 +834,7 @@ export default function GuruDashboard() {
              </div>
           )}
 
-          {/* TAB 6: MAKMAL KAJIAN / ANALITIK SPSS */}
+          {/* TAB 7: MAKMAL KAJIAN / ANALITIK SPSS */}
           {activeTab === "analitik" && ( <MakmalDataKajian /> )}
         </main>
       </div>
