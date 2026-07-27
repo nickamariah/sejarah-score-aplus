@@ -4,8 +4,10 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, HelpCircle, Save, Zap, Sparkles, Activity, UploadCloud, RefreshCw, CheckSquare } from "lucide-react";
 
+// IMPORT KOMPONEN MAKMAL DATA KAJIAN
 import MakmalDataKajian from "../../utils/MakmalDataKajian";
 
+// IMPORT FIREBASE 
 import { collection, getDocs, query, orderBy, deleteDoc, doc, serverTimestamp, updateDoc, setDoc } from "firebase/firestore";
 import { db, app } from "../../lib/firebase"; 
 import { initializeApp, getApps } from "firebase/app"; 
@@ -41,7 +43,7 @@ export default function GuruDashboard() {
   const [qTopik, setQTopik] = useState("");
   const [qJenis, setQJenis] = useState("objektif"); 
   
-  // 🌟 TAMBAHAN BARU: STATE UNTUK KEGUNAAN SOALAN (Pre-Test / Post-Test)
+  // STATE UNTUK KEGUNAAN SOALAN
   const [qKegunaan, setQKegunaan] = useState("semua");
 
   const [qSoalan, setQSoalan] = useState("");
@@ -206,7 +208,6 @@ export default function GuruDashboard() {
   const setEditPengguna = (u: any) => { setIsEditingUser(true); setEditUserId(u.id); setURole(u.role || "murid"); setUNama(u.nama || ""); setUKataLaluan(u.kataLaluan || ""); setUTingkatan(u.tingkatan || "4"); setUKelas(u.kelas || ""); setUTahapInkuiri(u.tahapInkuiri || "Rendah"); setUKumpulan(u.kumpulan || "Eksperimen"); };
   const resetFormPengguna = () => { setIsEditingUser(false); setEditUserId(null); setURole("murid"); setUNama(""); setUKataLaluan(""); setUTingkatan("4"); setUKelas(""); setUTahapInkuiri("Rendah"); setUKumpulan("Eksperimen"); };
 
-  // 🌟 KEMAS KINI: Simpan nilai Kegunaan Soalan (qKegunaan)
   const handleSimpanSoalan = async () => {
     if (!qSoalan || !qTopik) return showToastMessage("Isi Soalan & Subtopik!", "error");
     setUIsSubmitting(true);
@@ -216,12 +217,12 @@ export default function GuruDashboard() {
         bab: qBab, 
         topik: qTopik, 
         jenis: qJenis, 
-        kegunaan: qKegunaan, // <-- SIMPAN MAKLUMAT PRE/POST KE FIREBASE
+        kegunaan: qKegunaan, // <-- Simpan label ke DB
         soalan: qSoalan, 
         markah: parseInt(qMarkah), 
         imageUrl: qImageUrl 
       };
-
+      
       if (qJenis === "objektif") { 
         if (!qPilihanA || !qPilihanB) return showToastMessage("Isi pilihan!", "error"); 
         dataSoalan.pilihan = { A: qPilihanA, B: qPilihanB, C: qPilihanC, D: qPilihanD }; 
@@ -257,7 +258,7 @@ export default function GuruDashboard() {
     setQBab(q.bab || "Bab 1"); 
     setQTopik(q.topik || ""); 
     setQJenis(q.jenis || "objektif"); 
-    setQKegunaan(q.kegunaan || "semua"); // <-- Tarik nilai bila edit
+    setQKegunaan(q.kegunaan || "semua"); // <-- Tarik label sedia ada
     setQSoalan(q.soalan || ""); 
     setQMarkah(q.markah?.toString() || "1"); 
     setQImageUrl(q.imageUrl || ""); 
@@ -268,14 +269,14 @@ export default function GuruDashboard() {
     } 
     setIsCreatingSoalan(true); 
   };
-
+  
   const resetFormSoalan = () => { 
     setIsCreatingSoalan(false); 
     setIsEditingSoalan(false); 
     setEditSoalanId(null); 
     setQSoalan(""); 
     setQTopik(""); 
-    setQKegunaan("semua"); // <-- Reset nilai
+    setQKegunaan("semua"); // <-- Reset
     setQSkema(""); 
     setQImageUrl(""); 
     setQPilihanA(""); 
@@ -284,6 +285,7 @@ export default function GuruDashboard() {
     setQPilihanD(""); 
     setQJawapanBetul("A"); 
   };
+  
   const handlePadamSoalan = async (id: string) => { if (confirm("Padam soalan?")) { try { await deleteDoc(doc(db, "questionBank", id)); showToastMessage("Berjaya dipadam.", "success"); tarikSoalanFirebase(); } catch (error) { showToastMessage("Ralat.", "error"); } } };
 
   const handleSimpanBahan = async (e: React.FormEvent) => {
@@ -602,8 +604,14 @@ export default function GuruDashboard() {
                               <td className="p-4 text-slate-400 text-sm font-bold text-amber-500">{q.id}</td>
                               <td className="p-4 text-slate-200">{q.topik}</td>
                               <td className="p-4">
-                                <span className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider ${q.kegunaan === 'pre_test' ? 'bg-indigo-900/30 text-indigo-400' : q.kegunaan === 'post_test' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-blue-900/30 text-blue-400'}`}>
-                                  {q.kegunaan === 'semua' || !q.kegunaan ? "PRE & POST" : q.kegunaan}
+                                {/* 🌟 TAMBAHAN: Lencana untuk SIMPANAN */}
+                                <span className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider ${
+                                  q.kegunaan === 'pre_test' ? 'bg-indigo-900/30 text-indigo-400' : 
+                                  q.kegunaan === 'post_test' ? 'bg-emerald-900/30 text-emerald-400' : 
+                                  q.kegunaan === 'simpanan' ? 'bg-slate-700/50 text-slate-400 border border-slate-600' : 
+                                  'bg-blue-900/30 text-blue-400'
+                                }`}>
+                                  {q.kegunaan === 'semua' || !q.kegunaan ? "PRE & POST" : q.kegunaan === 'simpanan' ? "SIMPANAN" : q.kegunaan}
                                 </span>
                               </td>
                               <td className="p-4"><span className={`text-xs px-2 py-1 rounded-md font-bold ${q.jenis === 'objektif' ? 'bg-amber-900/30 text-amber-400' : 'bg-purple-900/30 text-purple-400'}`}>{q.jenis?.toUpperCase()}</span></td>
@@ -626,7 +634,6 @@ export default function GuruDashboard() {
                     <div><label className="block text-sm text-slate-400 mb-2">Topik</label><select value={qTopik} onChange={e => setQTopik(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white">{subtopikPilihan.map((sub: string, index: number) => (<option key={index} value={sub}>{sub}</option>))}</select></div>
                   </div>
                   
-                  {/* 🌟 BARIS BARU DENGAN DROP-DOWN KEGUNAAN SOALAN */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <div>
                       <label className="block text-sm text-emerald-400 font-bold mb-2">Sasaran Ujian</label>
@@ -634,6 +641,8 @@ export default function GuruDashboard() {
                         <option value="semua">Pre-Test & Post-Test</option>
                         <option value="pre_test">Khas Pre-Test Sahaja</option>
                         <option value="post_test">Khas Post-Test Sahaja</option>
+                        {/* 🌟 TAMBAHAN: Pilihan Simpanan Draf */}
+                        <option value="simpanan">Simpanan Sahaja (Draf)</option>
                       </select>
                     </div>
                     <div><label className="block text-sm text-slate-400 mb-2">Jenis Soalan</label><select value={qJenis} onChange={e => setQJenis(e.target.value)} className="w-full bg-slate-800 border-2 border-slate-600 rounded-lg p-3 text-white font-bold"><option value="objektif">Objektif</option><option value="struktur">Struktur / Esei</option></select></div>
