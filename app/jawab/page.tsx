@@ -86,6 +86,17 @@ function KandunganUjian() {
 
         querySnapshot.forEach((docSnap) => {
           let data = docSnap.data();
+          
+          // 🌟 KEMAS KINI UTAMA: Tapis berdasarkan KEGUNAAN soalan
+          const kegunaan = data.kegunaan || "semua";
+          
+          // 1. Jika soalan ini SIMPANAN, kita terus abaikan
+          if (kegunaan === "simpanan") return; 
+          
+          // 2. Jika soalan ini KHAS untuk Pre-Test atau Post-Test, pastikan ia sepadan
+          if (kegunaan !== "semua" && kegunaan !== jenisUjian) return;
+
+          // Jika melepasi tapisan, asingkan ikut jenis
           if (data.jenis === "objektif") {
             if (data.pilihan) {
               let pilihanArray = Object.entries(data.pilihan);
@@ -100,11 +111,17 @@ function KandunganUjian() {
         // Soalan objektif di-shuffle
         const objektifDahShuffle = shuffleArray(soalanObjektif);
         
-        // 🌟 KEMAS KINI (SOALAN 1): Susun soalan struktur mengikut 'urutan'
-        // Jika cikgu tak set 'urutan', ia akan dianggap 999 (duduk belakang)
-        soalanStruktur.sort((a, b) => (Number(a.urutan) || 999) - (Number(b.urutan) || 999));
+        // 🌟 KEMAS KINI KEDUA: Tapis (Filter) Soalan Struktur
+        const strukturDisaring = soalanStruktur.filter((s: any) => {
+          const numUrutan = Number(s.urutan);
+          return !isNaN(numUrutan) && numUrutan > 0 && numUrutan !== 999;
+        });
         
-        setSoalanSenarai([...objektifDahShuffle, ...soalanStruktur]);
+        // Susun soalan struktur mengikut urutan
+        strukturDisaring.sort((a: any, b: any) => Number(a.urutan) - Number(b.urutan));
+        
+        // Hantar gabungan soalan objektif + soalan struktur
+        setSoalanSenarai([...objektifDahShuffle, ...strukturDisaring]);
       } catch (error) {
         console.error("Ralat tarik soalan:", error);
       } finally {
@@ -113,7 +130,7 @@ function KandunganUjian() {
     };
 
     tarikSoalan();
-  }, [tingkatan, bab, isClient]);
+  }, [tingkatan, bab, jenisUjian, isClient]); // Tambah jenisUjian dalam dependency
 
   useEffect(() => {
     if (!isClient) return;
@@ -128,7 +145,7 @@ function KandunganUjian() {
           const user = JSON.parse(rawUser);
 
           try {
-            // 🌟 KEMAS KINI: Kira markah objektif secara total di sini, bukan masa butang ditekan
+            // Kira markah objektif secara total
             let skorObjektifAkhir = 0;
             let markahPenuhUjian = 0;
 
@@ -146,7 +163,7 @@ function KandunganUjian() {
               }
             });
 
-            setSkor(skorObjektifAkhir); // Update UI state untuk rujukan
+            setSkor(skorObjektifAkhir); 
 
             let jumlahMarkahStrukturAI = 0;
             let ulasanAIPenuh: Record<string, any> = {};
@@ -203,7 +220,7 @@ function KandunganUjian() {
               namaMurid: user.name || user.nama,
               tingkatan: tingkatan,
               bab: bab,
-              skorObjektif: skorObjektifAkhir, // Hantar markah baru
+              skorObjektif: skorObjektifAkhir, 
               jawapanObjektif: jawapanObjektif,
               skor: peratus,
               markahPenuhUjian: markahPenuhUjian,
@@ -216,7 +233,6 @@ function KandunganUjian() {
               jenisUjian: jenisUjian 
             });
 
-            // Pengurusan modul selesai / ulangan
             const chapterId = bab.replace("Bab ", "");
             const modKeyTest = `t${tingkatan}-ch${chapterId}-mod-${jenisUjian}`;
             const modKeyBimbingan = `t${tingkatan}-ch${chapterId}-mod-bimbingan`; 
@@ -272,7 +288,6 @@ function KandunganUjian() {
     if (indexSemasa + 1 < soalanSenarai.length) {
       setIndexSemasa(indexSemasa + 1);
     } else {
-      // Jika ini soalan terakhir, terus hantar ujian
       if (confirm("Adakah anda pasti untuk menghantar ujian ini? Pastikan semua soalan telah dijawab.")) {
         setTamat(true);
       }
@@ -368,7 +383,6 @@ function KandunganUjian() {
           </div>
         )}
 
-        {/* 🌟 KAWASAN JAWAPAN */}
         <div className="flex-1">
           {jenisSoalan === "objektif" ? (
             <div className="grid gap-4">
@@ -377,7 +391,6 @@ function KandunganUjian() {
                 const teks = item[1];
                 const hurufVisual = String.fromCharCode(65 + index);
                 
-                // Cek adakah murid dah pilih jawapan ini
                 const isSelected = jawapanObjektif[semasa.id] === kunciAsal;
 
                 return (
@@ -403,7 +416,7 @@ function KandunganUjian() {
           ) : (
             <div className="flex flex-col gap-4">
               <textarea
-                value={jawapanStruktur[semasa.id] || ""} // Papar balik jawapan lama jika ada
+                value={jawapanStruktur[semasa.id] || ""} 
                 onChange={(e) => tukarJawapanStruktur(semasa.id, e.target.value)}
                 placeholder="Sila taip jawapan anda di sini..."
                 className="w-full p-5 border-2 border-slate-200 rounded-xl focus:border-sky-500 focus:ring-2 focus:ring-sky-200 focus:outline-none resize-y min-h-[150px] text-lg text-slate-700"
@@ -412,7 +425,6 @@ function KandunganUjian() {
           )}
         </div>
 
-        {/* 🌟 NAVIGASI BUTANG (KEMBALI & SETERUSNYA) */}
         <div className="mt-10 pt-6 border-t border-slate-100 flex justify-between items-center gap-4">
           <button
             onClick={pergiSoalanSebelum}
