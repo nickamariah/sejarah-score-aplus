@@ -499,7 +499,44 @@ export default function MuridDashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+{/* BUTANG TERAPUNG FEEDBACK */}
+        <button 
+          onClick={() => setShowFeedback(true)}
+          className="fixed bottom-6 right-6 bg-slate-800 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform z-50 flex items-center justify-center"
+          title="Beri Maklum Balas"
+        >
+          <MessageSquare className="w-6 h-6" />
+        </button>
 
+        {/* MODAL FEEDBACK */}
+        <AnimatePresence>
+          {showFeedback && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+              <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
+                <div className="bg-slate-800 p-5 text-white flex justify-between items-center">
+                  <h3 className="font-bold text-lg flex items-center gap-2"><MessageSquare className="w-5 h-5"/> Suara Anda</h3>
+                  <button onClick={() => setShowFeedback(false)} className="text-slate-400 hover:text-white transition">✖</button>
+                </div>
+                <div className="p-6">
+                  <p className="text-sm text-slate-600 mb-4">Ada sebarang masalah, cadangan, atau pujian tentang Hub I-RAGs? Tuliskan di bawah. Cikgu akan membacanya!</p>
+                  <textarea
+                    value={feedbackMsg}
+                    onChange={(e) => setFeedbackMsg(e.target.value)}
+                    placeholder="Contoh: Saya suka main game tadi! Tapi kadang-kadang AI lambat sikit balas..."
+                    className="w-full p-4 border-2 border-slate-200 rounded-xl focus:border-slate-800 focus:ring-0 resize-y min-h-[120px] text-sm"
+                  ></textarea>
+                  <button 
+                    onClick={hantarMaklumBalas}
+                    disabled={isSubmitting || !feedbackMsg.trim()}
+                    className={`w-full mt-4 py-3 rounded-xl font-bold text-white transition-colors ${isSubmitting || !feedbackMsg.trim() ? 'bg-slate-300 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700'}`}
+                  >
+                    {isSubmitting ? 'Menghantar...' : 'Hantar Maklum Balas'}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
     </div>
   );
 }
