@@ -289,8 +289,8 @@ export default function MuridDashboard() {
                             </div>
                           </div>
                           {/* 🌟 BUTANG SIJIL KHAS UNTUK MURID LULUS */}
-                          <button 
-  onClick={() => window.open(`/sijil?tingkatan=${activeLevel === 't4' ? '4' : '5'}&bab=${chapter.id}&skor=${skorTertinggi}`, '_blank')} 
+                         <button 
+  onClick={() => window.open(`/sijil?tingkatan=${activeLevel === 't4' ? '4' : '5'}&bab=${chapter.id}&skor=${skorTertinggi}&nama=${encodeURIComponent(userData?.nama || userData?.name || 'Pelajar Cemerlang')}`, '_blank')} 
   className="shrink-0 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 font-bold px-6 py-2.5 rounded-xl shadow-md hover:scale-105 transition-transform flex items-center gap-2"
 >
   <Award className="w-5 h-5"/> Buka Sijil Pencapaian

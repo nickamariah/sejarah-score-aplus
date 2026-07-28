@@ -9,18 +9,26 @@ function KandunganSijil() {
   const tingkatan = searchParams?.get("tingkatan") || "4";
   const bab = searchParams?.get("bab") || "1";
   const skor = searchParams?.get("skor") || "100";
+  // 🌟 Tangkap nama dari URL
+  const namaDariURL = searchParams?.get("nama");
 
   const [namaMurid, setNamaMurid] = useState("MEMUATKAN NAMA...");
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    const rawUser = localStorage.getItem("currentUser");
-    if (rawUser) {
-      const user = JSON.parse(rawUser);
-      setNamaMurid(user.nama || user.name || "PELAJAR CEMERLANG");
+    if (namaDariURL) {
+      // Jika ada nama dihantar dari Dashboard, guna nama tu
+      setNamaMurid(decodeURIComponent(namaDariURL));
+    } else {
+      // Fallback jika URL tiada nama
+      const rawUser = localStorage.getItem("currentUser");
+      if (rawUser) {
+        const user = JSON.parse(rawUser);
+        setNamaMurid(user.nama || user.name || "PELAJAR CEMERLANG");
+      }
     }
-  }, []);
+  }, [namaDariURL]);
 
   // 🌟 DATA DINAMIK: Warna & Kata-Kata Semangat Berbeza Mengikut Bab
   const sijilTema: Record<string, { gradient: string; border: string; quote: string; tajuk: string }> = {
