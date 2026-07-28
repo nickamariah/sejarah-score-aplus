@@ -38,7 +38,7 @@ function KomponenPembelajaran() {
   const pdfFileName = chapterId.split('_sub')[0]; 
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const isInitializing = useRef(false);
   
   const maxFasa = arasDariURL === "rendah" ? 2 : arasDariURL === "sederhana" ? 3 : 6;

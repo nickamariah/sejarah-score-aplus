@@ -7,7 +7,7 @@ import { db } from "../../lib/firebase";
 import { Loader2, Image as ImageIcon, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
 
 // ==========================================
-// 1. KOMPONEN KHAS: GAMBAR SOALAN (SMART LOADER)
+// 1. KOMPONEN KHAS: GAMBAR SOALAN (LEBIH KEMAS)
 // ==========================================
 const GambarSoalan = ({ src }: { src: string }) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -16,24 +16,22 @@ const GambarSoalan = ({ src }: { src: string }) => {
   if (!src) return null;
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-[150px] w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200 my-6 p-2">
+    <div className="relative flex justify-center w-full my-6">
       {!isLoaded && !hasError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-sky-500 z-10 bg-slate-50/80 backdrop-blur-sm">
-          <Loader2 className="animate-spin mb-2 w-6 h-6" />
-          <span className="text-xs font-bold animate-pulse">Memuatkan gambar rajah...</span>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Loader2 className="animate-spin text-sky-500 w-6 h-6" />
         </div>
       )}
       <img
         src={src}
-        alt="Gambar Rujukan Soalan"
-        className={`max-w-full max-h-64 md:max-h-80 object-contain transition-opacity duration-500 rounded-lg ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+        alt="Rujukan Soalan"
+        className={`max-w-full max-h-[300px] object-contain rounded-xl shadow-sm border border-slate-200 transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
         onLoad={() => setIsLoaded(true)}
         onError={() => { setHasError(true); setIsLoaded(true); }}
       />
       {hasError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-rose-500 bg-slate-100">
-          <ImageIcon className="w-8 h-8 mb-2 opacity-50"/>
-          <span className="text-xs font-bold text-center px-4">⚠️ Gagal memuatkan gambar.<br/>Sila semak internet anda.</span>
+        <div className="p-4 bg-red-50 text-red-500 border border-red-100 rounded-xl text-sm flex items-center gap-2">
+          <ImageIcon size={18} /> Gagal memuatkan gambar rajah. Sila semak sambungan internet.
         </div>
       )}
     </div>
@@ -153,7 +151,7 @@ function KandunganUjian() {
         const finalSoalan = [...objektifDahShuffle, ...strukturDisaring];
         setSoalanSenarai(finalSoalan);
 
-        // 🌟 FUNGSI PRELOAD GAMBAR: Supaya internet murid dah siap download gambar sebelum mereka buka soalan
+        // Preload Gambar
         setTimeout(() => {
           if (typeof window !== 'undefined') {
             finalSoalan.forEach((q) => {
@@ -275,24 +273,26 @@ function KandunganUjian() {
   const pergiSoalanSeterusnyaAtauTamat = () => {
     if (indexSemasa + 1 < soalanSenarai.length) setIndexSemasa(indexSemasa + 1);
     else if (confirm("Pasti mahu hantar ujian ini? Sila pastikan semua jawapan telah disemak.")) setTamat(true);
+    window.scrollTo({ top: 0, behavior: "smooth" }); // Auto scroll ke atas bila tukar soalan
   };
 
   const paparanTajukUjian = jenisUjian === "post_test" ? "Pasca-Ujian (Post)" : "Pra-Ujian (Pre)";
 
-  if (!isClient) return <div className="min-h-screen bg-slate-100 flex items-center justify-center font-bold text-sky-600">Memulakan Ujian...</div>;
-  if (loading) return <div className="min-h-screen bg-slate-100 flex items-center justify-center text-sky-700 font-semibold"><Loader2 className="animate-spin mr-3"/> Memuat turun soalan...</div>;
+  if (!isClient) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-sky-600">Memulakan Ujian...</div>;
+  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-sky-700 font-semibold"><Loader2 className="animate-spin mr-3"/> Memuat turun soalan...</div>;
   if (soalanSenarai.length === 0) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 p-4"><div className="p-8 bg-white rounded-xl shadow-md text-center max-w-md w-full"><h2 className="text-xl font-bold mb-4 text-slate-800">Soalan Belum Tersedia</h2><p className="text-sm text-slate-500 mb-6">Sistem mendapati tiada soalan untuk bab ini lagi.</p><button onClick={() => router.push('/murid')} className="w-full bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-lg font-bold transition-colors">Kembali ke Dashboard</button></div></div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4"><div className="p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center max-w-md w-full"><h2 className="text-xl font-bold mb-4 text-slate-800">Soalan Belum Tersedia</h2><p className="text-sm text-slate-500 mb-6">Sistem mendapati tiada soalan untuk bab ini lagi.</p><button onClick={() => router.push('/murid')} className="w-full bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-lg font-bold transition-colors">Kembali ke Dashboard</button></div></div>
   );
 
+  // KETIKA TAMAT UJIAN (TIADA HEADER/FOOTER)
   if (tamat) {
     if (menganalisisAI || peratusAkhir === null) return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 p-4 text-center"><Loader2 className="animate-spin w-12 h-12 text-sky-600 mb-4" /><h2 className="text-2xl font-bold text-sky-700">AI Sedang Menyemak...</h2><p className="text-slate-500 text-sm mt-2">Sila tunggu sebentar. Esei anda sedang dinilai.</p></div>
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center"><Loader2 className="animate-spin w-12 h-12 text-sky-600 mb-4" /><h2 className="text-2xl font-bold text-sky-700">AI Sedang Menyemak...</h2><p className="text-slate-500 text-sm mt-2">Sila tunggu sebentar. Esei anda sedang dinilai.</p></div>
     );
     const isLulus = peratusAkhir >= markahLulus;
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
-        <div className="max-w-lg w-full p-8 bg-white rounded-2xl shadow-xl text-center border-t-8 border-sky-500">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="max-w-lg w-full p-8 bg-white rounded-2xl shadow-sm border border-slate-200 border-t-8 border-t-sky-500 text-center">
           <h2 className="text-2xl md:text-3xl font-extrabold mb-2 text-slate-800">{paparanTajukUjian} Tamat</h2>
           <p className="text-sm font-semibold text-slate-500 mb-6 uppercase tracking-wider">{bab} | Tingkatan {tingkatan}</p>
           {jenisUjian === "pre_test" ? (
@@ -326,56 +326,47 @@ function KandunganUjian() {
 
   const progressPercentage = ((indexSemasa + 1) / soalanSenarai.length) * 100;
 
-  // ========================================================
-  // REKA BENTUK UI BARU: PROFESIONAL, KOMPAK & STICKY FOOTER
-  // ========================================================
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col md:py-6 md:px-4 items-center justify-center">
-      
-      {/* Container Utama (Reka Bentuk "Card" Berhenti di Bawah Skrin) */}
-      <div className="w-full max-w-4xl bg-white shadow-2xl md:rounded-2xl flex flex-col h-[100dvh] md:h-[90vh] overflow-hidden border border-slate-200">
-        
-        {/* HEADER: KEKAL DI ATAS (STICKY) */}
-        <div className="p-4 md:p-6 bg-white shrink-0 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] z-20">
-           <div className="flex justify-between items-end mb-3">
-             <div>
-               <h1 className="text-lg md:text-xl font-extrabold text-slate-800">{bab}</h1>
-               <p className="text-xs font-bold text-sky-600 uppercase mt-0.5">{labelBahagian}</p>
-             </div>
-             <div className="text-right">
-               <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Soalan</span>
-               <div className="text-sm md:text-base font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-md mt-1">
-                 {indexSemasa + 1} / {soalanSenarai.length}
-               </div>
-             </div>
+    <div className="min-h-screen bg-slate-50 pb-28 pt-20"> 
+      {/* 🟢 HEADER TERLEKAT DI ATAS SKRIN */}
+      <div className="fixed top-0 left-0 w-full bg-white shadow-sm border-b border-slate-200 z-40">
+         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+           <div>
+             <h1 className="text-sm md:text-base font-extrabold text-slate-800">{bab}</h1>
+             <p className="text-[10px] md:text-xs font-bold text-sky-600 uppercase mt-0.5">{labelBahagian}</p>
            </div>
-           
-           {/* Progress Bar Visual */}
-           <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-             <div className="bg-sky-500 h-full transition-all duration-300" style={{ width: `${progressPercentage}%` }}></div>
+           <div className="text-right flex flex-col items-end">
+             <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Soalan</span>
+             <span className="text-xs md:text-sm font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-md">
+               {indexSemasa + 1} / {soalanSenarai.length}
+             </span>
            </div>
-        </div>
+         </div>
+         {/* Progress Bar Visual */}
+         <div className="w-full bg-slate-100 h-1.5">
+           <div className="bg-sky-500 h-full transition-all duration-300" style={{ width: `${progressPercentage}%` }}></div>
+         </div>
+      </div>
 
-        {/* KAWASAN KANDUNGAN SOALAN (BOLEH TENGGELAM/SCROLL) */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50">
+      {/* 🟢 KAWASAN SOALAN (SCROLL SEMULA JADI) */}
+      <div className="max-w-3xl mx-auto px-4 w-full">
+         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
            
            <div className="flex justify-between items-start gap-4 mb-6">
              <h2 className="text-base md:text-lg font-semibold text-slate-800 leading-relaxed whitespace-pre-wrap">{semasa.soalan}</h2>
-             {semasa.markah && <span className="shrink-0 bg-amber-100 text-amber-800 px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap mt-1 border border-amber-200">{semasa.markah} Markah</span>}
+             {semasa.markah && <span className="shrink-0 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border border-amber-200">{semasa.markah} Markah</span>}
            </div>
 
-           {/* SMART IMAGE COMPONENT */}
            <GambarSoalan src={semasa.imageUrl} />
 
-           {/* RUANG JAWAPAN */}
-           <div className="mt-6">
+           <div className="mt-8">
              {jenisSoalan === "objektif" ? (
                <div className="grid gap-3">
                  {senaraiPilihan.map((item: any, i: number) => {
                    const isSelected = jawapanObjektif[semasa.id] === item[0];
                    return (
                      <button key={item[0]} onClick={() => pilihJawapanObjektif(semasa.id, item[0])}
-                       className={`w-full text-left p-4 rounded-xl border-2 transition-all font-medium flex gap-4 items-center group ${isSelected ? 'border-sky-500 bg-sky-50 shadow-sm' : 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/30'}`}>
+                       className={`w-full text-left p-4 rounded-xl border-2 transition-all font-medium flex gap-4 items-center group ${isSelected ? 'border-sky-500 bg-sky-50 shadow-sm' : 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/50'}`}>
                        <span className={`shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-bold text-sm md:text-base transition-colors ${isSelected ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-sky-100 group-hover:text-sky-600'}`}>{String.fromCharCode(65 + i)}</span>
                        <span className={`text-sm md:text-base ${isSelected ? 'text-sky-900' : 'text-slate-700'}`}>{item[1] as string}</span>
                      </button>
@@ -389,7 +380,7 @@ function KandunganUjian() {
                    onPaste={(e) => { e.preventDefault(); alert("Sila taip sendiri. Kemahiran mengingati fakta amat penting!"); }} onCopy={(e) => e.preventDefault()} onCut={(e) => e.preventDefault()}
                    autoComplete="off" spellCheck="false"
                    placeholder="Sila taip jawapan di sini..."
-                   className="w-full p-4 md:p-5 bg-white text-slate-900 placeholder-slate-400 border-2 border-slate-300 rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 resize-y min-h-[140px] text-sm md:text-base transition-all outline-none"
+                   className="w-full p-4 md:p-5 bg-white text-slate-900 placeholder-slate-400 border-2 border-slate-300 rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 resize-y min-h-[160px] text-sm md:text-base transition-all outline-none"
                  ></textarea>
                  {jawapanStruktur[semasa.id]?.trim().length > 0 && (
                     <div className="absolute top-4 right-4 text-emerald-500 bg-white rounded-full"><CheckCircle2 size={20}/></div>
@@ -397,26 +388,26 @@ function KandunganUjian() {
                </div>
              )}
            </div>
-        </div>
-
-        {/* FOOTER NAVIGASI: KEKAL DI BAWAH (STICKY) */}
-        <div className="p-4 md:p-6 bg-white border-t border-slate-200 shrink-0 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)] z-20">
-           <div className="flex justify-between items-center gap-4 max-w-2xl mx-auto">
-             <button onClick={pergiSoalanSebelum} disabled={indexSemasa === 0} className="flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm md:text-base w-1/3">
-               <ChevronLeft size={20}/> <span className="hidden md:inline">Sebelumnya</span>
-             </button>
-             
-             <button onClick={pergiSoalanSeterusnyaAtauTamat} disabled={!soalanSudahDijawab} className={`flex items-center justify-center gap-2 px-6 md:px-8 py-2.5 md:py-3 rounded-xl font-bold transition-all text-sm md:text-base w-2/3 shadow-sm ${!soalanSudahDijawab ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : isSoalanTerakhir ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20' : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/20'}`}>
-               {isSoalanTerakhir ? 'Hantar Ujian Sekarang' : 'Seterusnya'} {isSoalanTerakhir ? <CheckCircle2 size={20}/> : <ChevronRight size={20}/>}
-             </button>
-           </div>
-        </div>
-
+         </div>
       </div>
+
+      {/* 🟢 FOOTER TERLEKAT DI BAWAH SKRIN */}
+      <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 z-40 shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
+         <div className="max-w-3xl mx-auto flex justify-between items-center gap-4">
+           <button onClick={pergiSoalanSebelum} disabled={indexSemasa === 0} className="flex items-center justify-center gap-2 px-4 md:px-6 py-3 rounded-xl font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm md:text-base w-1/3">
+             <ChevronLeft size={20}/> <span className="hidden md:inline">Sebelumnya</span>
+           </button>
+           
+           <button onClick={pergiSoalanSeterusnyaAtauTamat} disabled={!soalanSudahDijawab} className={`flex items-center justify-center gap-2 px-6 md:px-8 py-3 rounded-xl font-bold transition-all text-sm md:text-base w-2/3 shadow-sm ${!soalanSudahDijawab ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : isSoalanTerakhir ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20' : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/20'}`}>
+             {isSoalanTerakhir ? 'Hantar Ujian Sekarang' : 'Seterusnya'} {isSoalanTerakhir ? <CheckCircle2 size={20}/> : <ChevronRight size={20}/>}
+           </button>
+         </div>
+      </div>
+
     </div>
   );
 }
 
 export default function UjianDiagnostik() {
-  return <Suspense fallback={<div className="min-h-screen bg-slate-100 flex items-center justify-center text-sky-600 font-bold"><Loader2 className="animate-spin mr-3"/>Memuatkan Sistem...</div>}><KandunganUjian /></Suspense>;
+  return <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center text-sky-600 font-bold"><Loader2 className="animate-spin mr-3"/>Memuatkan Sistem...</div>}><KandunganUjian /></Suspense>;
 }
