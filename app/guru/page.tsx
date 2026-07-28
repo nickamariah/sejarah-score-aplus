@@ -187,7 +187,7 @@ export default function GuruDashboard() {
   const tarikDataMaklumBalas = async () => {
     setLoadingMaklumBalas(true);
     try {
-      const q = query(collection(db, "maklum_balas_murid"), orderBy("tarikh", "desc"));
+      const q = query(collection(db, "feedback"), orderBy("tarikh", "desc"));
       const querySnapshot = await getDocs(q);
       const data: any[] = [];
       querySnapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() }));

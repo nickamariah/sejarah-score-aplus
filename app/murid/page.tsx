@@ -140,7 +140,7 @@ export default function MuridDashboard() {
     if (!feedbackMsg.trim()) return;
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, "feedbacks"), {
+      await addDoc(collection(db, "feedback"), {
         idMurid: userData?.idPengguna || userData?.id || "Tiada ID",
         namaMurid: userData?.nama || userData?.name || "Pelajar",
         mesej: feedbackMsg,
