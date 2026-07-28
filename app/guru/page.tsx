@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, HelpCircle, Save, Zap, Sparkles, Activity, UploadCloud, RefreshCw, CheckSquare } from "lucide-react";
+import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, HelpCircle, Save, Zap, Sparkles, Activity, UploadCloud, RefreshCw, CheckSquare, Filter } from "lucide-react";
 
 // IMPORT KOMPONEN MAKMAL DATA KAJIAN
 import MakmalDataKajian from "../../utils/MakmalDataKajian";
@@ -38,6 +38,12 @@ export default function GuruDashboard() {
   const [isCreatingSoalan, setIsCreatingSoalan] = useState(false);
   const [isEditingSoalan, setIsEditingSoalan] = useState(false);
   const [editSoalanId, setEditSoalanId] = useState<string | null>(null);
+  
+  // 🌟 TAMBAHAN: State untuk fungsi Tapis (Filter) Soalan
+  const [filterTingkatan, setFilterTingkatan] = useState("Semua");
+  const [filterBab, setFilterBab] = useState("Semua");
+  const [filterJenis, setFilterJenis] = useState("Semua");
+
   const [qTingkatan, setQTingkatan] = useState("4");
   const [qBab, setQBab] = useState("Bab 1");
   const [qTopik, setQTopik] = useState("");
@@ -46,11 +52,7 @@ export default function GuruDashboard() {
 
   const [qSoalan, setQSoalan] = useState("");
   const [qMarkah, setQMarkah] = useState("1");
-  
-  // 🌟 TAMBAHAN: State untuk urutan (susunan soalan)
   const [qUrutan, setQUrutan] = useState("");
-  
-  // STATE UNTUK GAMBAR SOALAN
   const [qImageUrl, setQImageUrl] = useState("");
   
   const [qPilihanA, setQPilihanA] = useState("");
@@ -124,7 +126,6 @@ export default function GuruDashboard() {
   const tarikSoalanFirebase = async () => {
     setLoadingSoalan(true);
     try {
-      // 🌟 KEMAS KINI: Kita buang orderBy() di sini supaya ia tak sembunyikan soalan manual
       const q = query(collection(db, "questionBank"));
       const querySnapshot = await getDocs(q);
       const data: any[] = [];
@@ -133,8 +134,6 @@ export default function GuruDashboard() {
         data.push({ id: doc.id, ...doc.data() }); 
       });
 
-      // 🌟 KEMAS KINI: Kita susun guna JavaScript. 
-      // Soalan baru (ada createdAt) duduk atas. Soalan lama manual duduk bawah.
       data.sort((a, b) => {
         const masaA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
         const masaB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
@@ -241,7 +240,7 @@ export default function GuruDashboard() {
         kegunaan: qKegunaan, 
         soalan: qSoalan, 
         markah: parseInt(qMarkah) || 1, 
-        urutan: qUrutan ? parseInt(qUrutan) : 999, // 🌟 KEMAS KINI: Simpan Nombor Urutan
+        urutan: qUrutan ? parseInt(qUrutan) : 999, 
         imageUrl: qImageUrl 
       };
 
@@ -283,7 +282,7 @@ export default function GuruDashboard() {
     setQKegunaan(q.kegunaan || "semua"); 
     setQSoalan(q.soalan || ""); 
     setQMarkah(q.markah?.toString() || "1"); 
-    setQUrutan(q.urutan === 999 ? "" : q.urutan?.toString() || ""); // 🌟 KEMAS KINI: Tarik Nombor Urutan
+    setQUrutan(q.urutan === 999 ? "" : q.urutan?.toString() || ""); 
     setQImageUrl(q.imageUrl || ""); 
     if (q.jenis === "objektif" && q.pilihan) { 
       setQPilihanA(q.pilihan.A || ""); setQPilihanB(q.pilihan.B || ""); setQPilihanC(q.pilihan.C || ""); setQPilihanD(q.pilihan.D || ""); setQJawapanBetul(q.jawapan || "A"); 
@@ -303,7 +302,7 @@ export default function GuruDashboard() {
     setQSkema(""); 
     setQImageUrl(""); 
     setQMarkah("1");
-    setQUrutan(""); // 🌟 KEMAS KINI: Reset Nombor Urutan
+    setQUrutan(""); 
     setQPilihanA(""); 
     setQPilihanB(""); 
     setQPilihanC(""); 
@@ -404,6 +403,14 @@ export default function GuruDashboard() {
 
   const showToastMessage = (msg: string, type: 'success'|'error'|'info'='info') => { setToast({ message: msg, type }); setTimeout(() => setToast(null), 3000); };
   const handleLogout = () => { window.location.href = '/login'; };
+
+  // 🌟 KEMAS KINI: Logik untuk menapis (filter) senarai soalan sebelum di-render ke jadual
+  const soalanListFiltered = soalanList.filter((q) => {
+    const matchTingkatan = filterTingkatan === "Semua" || q.tingkatan === filterTingkatan;
+    const matchBab = filterBab === "Semua" || q.bab === filterBab;
+    const matchJenis = filterJenis === "Semua" || q.jenis === filterJenis;
+    return matchTingkatan && matchBab && matchJenis;
+  });
 
   return (
     <div className="flex h-screen bg-[#0f172a] text-slate-200 font-sans overflow-hidden">
@@ -619,10 +626,40 @@ export default function GuruDashboard() {
                     <div><h3 className="text-xl font-bold text-white mb-1">Bank Soalan Ujian</h3><p className="text-slate-400 text-sm">Uruskan soalan dan tetapkan sasaran ujian (Pre / Post).</p></div>
                     <button onClick={() => { resetFormSoalan(); setIsCreatingSoalan(true); }} className="bg-cyan-500 hover:bg-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium flex items-center"><Plus size={18} className="mr-2" /> Bina Soalan Baru</button>
                   </div>
+                  
+                  {/* 🌟 KEMAS KINI UI: Bahagian Filter / Tapis */}
+                  <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 flex flex-col md:flex-row items-center gap-4 shadow-sm">
+                     <div className="flex items-center gap-2 text-slate-300 font-bold text-sm shrink-0">
+                        <Filter size={18} className="text-cyan-400"/> Tapis Soalan:
+                     </div>
+                     
+                     <select value={filterTingkatan} onChange={(e) => setFilterTingkatan(e.target.value)} className="bg-[#0f172a] text-sm text-slate-300 border border-slate-600 rounded-lg px-4 py-2 focus:border-cyan-500 outline-none w-full md:w-auto">
+                        <option value="Semua">Semua Tingkatan</option>
+                        <option value="4">Tingkatan 4</option>
+                        <option value="5">Tingkatan 5</option>
+                     </select>
+                     
+                     <select value={filterBab} onChange={(e) => setFilterBab(e.target.value)} className="bg-[#0f172a] text-sm text-slate-300 border border-slate-600 rounded-lg px-4 py-2 focus:border-cyan-500 outline-none w-full md:w-auto">
+                        <option value="Semua">Semua Bab</option>
+                        {[1,2,3,4,5,6,7,8,9,10].map(num => (
+                          <option key={num} value={`Bab ${num}`}>Bab {num}</option>
+                        ))}
+                     </select>
+
+                     <select value={filterJenis} onChange={(e) => setFilterJenis(e.target.value)} className="bg-[#0f172a] text-sm text-slate-300 border border-slate-600 rounded-lg px-4 py-2 focus:border-cyan-500 outline-none w-full md:w-auto">
+                        <option value="Semua">Semua Jenis</option>
+                        <option value="objektif">Objektif</option>
+                        <option value="struktur">Struktur / Esei</option>
+                     </select>
+                     
+                     <div className="ml-auto text-xs font-medium text-slate-400">
+                        Jumlah: <span className="text-cyan-400 font-bold">{soalanListFiltered.length}</span> soalan
+                     </div>
+                  </div>
+
                   <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden">
                     {loadingSoalan ? ( <div className="p-12 text-center text-slate-400 animate-pulse">Memuat turun Bank Soalan... ⏳</div> ) : (
                       <table className="w-full text-left border-collapse min-w-max">
-                        {/* 🌟 KEMAS KINI: Tambah Lajur "Susunan" */}
                         <thead>
                           <tr className="border-b border-slate-800 bg-slate-900/50">
                             <th className="p-4 font-semibold text-sm text-slate-300">ID</th>
@@ -635,7 +672,8 @@ export default function GuruDashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {soalanList.length > 0 ? soalanList.map((q, i) => (
+                          {/* 🌟 KEMAS KINI: Map menggunakan senarai yang telah di-filter */}
+                          {soalanListFiltered.length > 0 ? soalanListFiltered.map((q, i) => (
                             <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30">
                               <td className="p-4 text-slate-400 text-sm font-bold text-amber-500">{q.id}</td>
                               <td className="p-4 text-slate-200">{q.topik}</td>
@@ -651,7 +689,6 @@ export default function GuruDashboard() {
                               </td>
                               <td className="p-4"><span className={`text-xs px-2 py-1 rounded-md font-bold ${q.jenis === 'objektif' ? 'bg-amber-900/30 text-amber-400' : 'bg-purple-900/30 text-purple-400'}`}>{q.jenis?.toUpperCase()}</span></td>
                               
-                              {/* 🌟 KEMAS KINI: Tunjuk Nombor Susunan */}
                               <td className="p-4 text-slate-300 text-sm font-bold text-center bg-slate-800/30 rounded-lg">
                                 {q.urutan === 999 || !q.urutan ? "-" : q.urutan}
                               </td>
@@ -659,7 +696,7 @@ export default function GuruDashboard() {
                               <td className="p-4 text-slate-300 text-sm truncate max-w-xs">{q.soalan}</td>
                               <td className="p-4 flex gap-3 justify-end"><button onClick={() => handleEditSoalan(q)} className="text-slate-500 hover:text-amber-400"><Edit3 size={18} /></button><button onClick={() => handlePadamSoalan(q.id)} className="text-slate-500 hover:text-red-400"><Trash2 size={18} /></button></td>
                             </tr>
-                          )) : <tr><td colSpan={7} className="p-8 text-center text-slate-500">Belum ada soalan dicipta.</td></tr>}
+                          )) : <tr><td colSpan={7} className="p-8 text-center text-slate-500">Tiada soalan yang sepadan dengan tapisan ini.</td></tr>}
                         </tbody>
                       </table>
                     )}
@@ -675,7 +712,6 @@ export default function GuruDashboard() {
                     <div><label className="block text-sm text-slate-400 mb-2">Topik</label><select value={qTopik} onChange={e => setQTopik(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white">{subtopikPilihan.map((sub: string, index: number) => (<option key={index} value={sub}>{sub}</option>))}</select></div>
                   </div>
                   
-                  {/* 🌟 KEMAS KINI: Tukar grid dari md:grid-cols-3 jadi md:grid-cols-4 untuk selitkan kotak "No. Susunan" */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                     <div>
                       <label className="block text-sm text-emerald-400 font-bold mb-2">Sasaran Ujian</label>
@@ -689,7 +725,6 @@ export default function GuruDashboard() {
                     <div><label className="block text-sm text-slate-400 mb-2">Jenis Soalan</label><select value={qJenis} onChange={e => setQJenis(e.target.value)} className="w-full bg-slate-800 border-2 border-slate-600 rounded-lg p-3 text-white font-bold"><option value="objektif">Objektif</option><option value="struktur">Struktur / Esei</option></select></div>
                     <div><label className="block text-sm text-slate-400 mb-2">Markah</label><input type="number" value={qMarkah} onChange={e => setQMarkah(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white"/></div>
                     
-                    {/* 🌟 TAMBAHAN KOTAK INPUT BARU: Urutan Susunan */}
                     <div>
                       <label className="block text-sm text-blue-400 font-bold mb-2">No. Susunan</label>
                       <input 
@@ -713,7 +748,6 @@ export default function GuruDashboard() {
                       placeholder="Tampal link gambar (Cth: https://imgur.com/.../gambar.png)" 
                       className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500"
                     />
-                    {/* Tunjuk preview kalau cikgu dah letak link */}
                     {qImageUrl && qImageUrl.trim() !== "" && (
                       <div className="mt-3 border border-slate-700 p-2 rounded-lg inline-block bg-slate-800/50">
                         <p className="text-[10px] text-slate-400 mb-1">Pratonton Gambar:</p>
