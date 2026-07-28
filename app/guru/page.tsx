@@ -39,7 +39,6 @@ export default function GuruDashboard() {
   const [isEditingSoalan, setIsEditingSoalan] = useState(false);
   const [editSoalanId, setEditSoalanId] = useState<string | null>(null);
   
-  // 🌟 TAMBAHAN: State untuk fungsi Tapis (Filter) Soalan
   const [filterTingkatan, setFilterTingkatan] = useState("Semua");
   const [filterBab, setFilterBab] = useState("Semua");
   const [filterJenis, setFilterJenis] = useState("Semua");
@@ -182,19 +181,44 @@ export default function GuruDashboard() {
     tarikDataSemakan();
   }, []);
 
+  // 🌟 KEMAS KINI UTAMA DI SINI (Memisahkan Logik Edit & Create)
   const handleSimpanPengguna = async (e: React.FormEvent) => {
     e.preventDefault();
     if (uKataLaluan.length < 6) return showToastMessage("Kata laluan sekurang-kurangnya 6 aksara!", "error");
     setUIsSubmitting(true);
+    
     try {
-      let customId = editUserId; let emailMaya = "";
-      if (!isEditingUser) {
+      if (isEditingUser && editUserId) {
+        // --- LOGIK KEMAS KINI (EDIT) ---
+        const updateData: any = {
+          nama: uNama,
+          kataLaluan: uKataLaluan,
+          role: uRole
+        };
+        
+        if (uRole === "murid") {
+          updateData.tingkatan = String(uTingkatan);
+          updateData.kelas = uKelas;
+          updateData.tahapInkuiri = uTahapInkuiri;
+          updateData.kumpulan = uKumpulan;
+        }
+
+        // Ini menjamin Firebase hanya update maklumat spesifik sahaja tanpa padam markah dan email!
+        await updateDoc(doc(db, "users", editUserId), updateData);
+        showToastMessage("Akaun berjaya dikemas kini!", "success");
+        
+      } else {
+        // --- LOGIK DAFTAR BARU ---
         let awalan = "M"; 
         if (uRole === "murid") {
-          const numTing = uTingkatan.replace(/\D/g, "") || "4"; 
+          const numTing = String(uTingkatan).replace(/\D/g, "") || "4"; 
           const hurufK = uKumpulan === "Eksperimen" ? "E" : "K";
           awalan = `M${hurufK}${numTing}`; 
-        } else if (uRole === "guru") awalan = "G"; else if (uRole === "admin") awalan = "A";
+        } else if (uRole === "guru") {
+          awalan = "G"; 
+        } else if (uRole === "admin") {
+          awalan = "A";
+        }
 
         const penggunaSamaRole = senaraiPengguna.filter(u => u.id && u.id.startsWith(awalan));
         let maxNumber = 0;
@@ -202,8 +226,9 @@ export default function GuruDashboard() {
           const numPart = parseInt(u.id.substring(awalan.length)); 
           if (!isNaN(numPart) && numPart > maxNumber) maxNumber = numPart;
         });
-        customId = `${awalan}${String(maxNumber + 1).padStart(3, '0')}`;
-        emailMaya = `${customId.toLowerCase()}@irags.edu`;
+        
+        const newId = `${awalan}${String(maxNumber + 1).padStart(3, '0')}`;
+        const emailMaya = `${newId.toLowerCase()}@irags.edu`;
 
         try {
           const apps = getApps();
@@ -213,19 +238,58 @@ export default function GuruDashboard() {
           await createUserWithEmailAndPassword(secondaryAuth, emailMaya, uKataLaluan);
           await signOut(secondaryAuth); 
         } catch (error: any) {
-          showToastMessage("Ralat Auth Firebase.", "error"); setUIsSubmitting(false); return; 
+          showToastMessage("Ralat mendaftar di Firebase Auth.", "error"); 
+          setUIsSubmitting(false); 
+          return; 
         }
-      }
 
-      const userData = { nama: uNama, email: emailMaya, kataLaluan: uKataLaluan, role: uRole, idPengguna: customId, ...(uRole === "murid" && { tingkatan: uTingkatan, kelas: uKelas, tahapInkuiri: uTahapInkuiri, kumpulan: uKumpulan, markahTerkini: 0 }) };
-      if (isEditingUser && customId) { await updateDoc(doc(db, "users", customId), userData); showToastMessage(`Akaun dikemas kini!`, "success"); } 
-      else if (customId) { await setDoc(doc(db, "users", customId), { ...userData, tarikhDaftar: new Date().toISOString() }); showToastMessage(`Akaun didaftar!`, "success"); }
-      resetFormPengguna(); tarikDataPenggunaFirebase();
-    } catch (error) { showToastMessage("Ralat sistem.", "error"); } finally { setUIsSubmitting(false); }
+        const newUserData: any = { 
+          nama: uNama, 
+          email: emailMaya, 
+          kataLaluan: uKataLaluan, 
+          role: uRole, 
+          idPengguna: newId,
+          tarikhDaftar: new Date().toISOString()
+        };
+        
+        if (uRole === "murid") {
+           newUserData.tingkatan = String(uTingkatan);
+           newUserData.kelas = uKelas;
+           newUserData.tahapInkuiri = uTahapInkuiri;
+           newUserData.kumpulan = uKumpulan;
+           newUserData.markahTerkini = 0; // Hanya reset kepada 0 bila murid baru dicipta
+        }
+
+        await setDoc(doc(db, "users", newId), newUserData); 
+        showToastMessage("Akaun baru didaftar!", "success");
+      }
+      
+      resetFormPengguna(); 
+      tarikDataPenggunaFirebase();
+      
+    } catch (error) { 
+      console.error("Ralat Simpan Pengguna:", error);
+      showToastMessage("Ralat sistem. Sila cuba lagi.", "error"); 
+    } finally { 
+      setUIsSubmitting(false); 
+    }
   };
 
   const handlePadamPengguna = async (id: string) => { if (confirm("Pasti mahu memadam akaun ini?")) { try { await deleteDoc(doc(db, "users", id)); showToastMessage("Berjaya dipadam.", "success"); tarikDataPenggunaFirebase(); } catch (error) { showToastMessage("Ralat.", "error"); } } };
-  const setEditPengguna = (u: any) => { setIsEditingUser(true); setEditUserId(u.id); setURole(u.role || "murid"); setUNama(u.nama || ""); setUKataLaluan(u.kataLaluan || ""); setUTingkatan(u.tingkatan || "4"); setUKelas(u.kelas || ""); setUTahapInkuiri(u.tahapInkuiri || "Rendah"); setUKumpulan(u.kumpulan || "Eksperimen"); };
+  
+  // 🌟 KEMAS KINI: Tarik data ke dalam borang kemas kini
+  const setEditPengguna = (u: any) => { 
+    setIsEditingUser(true); 
+    setEditUserId(u.id); 
+    setURole(u.role || "murid"); 
+    setUNama(u.nama || ""); 
+    setUKataLaluan(u.kataLaluan || ""); 
+    setUTingkatan(String(u.tingkatan || "4")); // Pastikan ia sentiasa format teks
+    setUKelas(u.kelas || ""); 
+    setUTahapInkuiri(u.tahapInkuiri || "Rendah"); 
+    setUKumpulan(u.kumpulan || "Eksperimen"); 
+  };
+  
   const resetFormPengguna = () => { setIsEditingUser(false); setEditUserId(null); setURole("murid"); setUNama(""); setUKataLaluan(""); setUTingkatan("4"); setUKelas(""); setUTahapInkuiri("Rendah"); setUKumpulan("Eksperimen"); };
 
   const handleSimpanSoalan = async () => {
@@ -404,7 +468,6 @@ export default function GuruDashboard() {
   const showToastMessage = (msg: string, type: 'success'|'error'|'info'='info') => { setToast({ message: msg, type }); setTimeout(() => setToast(null), 3000); };
   const handleLogout = () => { window.location.href = '/login'; };
 
-  // 🌟 KEMAS KINI: Logik untuk menapis (filter) senarai soalan sebelum di-render ke jadual
   const soalanListFiltered = soalanList.filter((q) => {
     const matchTingkatan = filterTingkatan === "Semua" || q.tingkatan === filterTingkatan;
     const matchBab = filterBab === "Semua" || q.bab === filterBab;
@@ -627,7 +690,6 @@ export default function GuruDashboard() {
                     <button onClick={() => { resetFormSoalan(); setIsCreatingSoalan(true); }} className="bg-cyan-500 hover:bg-cyan-600 text-white px-5 py-2.5 rounded-lg font-medium flex items-center"><Plus size={18} className="mr-2" /> Bina Soalan Baru</button>
                   </div>
                   
-                  {/* 🌟 KEMAS KINI UI: Bahagian Filter / Tapis */}
                   <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 flex flex-col md:flex-row items-center gap-4 shadow-sm">
                      <div className="flex items-center gap-2 text-slate-300 font-bold text-sm shrink-0">
                         <Filter size={18} className="text-cyan-400"/> Tapis Soalan:
@@ -672,7 +734,6 @@ export default function GuruDashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {/* 🌟 KEMAS KINI: Map menggunakan senarai yang telah di-filter */}
                           {soalanListFiltered.length > 0 ? soalanListFiltered.map((q, i) => (
                             <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30">
                               <td className="p-4 text-slate-400 text-sm font-bold text-amber-500">{q.id}</td>
