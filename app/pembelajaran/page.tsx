@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation"; 
 import { db } from "@/lib/firebase"; 
 import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, getDocs } from "firebase/firestore";
+import { Bot, Send, ArrowLeft, BookOpen, Video, Lightbulb, HelpCircle, Trophy, CheckCircle2, Loader2, PlayCircle, X } from "lucide-react";
 
 function KomponenPembelajaran() {
   const searchParams = useSearchParams();
@@ -19,7 +20,7 @@ function KomponenPembelajaran() {
   const [isMastered, setIsMastered] = useState(false);
   const [showPdfMobile, setShowPdfMobile] = useState(false);
   
-  const [leftWidth, setLeftWidth] = useState(60); 
+  const [leftWidth, setLeftWidth] = useState(50); 
   const [isDragging, setIsDragging] = useState(false);
 
   const [chapterData, setChapterData] = useState<any>(null);
@@ -40,7 +41,6 @@ function KomponenPembelajaran() {
   const inputRef = useRef<HTMLInputElement>(null);
   const isInitializing = useRef(false);
   
-  // 🌟 KEMAS KINI UTAMA: SELARASKAN HAD FASA DENGAN API CHAT
   const maxFasa = arasDariURL === "rendah" ? 2 : arasDariURL === "sederhana" ? 3 : 6;
   
   const phaseNames = arasDariURL === "rendah" 
@@ -55,9 +55,7 @@ function KomponenPembelajaran() {
         const docRef = doc(db, "chapters", pdfFileName);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) setChapterData(docSnap.data());
-      } catch (error) {
-        console.error("Ralat ambil data bab:", error);
-      }
+      } catch (error) { console.error("Ralat ambil data bab:", error); }
     };
     fetchChapterData();
   }, [pdfFileName]);
@@ -72,15 +70,10 @@ function KomponenPembelajaran() {
       const babStr = `Bab ${babNum}`;
 
       try {
-        const q = query(
-          collection(db, "questionBank"),
-          where("tingkatan", "==", tg),
-          where("bab", "==", babStr)
-        );
+        const q = query(collection(db, "questionBank"), where("tingkatan", "==", tg), where("bab", "==", babStr));
         const snap = await getDocs(q);
         
-        let soalanGabungan = "";
-        let skemaGabungan = "";
+        let soalanGabungan = ""; let skemaGabungan = "";
 
         snap.forEach((docSnap) => {
           const data = docSnap.data();
@@ -101,26 +94,14 @@ function KomponenPembelajaran() {
              }
            });
         }
-        setKoleksiSoalan(soalanGabungan);
-        setKoleksiSkema(skemaGabungan);
-      } catch (error) {
-        console.error("Ralat tarik bank soalan:", error);
-      }
+        setKoleksiSoalan(soalanGabungan); setKoleksiSkema(skemaGabungan);
+      } catch (error) { console.error("Ralat tarik bank soalan:", error); }
     };
     tarikSoalanPeperiksaan();
   }, [chapterId, currentSub]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  useEffect(() => {
-    if (!isLoading && inputRef.current && !isMastered) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-    }
-  }, [isLoading, isMastered]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => { if (!isLoading && inputRef.current && !isMastered) setTimeout(() => { inputRef.current?.focus(); }, 100); }, [isLoading, isMastered]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -131,29 +112,17 @@ function KomponenPembelajaran() {
       setLeftWidth(newWidth);
     };
     const handleMouseUp = () => { if (isDragging) setIsDragging(false); };
-
-    if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.userSelect = "none";
-    } else {
-      document.body.style.userSelect = "";
-    }
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      document.body.style.userSelect = "";
-    };
+    if (isDragging) { document.addEventListener("mousemove", handleMouseMove); document.addEventListener("mouseup", handleMouseUp); document.body.style.userSelect = "none"; } 
+    else { document.body.style.userSelect = ""; }
+    return () => { document.removeEventListener("mousemove", handleMouseMove); document.removeEventListener("mouseup", handleMouseUp); document.body.style.userSelect = ""; };
   }, [isDragging]);
 
-  const formatTajuk = (id: string) => id.replace('tingkatan', 'Tingkatan ').replace('_bab', ' Bab ').replace('_sub', ' Subtopik ');
+  const formatTajuk = (id: string) => id.replace('tingkatan', 'Tg. ').replace('_bab', ' Bab ').replace('_sub', ' - Subtopik ');
 
   const subtopicsList = chapterData?.subtopics || []; 
   const currentIndex = subtopicsList.findIndex((s: any) => s.id === currentSub);
-  
   const currentSubInfo = subtopicsList.find((s: any) => s.id === currentSub);
   const pageNumber = currentSubInfo ? currentSubInfo.startPage : 1;
-
   const namaBabSebenar = chapterData?.title || "";
   const namaSubtopikSebenar = currentSubInfo?.title || "";
 
@@ -163,13 +132,9 @@ function KomponenPembelajaran() {
     try {
       const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/|live\/)([^#\&\?]*).*/;
       const match = rawUrl.match(regExp);
-      if (match && match[2].length === 11) {
-        return "https://www.youtube.com/embed/" + match[2];
-      }
+      if (match && match[2].length === 11) return "https://www.youtube.com/embed/" + match[2];
       return rawUrl;
-    } catch (e) {
-      return rawUrl;
-    }
+    } catch (e) { return rawUrl; }
   };
   const videoKhas = getBimbinganVideoUrl();
 
@@ -190,9 +155,7 @@ function KomponenPembelajaran() {
     if (currentIndex !== -1 && currentIndex + 1 < subtopicsList.length) {
       const nextSub = subtopicsList[currentIndex + 1].id;
       window.location.href = `?bab=${pdfFileName}_sub${nextSub}&aras=${arasDariURL}`;
-    } else {
-      window.location.href = '/murid'; 
-    }
+    } else { window.location.href = '/murid'; }
   };
 
   useEffect(() => {
@@ -207,35 +170,18 @@ function KomponenPembelajaran() {
 
       const docSnap = await getDoc(sessionDocRef);
       if (!docSnap.exists()) {
-        await setDoc(sessionDocRef, {
-          studentId: studentId,
-          chapterId: chapterId,
-          currentPhase: 1,
-          status: "in_progress",
-          startedAt: serverTimestamp(),
-        });
-
-        await addDoc(messagesCollectionRef, {
-          role: "assistant",
-          content: `Hai! Saya I-RAGs 🤖. Jom mulakan sesi bimbingan pantas untuk topik **${namaBabSebenar.toUpperCase()} (${currentSub} ${namaSubtopikSebenar})**. Boleh beritahu saya, apa yang awak paling ingat tentang tajuk ini?`,
-          timestamp: serverTimestamp()
-        });
+        await setDoc(sessionDocRef, { studentId, chapterId, currentPhase: 1, status: "in_progress", startedAt: serverTimestamp() });
+        await addDoc(messagesCollectionRef, { role: "assistant", content: `Hai! Saya Cikgu AI I-RAGs 👋. Kita akan mulakan sesi untuk **${namaBabSebenar} (${currentSub} ${namaSubtopikSebenar})**.\n\nBerdasarkan nota, apa yang awak paling ingat atau faham tentang tajuk ini? Cuba kongsikan.`, timestamp: serverTimestamp() });
       } else {
         const dataSesi = docSnap.data();
-        // 🌟 Pastikan fasa semasa tidak lebih besar dari maxFasa baharu
         let fasaTerkini = dataSesi.currentPhase || 1;
         if (fasaTerkini > maxFasa) fasaTerkini = maxFasa;
-        
         setCurrentPhase(fasaTerkini);
-        if (dataSesi.status === "completed" || fasaTerkini >= maxFasa && dataSesi.status === "completed") {
-            setIsMastered(true);
-        }
+        if (dataSesi.status === "completed" || (fasaTerkini >= maxFasa && dataSesi.status === "completed")) setIsMastered(true);
       }
     };
     
-    if (chapterData) {
-      inisialisasiSesi();
-    }
+    if (chapterData) inisialisasiSesi();
 
     const q = query(messagesCollectionRef, orderBy("timestamp", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -244,30 +190,26 @@ function KomponenPembelajaran() {
     });
 
     return () => unsubscribe();
-  }, [sessionId, chapterId, studentId, chapterData, maxFasa]); 
+  }, [sessionId, chapterId, studentId, chapterData, maxFasa, currentSub, namaBabSebenar, namaSubtopikSebenar]); 
 
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim()) return;
 
     const teksMurid = input;
-    setInput("");
-    setIsLoading(true);
+    setInput(""); setIsLoading(true);
 
     const sessionDocRef = doc(db, "chat_sessions", sessionId);
     const messagesCollectionRef = collection(sessionDocRef, "messages");
 
     try {
       await addDoc(messagesCollectionRef, { role: "user", content: teksMurid, timestamp: serverTimestamp() });
-
       const teksRujukanAI = currentSubInfo?.teksAI || "";
 
       const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          studentId, chapterId, text: teksMurid, currentPhase, aras: arasDariURL,
-          soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema,
+          studentId, chapterId, text: teksMurid, currentPhase, aras: arasDariURL, soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema,
           tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, 
           previousMessages: messages.slice(-4).map(m => ({ role: m.role, content: m.content })) 
         })
@@ -284,173 +226,159 @@ function KomponenPembelajaran() {
             setCurrentPhase(nextPhase);
             await updateDoc(sessionDocRef, { currentPhase: nextPhase });
             
-            await addDoc(messagesCollectionRef, {
-              role: "assistant",
-              content: `✨ Terbaik! Awak dah lepasi Fasa ${currentPhase}. Mari kita ke **Fasa ${nextPhase} (${phaseNames[nextPhase-1]})** pula.`,
-              timestamp: serverTimestamp()
-            });
+            await addDoc(messagesCollectionRef, { role: "assistant", content: `✨ Terbaik! Awak dah menguasai Fasa ${currentPhase}. Mari kita ke **Fasa ${nextPhase} (${phaseNames[nextPhase-1]})**.`, timestamp: serverTimestamp() });
 
             const autoTriggerResponse = await fetch('/api/chat', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
-                studentId, chapterId, aras: arasDariURL,
-                currentPhase: nextPhase, 
-                text: `[SISTEM AUTO]: Murid telah lulus fasa tadi. Sila berikan SOALAN PERTAMA anda untuk menguji murid bagi FASA ${nextPhase} pula. Terus tanya 1 soalan, jangan berbasa-basi panjang.`, 
-                soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema,
-                tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, 
-                previousMessages: [] 
+                studentId, chapterId, aras: arasDariURL, currentPhase: nextPhase, 
+                text: `[SISTEM AUTO]: Murid lulus fasa tadi. Berikan SOALAN PERTAMA untuk menguji FASA ${nextPhase}. Tanya 1 soalan, jangan berbasa-basi.`, 
+                soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema, tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, previousMessages: [] 
               })
             });
 
             const autoData = await autoTriggerResponse.json();
-            if (autoData.reply) {
-              await addDoc(messagesCollectionRef, { role: "assistant", content: autoData.reply, timestamp: serverTimestamp() });
-            }
+            if (autoData.reply) await addDoc(messagesCollectionRef, { role: "assistant", content: autoData.reply, timestamp: serverTimestamp() });
 
           } else if (currentPhase >= maxFasa) {
             setIsMastered(true);
             await updateDoc(sessionDocRef, { status: "completed" });
-            
-            await addDoc(messagesCollectionRef, {
-              role: "assistant",
-              content: `🎉 **SYABAS!** Awak dah buktikan kefahaman yang sangat baik. Bimbingan tamat dengan cemerlang! Sila klik butang di bawah untuk tamatkan.`,
-              timestamp: serverTimestamp()
-            });
+            await addDoc(messagesCollectionRef, { role: "assistant", content: `🎉 **SYABAS!** Kefahaman awak sangat cemerlang. Bimbingan subtopik ini selesai. Sila tekan butang Seterusnya.`, timestamp: serverTimestamp() });
           }
         }
       }
-    } catch (error) {
-      console.error("Ralat:", error);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (error) { console.error("Ralat:", error); } finally { setIsLoading(false); }
   };
 
-  const sendQuickPrompt = (text: string) => {
-    setInput(text);
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 50);
-  };
+  const sendQuickPrompt = (text: string) => { setInput(text); setTimeout(() => { inputRef.current?.focus(); }, 50); };
 
+  // ===============================================
+  // REKA BENTUK UI BARU: PROFESIONAL & MODEN
+  // ===============================================
   return (
-    <div className="flex flex-col lg:flex-row h-screen bg-slate-50 overflow-hidden font-sans relative">
+    <div className="flex flex-col lg:flex-row h-screen bg-slate-100 overflow-hidden font-sans relative">
       
-      <div 
-        className={`${showPdfMobile ? 'flex absolute inset-0 z-50 bg-white' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-xl lg:shadow-none h-full lg:w-[var(--left-width)]`}
-        style={{ "--left-width": `${leftWidth}%` } as React.CSSProperties}
-      >
-        <div className="bg-slate-800 text-white p-3 lg:p-4 shadow-sm flex items-center justify-between gap-3 z-30 shrink-0">
-          <button onClick={() => window.location.href = '/murid'} className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 transition shrink-0">
-            ⬅️ <span className="hidden sm:inline">Dashboard</span>
+      {/* 🟢 PANEL KIRI: PDF & VIDEO (DESKTOP) ATAU POP-UP (MOBILE) */}
+      <div className={`${showPdfMobile ? 'fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-sm' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-2xl lg:shadow-none h-full lg:w-[var(--left-width)]`} style={{ "--left-width": `${leftWidth}%` } as React.CSSProperties}>
+        
+        {/* HEADER MODAL NOTA (Mobile sahaja nampak X, Desktop nampak nama Nota) */}
+        <div className="bg-slate-900 text-white p-3 lg:p-4 shadow-md flex items-center justify-between gap-3 z-30 shrink-0 border-b border-slate-700">
+          <button onClick={() => window.location.href = '/murid'} className="hidden lg:flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-bold text-slate-300 transition shrink-0 border border-slate-600">
+            <ArrowLeft size={16}/> Kembali
           </button>
-          <h2 className="text-sm lg:text-lg font-bold truncate capitalize flex items-center gap-2">
-            {showVideoModal ? `🎬 Video Bimbingan` : `📄 Nota: ${chapterData ? chapterData.title : formatTajuk(chapterId)}`}
+          
+          <h2 className="text-sm lg:text-base font-bold truncate flex items-center gap-2 text-sky-100">
+            {showVideoModal ? <><Video size={18} className="text-red-400"/> Video Bimbingan</> : <><BookOpen size={18} className="text-sky-400"/> Nota: {chapterData ? chapterData.title : formatTajuk(chapterId)}</>}
           </h2>
-          <button onClick={() => setShowPdfMobile(false)} className="lg:hidden bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">
-            Tutup ✖
+          
+          {/* Tunjuk di Mobile sahaja untuk tutup PDF */}
+          <button onClick={() => setShowPdfMobile(false)} className="lg:hidden bg-slate-700 hover:bg-slate-600 text-slate-300 p-2 rounded-full transition-colors">
+            <X size={20}/>
           </button>
         </div>
         
-       <div className="flex-1 w-full h-full bg-gray-200 relative flex flex-col">
+        {/* KAWASAN KANDUNGAN NOTA / VIDEO */}
+        <div className="flex-1 w-full h-full bg-slate-100 relative flex flex-col">
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
           
+          {/* MODAL VIDEO YOUTUBE KECIL JIKA DITEKAN */}
           <div className={`absolute inset-0 z-40 flex flex-col bg-slate-900 transition-all duration-300 ${showVideoModal ? "opacity-100 visible pointer-events-auto" : "opacity-0 invisible pointer-events-none"}`}>
-               <div className="bg-red-600 text-white p-3 flex justify-between items-center px-4 shadow-md z-20">
-                  <span className="font-bold text-sm flex items-center gap-2">📺 Tonton & Fahamkan Video Ini</span>
-                  <button onClick={() => setShowVideoModal(false)} className="bg-white text-red-600 hover:bg-gray-100 px-4 py-2 rounded-lg text-xs font-bold transition-colors shadow">
-                    Kembali ke Nota ✖
+               <div className="bg-red-600/20 text-white p-3 flex justify-between items-center px-4 shadow-md z-20 border-b border-red-500/30">
+                  <span className="font-bold text-sm flex items-center gap-2 text-red-100"><PlayCircle size={18} className="text-red-400"/> Tonton & Fahamkan</span>
+                  <button onClick={() => setShowVideoModal(false)} className="bg-slate-800/80 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-slate-600 flex items-center gap-1">
+                    <BookOpen size={14}/> Baca Nota
                   </button>
                </div>
                <div className="flex-1 w-full h-full flex items-center justify-center p-4 relative bg-black">
                   {videoKhas ? (
-                    <iframe 
-                      className="w-full h-full max-h-[70vh] aspect-video rounded-xl shadow-2xl border-2 border-slate-700"
-                      src={showVideoModal ? videoKhas : ""} 
-                      title="Video Bimbingan" 
-                      frameBorder="0" 
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                      allowFullScreen
-                    ></iframe>
+                    <iframe className="w-full h-full max-h-[70vh] aspect-video rounded-xl shadow-2xl border border-slate-700" src={showVideoModal ? videoKhas : ""} title="Video Bimbingan" frameBorder="0" allowFullScreen></iframe>
                   ) : (
                     <div className="text-center text-slate-400">
-                      <p className="text-4xl mb-2">📭</p>
-                      <p>Maaf, cikgu belum letak link YouTube untuk subtopik ini.</p>
-                      <button onClick={() => setShowVideoModal(false)} className="mt-4 bg-slate-700 text-white px-4 py-2 rounded-lg text-sm">Kembali ke Nota</button>
+                      <Video size={48} className="mx-auto mb-3 opacity-30"/>
+                      <p>Maaf, cikgu belum memasukkan link YouTube untuk subtopik ini.</p>
+                      <button onClick={() => setShowVideoModal(false)} className="mt-6 bg-sky-600 hover:bg-sky-500 text-white px-5 py-2.5 rounded-xl font-bold shadow-md">Kembali ke Nota</button>
                     </div>
                   )}
                </div>
           </div>
 
           <div className="absolute inset-0 w-full h-full z-10 bg-white">
-              <iframe 
-                src={getNotaUrl()}
-                className="w-full h-full border-0" 
-                title="Nota/Slaid Bimbingan" 
-              />
+              <iframe src={getNotaUrl()} className="w-full h-full border-0" title="Nota Bimbingan"/>
           </div>
         </div>
       </div>
 
+      {/* DRAGGER PEMBAHAGI SCREEN (DESKTOP) */}
       <div 
-        className="hidden lg:flex flex-col justify-center items-center w-2 bg-gray-200 hover:bg-blue-500 active:bg-blue-600 cursor-col-resize z-30 transition-colors"
+        className="hidden lg:flex flex-col justify-center items-center w-1.5 bg-slate-300 hover:bg-sky-500 active:bg-sky-600 cursor-col-resize z-30 transition-colors"
         onMouseDown={() => setIsDragging(true)}
       >
-        <div className="h-12 w-1 bg-gray-400 rounded-full"></div>
+        <div className="h-8 w-1 bg-slate-400 rounded-full"></div>
       </div>
 
-      <div className="w-full lg:flex-1 h-full bg-white shadow-2xl flex flex-col border-t-4 lg:border-t-0 z-10 relative">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-3 lg:p-5 flex flex-col gap-2 shadow-md shrink-0">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 lg:gap-3">
-              <button onClick={() => window.location.href = '/murid'} className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition lg:hidden" title="Kembali ke Dashboard">
-                ⬅️
+      {/* 🟢 PANEL KANAN: CHATBOT AI */}
+      <div className="w-full lg:flex-1 h-full bg-white flex flex-col z-10 relative">
+        
+        {/* HEADER CHAT */}
+        <div className="bg-gradient-to-r from-sky-700 to-indigo-800 text-white p-3 lg:p-5 shadow-lg shrink-0 z-10 relative">
+          
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <button onClick={() => window.location.href = '/murid'} className="lg:hidden p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors border border-white/10 text-white">
+                <ArrowLeft size={18}/>
               </button>
-              <div className="text-2xl lg:text-4xl bg-white rounded-full p-1 shadow-sm">🤖</div>
+              
+              <div className="w-10 h-10 lg:w-12 lg:h-12 bg-white rounded-full flex items-center justify-center shadow-md p-1 border-2 border-sky-200 shrink-0">
+                 <Bot size={28} className="text-sky-600"/>
+              </div>
               <div>
-                <h2 className="font-extrabold text-base lg:text-xl tracking-wide leading-tight">I-RAGs Tutor</h2>
-                <p className="text-blue-100 text-[10px] lg:text-xs font-medium">Bimbingan Aras {arasDariURL === "rendah" ? "Rendah" : arasDariURL === "sederhana" ? "Sederhana" : "Tinggi"}</p>
+                <h2 className="font-extrabold text-base lg:text-xl tracking-wide">Cikgu AI I-RAGs</h2>
+                <p className="text-sky-200 text-[10px] lg:text-xs font-medium flex items-center gap-1">
+                  Aras {arasDariURL.charAt(0).toUpperCase() + arasDariURL.slice(1)} <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block animate-pulse"></span>
+                </p>
               </div>
             </div>
-            <button onClick={() => setShowPdfMobile(true)} className="lg:hidden bg-amber-400 hover:bg-amber-500 text-amber-900 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 shadow-sm">
-              📖 Baca Nota
+
+            {/* Butang buka nota di skrin telefon */}
+            <button onClick={() => setShowPdfMobile(true)} className="lg:hidden bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-2 shadow-md">
+              <BookOpen size={16}/> Nota
             </button>
           </div>
 
-          <div className="flex gap-1 overflow-hidden mt-1 bg-black/20 p-1.5 rounded-lg">
+          {/* Navigasi Subtopik Puncak */}
+          <div className="flex gap-1 overflow-x-auto mt-1 bg-black/20 p-1.5 rounded-xl no-scrollbar">
             {subtopicsList.length > 0 ? subtopicsList.map((sub: any, index: number) => {
               const isPast = index < currentIndex;
               const isActive = index === currentIndex;
               let style = "bg-white/10 text-white/50 border border-white/5"; 
-              let icon = "🔒";
-              if (isPast) { style = "bg-emerald-500/80 text-white border-emerald-400"; icon = "✅"; }
-              if (isActive) { style = "bg-sky-400 text-sky-950 font-bold border-white shadow-sm"; icon = "🚀"; }
+              if (isPast) style = "bg-emerald-500 text-white border-emerald-400 font-bold shadow-sm"; 
+              if (isActive) style = "bg-sky-100 text-sky-900 font-bold border-white shadow-sm ring-2 ring-sky-300"; 
               
               return (
-                <div key={sub.id} className={`flex-1 text-center py-1 rounded text-[9px] lg:text-[11px] truncate px-1 transition-all ${style}`} title={sub.title}>
-                  {icon} {sub.id}
+                <div key={sub.id} className={`flex-1 text-center py-1.5 rounded-md text-[10px] lg:text-[11px] truncate px-2 transition-all min-w-[50px] ${style}`} title={sub.title}>
+                  {sub.id}
                 </div>
               );
             }) : <div className="text-xs text-white/70 italic text-center w-full">Memuatkan subtopik...</div>}
           </div>
 
-          <div className="bg-black/20 rounded-xl p-2 lg:p-3 mt-1 backdrop-blur-sm">
-            <div className="flex justify-between items-center mb-1.5 lg:mb-2">
-              <span className="text-[10px] lg:text-xs font-bold text-blue-100 bg-white/10 px-2 py-0.5 rounded-full">Fasa Semasa</span>
-              <span className="text-[10px] lg:text-xs font-bold text-yellow-300">{currentPhase} / {maxFasa}</span>
+          {/* Progress Fasa Taksonomi Bloom */}
+          <div className="bg-black/20 rounded-xl p-3 mt-2 backdrop-blur-md border border-white/10">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[10px] lg:text-xs font-bold text-sky-100 uppercase tracking-wider">Fasa Inkuiri (Bloom)</span>
+              <span className="text-[10px] lg:text-xs font-extrabold text-amber-300 bg-amber-900/30 px-2 py-0.5 rounded-md border border-amber-500/30">{currentPhase} / {maxFasa}</span>
             </div>
-            <div className="flex gap-1 w-full">
+            <div className="flex gap-1.5 w-full">
               {phaseNames.map((name, index) => {
                 const step = index + 1;
-                let bgClass = "bg-gray-400/50"; 
-                if (step === currentPhase) bgClass = "bg-yellow-400 animate-pulse"; 
+                let bgClass = "bg-slate-500/50"; 
+                if (step === currentPhase) bgClass = "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]"; 
                 if (step < currentPhase) bgClass = "bg-emerald-400"; 
                 
                 return (
-                  <div key={step} className="flex-1 flex flex-col items-center gap-1">
+                  <div key={step} className="flex-1 flex flex-col items-center gap-1.5">
                     <div className={`h-1.5 lg:h-2 w-full rounded-full ${bgClass} transition-all duration-500`}></div>
-                    <span className={`text-[8px] lg:text-[10px] font-bold ${step === currentPhase ? 'text-yellow-300' : 'text-blue-200'}`}>
+                    <span className={`text-[8px] lg:text-[9px] font-bold uppercase tracking-wider ${step === currentPhase ? 'text-amber-300' : step < currentPhase ? 'text-emerald-300' : 'text-slate-400'}`}>
                       {name}
                     </span>
                   </div>
@@ -460,72 +388,91 @@ function KomponenPembelajaran() {
           </div>
         </div>
 
-        <div className="flex-1 p-3 lg:p-5 overflow-y-auto bg-[url('/bg-chat-pattern.png')] bg-blue-50/30">
+        {/* KAWASAN KANDUNGAN CHAT */}
+        <div className="flex-1 p-3 lg:p-6 overflow-y-auto bg-slate-50 relative custom-scrollbar">
+          
+          <div className="text-center mb-6 mt-2">
+             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-200 px-3 py-1 rounded-full">Sesi Bermula</span>
+          </div>
+
           {messages.map((msg) => (
-            <div key={msg.id} className={`mb-3 lg:mb-4 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`p-3 lg:p-5 rounded-2xl lg:rounded-3xl max-w-[90%] lg:max-w-[85%] text-sm lg:text-base font-medium leading-relaxed shadow-sm lg:shadow-md ${
-                msg.role === "user" ? "bg-blue-500 text-white rounded-br-none" : "bg-white text-gray-800 border-2 border-blue-100 rounded-bl-none"
+            <div key={msg.id} className={`mb-4 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              {msg.role === "assistant" && (
+                <div className="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center shrink-0 mr-2 mt-auto border border-sky-200 hidden md:flex">
+                  <Bot size={16} className="text-sky-600"/>
+                </div>
+              )}
+              
+              <div className={`px-4 py-3 rounded-2xl max-w-[90%] md:max-w-[80%] text-sm md:text-base leading-relaxed shadow-sm ${
+                msg.role === "user" 
+                  ? "bg-sky-600 text-white rounded-br-sm" 
+                  : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"
               }`}>
-                <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                <div className="prose prose-sm md:prose-base prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
               </div>
             </div>
           ))}
+
           {isLoading && (
             <div className="flex justify-start mb-4">
-              <div className="p-3 lg:p-4 bg-white border-2 border-blue-100 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-2">
-                <span className="animate-bounce text-lg">💭</span>
-                <span className="text-gray-500 text-xs lg:text-sm italic font-medium">I-RAGs sedang menilai...</span>
+              <div className="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center shrink-0 mr-2 mt-auto border border-sky-200 hidden md:flex"><Bot size={16} className="text-sky-600"/></div>
+              <div className="px-4 py-3 bg-white border border-slate-200 rounded-2xl rounded-bl-sm shadow-sm flex items-center gap-3">
+                <Loader2 className="w-4 h-4 text-sky-500 animate-spin" />
+                <span className="text-slate-500 text-xs md:text-sm font-medium">I-RAGs sedang menaip...</span>
               </div>
             </div>
           )}
-          <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} className="h-2" />
         </div>
 
-        {!isLoading && !isMastered && (
-          <div className="flex flex-wrap gap-2 px-3 py-2 bg-gray-50 border-t border-gray-200 shrink-0">
-            <button onClick={() => sendQuickPrompt("Saya tak faham.")} className="bg-orange-100 text-orange-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-orange-200 shadow-sm">🤷‍♂️ Tak Faham</button>
-            <button onClick={() => sendQuickPrompt("Boleh bagi hint?")} className="bg-green-100 text-green-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-green-200 shadow-sm">💡 Beri Hint</button>
+        {/* INPUT TERLEKAT (STICKY FOOTER) */}
+        <div className="bg-white border-t border-slate-200 shadow-[0_-4px_15px_-10px_rgba(0,0,0,0.1)] shrink-0 z-20">
             
-            {arasDariURL === "rendah" && (
-              <button 
-                onClick={() => setShowVideoModal(true)} 
-                className="bg-red-100 text-red-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-red-200 shadow-sm flex items-center gap-1 ml-auto"
-              >
-                🎬 Tonton Video
-              </button>
+            {/* Butang Bantuan Cepat */}
+            {!isLoading && !isMastered && (
+              <div className="flex flex-wrap gap-2 px-4 py-2 bg-slate-50 border-b border-slate-100">
+                <button onClick={() => sendQuickPrompt("Boleh bagi hint atau klu sikit?")} className="bg-amber-100 text-amber-700 text-[11px] md:text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-200 transition-colors flex items-center gap-1.5 border border-amber-200/50">
+                  <Lightbulb size={14}/> Beri Hint
+                </button>
+                <button onClick={() => sendQuickPrompt("Saya kurang faham, boleh cikgu terangkan?")} className="bg-rose-100 text-rose-700 text-[11px] md:text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-rose-200 transition-colors flex items-center gap-1.5 border border-rose-200/50">
+                  <HelpCircle size={14}/> Tak Faham
+                </button>
+                {arasDariURL === "rendah" && (
+                  <button onClick={() => setShowVideoModal(true)} className="bg-purple-100 text-purple-700 text-[11px] md:text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors flex items-center gap-1.5 border border-purple-200/50 ml-auto">
+                    <PlayCircle size={14}/> Tonton Video
+                  </button>
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {isMastered ? (
-          <div className="p-4 lg:p-6 bg-emerald-50 border-t-4 border-emerald-500 text-center shrink-0">
-            <h3 className="text-lg lg:text-2xl font-extrabold text-emerald-700 mb-1">🏆 Subtopik Selesai! ✅</h3>
-            <p className="text-emerald-800 font-medium text-xs lg:text-sm mb-3">Syabas! Anda telah melengkapkan {maxFasa} Fasa Inkuiri.</p>
-            
-            <button 
-              onClick={gotoNextSubtopic} 
-              className="bg-emerald-600 text-white text-sm lg:text-lg font-bold px-6 py-3 rounded-full shadow-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 mx-auto"
-            >
-              <span>{currentIndex !== -1 && currentIndex + 1 < subtopicsList.length ? "Seterusnya" : "Selesai Bimbingan (Kembali)"}</span>
-              <span className="text-xl">{currentIndex !== -1 && currentIndex + 1 < subtopicsList.length ? "🔓🚀" : "🏠"}</span>
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={sendMessage} className="p-3 lg:p-4 bg-white border-t border-gray-200 flex gap-2 items-center shadow-inner shrink-0">
-            <input 
-              ref={inputRef}
-              type="text" 
-              value={input} 
-              onChange={(e) => setInput(e.target.value)} 
-              placeholder="Taip jawapan..." 
-              className="flex-1 border-2 border-gray-300 rounded-full px-4 py-2.5 text-sm lg:text-base focus:outline-none focus:border-blue-500" 
-              disabled={isLoading} 
-            />
-            <button type="submit" className="bg-blue-600 text-white rounded-full w-10 h-10 lg:w-12 lg:h-12 flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 text-xl" disabled={isLoading || !input.trim()}>
-              ➤
-            </button>
-          </form>
-        )}
+            {/* Borang Input Chat */}
+            {isMastered ? (
+              <div className="p-5 md:p-6 bg-emerald-50 text-center">
+                <div className="flex justify-center mb-2"><CheckCircle2 className="w-10 h-10 text-emerald-500" /></div>
+                <h3 className="text-lg md:text-xl font-bold text-emerald-800 mb-1">Subtopik Dikuasai!</h3>
+                <p className="text-emerald-700 font-medium text-xs md:text-sm mb-4">Syabas, anda cemerlang menyelesaikan bimbingan ini.</p>
+                <button onClick={gotoNextSubtopic} className="w-full md:w-auto mx-auto bg-emerald-600 text-white text-sm md:text-base font-bold px-8 py-3 rounded-xl shadow-lg hover:bg-emerald-700 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
+                  {currentIndex !== -1 && currentIndex + 1 < subtopicsList.length ? <>Seterusnya <ArrowLeft className="w-5 h-5 rotate-180"/></> : "Selesai Bimbingan (Kembali)"}
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={sendMessage} className="p-3 md:p-4 flex gap-2 items-end">
+                <textarea 
+                  ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+                  value={input} 
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                  placeholder="Taip jawapan anda di sini..." 
+                  className="flex-1 bg-slate-100 text-slate-900 placeholder-slate-400 border border-slate-300 rounded-2xl px-4 py-3 text-sm md:text-base focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 resize-none min-h-[50px] max-h-[120px]" 
+                  disabled={isLoading}
+                  rows={1}
+                />
+                <button type="submit" disabled={isLoading || !input.trim()} className="bg-sky-600 text-white rounded-2xl w-12 h-12 md:w-14 md:h-14 shrink-0 flex items-center justify-center hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-colors">
+                  <Send size={20} className={input.trim() && !isLoading ? "translate-x-0.5" : ""} />
+                </button>
+              </form>
+            )}
+        </div>
       </div>
     </div>
   );
@@ -533,7 +480,7 @@ function KomponenPembelajaran() {
 
 export default function SplitScreenLearning() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center text-xl font-bold text-blue-600 animate-pulse">Sistem sedang dimuatkan...</div>}>
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-50 flex-col gap-4"><Loader2 className="w-10 h-10 animate-spin text-sky-600"/><div className="text-sm font-bold text-slate-500">Memuatkan Sistem...</div></div>}>
       <KomponenPembelajaran />
     </Suspense>
   );

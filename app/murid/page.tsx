@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, Gamepad2, AlertTriangle, Clock, FileSearch, Award, MessageSquare
+  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, Gamepad2, AlertTriangle, Clock, FileSearch, Award, MessageSquare, Send, X, Loader2
 } from "lucide-react";
 import { collection, query, where, getDocs, doc, getDoc, addDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase"; 
@@ -54,6 +54,7 @@ export default function MuridDashboard() {
   
   // State untuk Maklum Balas (Feedback)
   const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackJenis, setFeedbackJenis] = useState("Pujian"); // Ditambah untuk padan dengan Admin
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -136,17 +137,23 @@ export default function MuridDashboard() {
     return `sub${chapterData.subtopics[chapterData.subtopics.length - 1].id}`;
   };
 
+  // 🌟 FUNGSI PENGHANTARAN MAKLUM BALAS YANG DIBETULKAN
   const hantarMaklumBalas = async () => {
     if (!feedbackMsg.trim()) return;
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, "feedback"), {
-        idMurid: userData?.idPengguna || userData?.id || "Tiada ID",
+      // PASTIKAN NAMA KOLEKSI IALAH "maklum_balas_murid" SUPAYA ADMIN BOLEH BACA
+      await addDoc(collection(db, "maklum_balas_murid"), {
+        muridId: userData?.idPengguna || userData?.id || "Tiada ID",
         namaMurid: userData?.nama || userData?.name || "Pelajar",
+        tingkatan: userData?.tingkatan || "Tiada Maklumat",
+        kelas: userData?.kelas || "Tiada Maklumat",
+        jenis: feedbackJenis, // Wajib ada untuk penapisan admin
         mesej: feedbackMsg,
         tarikh: new Date().toISOString()
       });
       setFeedbackMsg("");
+      setFeedbackJenis("Pujian"); // Reset dropdown
       setShowFeedback(false);
       alert("Terima kasih! Maklum balas anda telah dihantar kepada guru.");
     } catch (error) {
@@ -464,79 +471,70 @@ export default function MuridDashboard() {
       {/* 🌟 BUTANG TERAPUNG FEEDBACK */}
       <button 
         onClick={() => setShowFeedback(true)}
-        className="fixed bottom-6 right-6 bg-slate-800 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform z-50 flex items-center justify-center border-2 border-white/20"
+        className="fixed bottom-6 right-6 bg-slate-800 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform z-50 flex items-center justify-center border-2 border-white/20 group"
         title="Beri Maklum Balas"
       >
         <MessageSquare className="w-6 h-6" />
+        <span className="absolute right-14 bg-slate-800 text-amber-400 text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity border border-slate-700 whitespace-nowrap pointer-events-none">
+          Suara Pelajar
+        </span>
       </button>
 
-      {/* 🌟 MODAL FEEDBACK */}
+      {/* 🌟 MODAL FEEDBACK YANG DIBETULKAN (Mempunyai "Jenis") */}
       <AnimatePresence>
         {showFeedback && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+              
+              {/* Header Modal */}
               <div className="bg-slate-800 p-5 text-white flex justify-between items-center">
-                <h3 className="font-bold text-lg flex items-center gap-2"><MessageSquare className="w-5 h-5"/> Suara Anda</h3>
-                <button onClick={() => setShowFeedback(false)} className="text-slate-400 hover:text-white transition">✖</button>
+                <h3 className="font-bold text-lg flex items-center gap-2"><MessageSquare className="w-5 h-5 text-amber-400"/> Suara Pelajar</h3>
+                <button onClick={() => setShowFeedback(false)} className="text-slate-400 hover:text-rose-400 transition-colors"><X className="w-6 h-6" /></button>
               </div>
+
+              {/* Isi Kandungan Modal */}
               <div className="p-6">
-                <p className="text-sm text-slate-600 mb-4">Sila tulis pandangan, cadangan atau komen anda untuk membantu meningkatkan mutu Laman Pembelajaran HUB I-RAGS. Cikgu Nic akan membacanya!</p>
-                <textarea
-                  value={feedbackMsg}
-                  onChange={(e) => setFeedbackMsg(e.target.value)}
-                  placeholder="Contoh: Saya suka main game tadi! Tapi kadang-kadang AI lambat sikit balas..."
-                  className="w-full p-4 border-2 border-slate-200 rounded-xl focus:border-slate-800 focus:ring-0 resize-y min-h-[120px] text-sm"
-                ></textarea>
+                <p className="text-sm text-slate-600 mb-6">Kongsi pandangan, aduan masalah, atau pujian tentang Hub I-RAGs. Cikgu akan membaca dan mengambil maklum!</p>
+                
+                {/* PILIHAN JENIS (Wajib utk filter Admin) */}
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Kategori</label>
+                  <select 
+                    value={feedbackJenis} 
+                    onChange={(e) => setFeedbackJenis(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-700 text-sm focus:border-sky-500 outline-none font-medium"
+                  >
+                    <option value="Pujian">🌟 Pujian / Berpuas Hati</option>
+                    <option value="Cadangan">💡 Cadangan Penambahbaikan</option>
+                    <option value="Masalah">⚠️ Masalah Sistem / Ralat</option>
+                    <option value="Lain-lain">💬 Lain-lain</option>
+                  </select>
+                </div>
+
+                <div className="mb-2">
+                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Mesej Anda</label>
+                   <textarea
+                     value={feedbackMsg}
+                     onChange={(e) => setFeedbackMsg(e.target.value)}
+                     placeholder="Contoh: Saya suka main game tadi! Tapi kadang-kadang AI lambat sikit balas..."
+                     className="w-full p-4 bg-slate-50 border border-slate-300 rounded-xl focus:border-sky-500 outline-none resize-y min-h-[120px] text-sm text-slate-800"
+                   ></textarea>
+                </div>
+
                 <button 
                   onClick={hantarMaklumBalas}
                   disabled={isSubmitting || !feedbackMsg.trim()}
-                  className={`w-full mt-4 py-3 rounded-xl font-bold text-white transition-colors ${isSubmitting || !feedbackMsg.trim() ? 'bg-slate-300 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700'}`}
+                  className={`w-full mt-4 py-3.5 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-colors ${isSubmitting || !feedbackMsg.trim() ? 'bg-slate-300 cursor-not-allowed text-slate-500' : 'bg-slate-800 hover:bg-slate-700 shadow-md'}`}
                 >
+                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                   {isSubmitting ? 'Menghantar...' : 'Hantar Maklum Balas'}
                 </button>
               </div>
+
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-{/* BUTANG TERAPUNG FEEDBACK */}
-        <button 
-          onClick={() => setShowFeedback(true)}
-          className="fixed bottom-6 right-6 bg-slate-800 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform z-50 flex items-center justify-center"
-          title="Beri Maklum Balas"
-        >
-          <MessageSquare className="w-6 h-6" />
-        </button>
-
-        {/* MODAL FEEDBACK */}
-        <AnimatePresence>
-          {showFeedback && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-              <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
-                <div className="bg-slate-800 p-5 text-white flex justify-between items-center">
-                  <h3 className="font-bold text-lg flex items-center gap-2"><MessageSquare className="w-5 h-5"/> Suara Anda</h3>
-                  <button onClick={() => setShowFeedback(false)} className="text-slate-400 hover:text-white transition">✖</button>
-                </div>
-                <div className="p-6">
-                  <p className="text-sm text-slate-600 mb-4">Ada sebarang masalah, cadangan, atau pujian tentang Hub I-RAGs? Tuliskan di bawah. Cikgu akan membacanya!</p>
-                  <textarea
-                    value={feedbackMsg}
-                    onChange={(e) => setFeedbackMsg(e.target.value)}
-                    placeholder="Contoh: Saya suka main game tadi! Tapi kadang-kadang AI lambat sikit balas..."
-                    className="w-full p-4 border-2 border-slate-200 rounded-xl focus:border-slate-800 focus:ring-0 resize-y min-h-[120px] text-sm"
-                  ></textarea>
-                  <button 
-                    onClick={hantarMaklumBalas}
-                    disabled={isSubmitting || !feedbackMsg.trim()}
-                    className={`w-full mt-4 py-3 rounded-xl font-bold text-white transition-colors ${isSubmitting || !feedbackMsg.trim() ? 'bg-slate-300 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700'}`}
-                  >
-                    {isSubmitting ? 'Menghantar...' : 'Hantar Maklum Balas'}
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
     </div>
   );
 }
