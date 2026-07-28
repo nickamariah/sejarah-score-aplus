@@ -23,94 +23,103 @@ export async function POST(req) {
       teksRujukanAI     
     } = await req.json();
 
+    const tahapMurid = aras ? aras.toLowerCase() : "rendah"; 
+
     // ==========================================
-    // LOGIK FASA INKUIRI 
+    // 🌟 KEMAS KINI: LOGIK PINTASAN FASA (BYPASS)
+    // ==========================================
+    // Murid Rendah: Fasa 1 & 2 sahaja.
+    // Murid Sederhana: Fasa 1, 2, & 3 sahaja.
+    let maxPhase = 6;
+    if (tahapMurid === "rendah") maxPhase = 2;
+    else if (tahapMurid === "sederhana") maxPhase = 3;
+
+    // Jika sistem meminta fasa yang melebihi had aras murid, 
+    // AI terus auto-luluskan tanpa perlu menyoal.
+    if (currentPhase > maxPhase) {
+      return new Response(JSON.stringify({
+        reply: "Tahniah! Anda telah melengkapkan bimbingan yang diperlukan untuk tahap anda. Sila klik terus ke fasa seterusnya untuk menamatkan sesi ini. 🎉",
+        isPhaseComplete: true
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    // ==========================================
+    // LOGIK FASA INKUIRI (HANYA BERLAKU JIKA DALAM HAD)
     // ==========================================
     let arahanFasa = "";
     if (currentPhase === 1) {
-      arahanFasa = `FASA 1 (MENGINGAT/MENGETAHUI): Uji pengetahuan asas murid berdasarkan fakta dalam [NOTA]. Pastikan soalan LOGIK dan BUKAN soalan bocor. (Contoh baik: "Apakah peranan raja?").`;
+      arahanFasa = `FASA 1 (MENGINGAT): Uji fakta asas dari nota. Jangan meleret. (Contoh: "Apakah...?", "Siapakah...?").`;
     } 
     else if (currentPhase === 2) {
-      arahanFasa = `FASA 2 (MEMAHAMI): Minta murid terangkan semula apa yang mereka faham menggunakan ayat mereka sendiri.`;
+      arahanFasa = `FASA 2 (MEMAHAMI): Minta murid terangkan sedikit dengan ayat mudah. (Contoh: "Boleh jelaskan kenapa...").`;
     } 
     else if (currentPhase === 3) {
-      arahanFasa = `FASA 3 (MENGAPLIKASI): Minta murid kaitkan fakta tersebut dengan situasi kehidupan harian atau nilai murni yang relevan.`;
+      arahanFasa = `FASA 3 (MENGAPLIKASI): Minta murid kaitkan dengan nilai murni atau kesan ringkas.`;
     } 
     else if (currentPhase === 4) {
-      arahanFasa = `FASA 4 (MENGANALISIS): Minta murid huraikan sebab dan akibat atau buat perbandingan.`;
+      arahanFasa = `FASA 4 (MENGANALISIS): Minta perbandingan atau sebab-akibat.`;
     } 
     else if (currentPhase === 5) {
-      arahanFasa = `FASA 5 (MENILAI): Minta murid buat penilaian, wajar atau tidak wajar sesuatu tindakan/peristiwa itu berlaku. Berikan sebab.`;
+      arahanFasa = `FASA 5 (MENILAI): Minta murid menilai kewajaran sesuatu peristiwa.`;
     }
     else if (currentPhase === 6) {
-      arahanFasa = `FASA 6 (MENCIPTA/REFLEKSI): Tanya 1 soalan KBAT/Refleksi.`;
+      arahanFasa = `FASA 6 (MENCIPTA): Tanya 1 soalan rumusan KBAT.`;
     }
 
     let personaTutor = "";
-    const tahapMurid = aras ? aras.toLowerCase() : "rendah"; 
-
     if (tahapMurid === "sederhana") {
       personaTutor = `
-      [GAYA PENGAJARAN: FASILITATOR]
-      - Anda berhadapan dengan murid Aras Sederhana. JANGAN BERIKAN JAWAPAN TERUS.
-      - Berikan klu (hints) berdasarkan gambar rajah/nota jika mereka buntu.`;
+      [GAYA PENGAJARAN: FASILITATOR (ARAS SEDERHANA)]
+      - Anda hanya akan menguji sehingga Fasa 3 sahaja.
+      - JANGAN BERIKAN JAWAPAN TERUS. Berikan klu (hints) jika buntu.`;
     } else {
       personaTutor = `
-      [GAYA PENGAJARAN: PEMBIMBING PENUH]
-      - Anda berhadapan dengan murid Aras Rendah. Gunakan bahasa SANGAT RINGKAS.
-      - Jika murid kelihatan buntu selepas mencuba, berikan jawapan betul beserta penerangan pendek.`;
+      [GAYA PENGAJARAN: PEMBIMBING (ARAS RENDAH)]
+      - Anda hanya akan menguji sehingga Fasa 2 sahaja.
+      - Gunakan bahasa SANGAT RINGKAS. Jika murid buntu atau beri jawapan salah, TERUS BERIKAN JAWAPAN BETUL dan minta mereka taip semula jawapan itu untuk lulus.`;
     }
 
-    // 🔥 KEMAS KINI: Hapus paksaan 2-3 soalan. Kita mahu proses yang cepat dan tidak membosankan.
-    const syaratBilanganSoalan = `3. PENDEKATAN SOALAN (ANTI-BOSAN):
-    - Tanya HANYA SATU (1) soalan pada satu-satu masa. JANGAN hantar 2-3 soalan serentak.
-    - Jika murid berjaya menjawab 1 soalan ini dengan tepat/logik, TERUS luluskan fasa ("isPhaseComplete": true). Jangan serabutkan murid dengan soalan meleret-leret.`;
-
     // ==========================================
-    // 🌟 SYSTEM PROMPT (DENGAN PAGAR & ANTI-BOSAN)
-    // ==========================================
-    // ==========================================
-    // 🌟 SYSTEM PROMPT (DENGAN PAGAR & KESEIMBANGAN TOPIK)
+    // 🌟 SYSTEM PROMPT (DENGAN ARAHAN ANTI-BOSAN)
     // ==========================================
     const systemPrompt = {
       role: "system",
-      content: `Anda ialah "I-RAGs Tutor", guru maya Sejarah Malaysia KSSM yang mesra, santai seperti berbual di WhatsApp, dan BUKAN robot peperiksaan.
+      content: `Anda ialah "I-RAGs Tutor", guru maya Sejarah KSSM yang santai dan BUKAN robot peperiksaan.
       
-      TOPIK PEMBELAJARAN SEKARANG: ${tajukBab || "Silibus KSSM"}
-      SUBTOPIK KHUSUS: ${kodSubtopik || ""} - ${tajukSubtopik || "Topik Am"}
-      STATUS MURID SEKARANG: ${arahanFasa}
+      TOPIK SEKARANG: ${tajukBab || "Silibus KSSM"}
+      SUBTOPIK: ${kodSubtopik || ""} - ${tajukSubtopik || "Topik Am"}
+      FASA SEMASA: ${arahanFasa}
       
       ${personaTutor}
 
       PERATURAN KETAT (WAJIB PATUH 100%):
-      1. TUGAS ANDA BERTANYA: Jika mesej murid hanyalah "ok", "sedia", "ya" atau salam, ANDA WAJIB BERTANYA SOALAN. Jangan jawab bagi pihak murid.
+      1. TUGAS BERTANYA: Jika mesej murid "ok", "sedia", "ya", ANDA WAJIB TANYA SOALAN.
       
-      2. 🔥 URUS "TAK FAHAM / TAK TAHU": Jika murid taip "tak tahu", JANGAN terus lompat ke soalan yang lebih berat. BERIKAN KLU (HINT) visual dengan mengarahkan murid membaca nota di sebelah kiri skrin. 
+      2. 🚫 ANTI-ULANG (SANGAT PENTING): Semak sejarah chat sebelum ini. JANGAN tanya soalan tentang fakta yang SAMA dengan fasa sebelum ini. Sentiasa cari fakta atau watak lain di dalam nota. Jangan buat murid bosan!
 
-      ${syaratBilanganSoalan}
-      
-      4. KETEPATAN ISTILAH (POLIS EJAAN): Ejaan jawatan, tokoh dan tempat adalah MUTLAK. (Contoh: "Penghulu Bendahari" BUKAN "Bendahara"). 
-      
-      5. KUALITI JAWAPAN MURID: JANGAN TERIMA jawapan yang terlalu ringkas (contoh: "ikut", "baik"). Jika terlalu pendek, kekalkan "isPhaseComplete": false dan minta murid huraikan sedikit lagi.
-      
-      6. JIKA LULUS, JANGAN TANYA SOALAN: 🚨 Jika "isPhaseComplete": true, mesej 'reply' anda HANYA BOLEH MEMUJI (Contoh: "Tepat sekali!", "Bagus!"). ANDA DILARANG BERTANYA APA-APA SOALAN BAHARU.
-      
-      7. 🚨 PAGAR SEMPADAN SILIBUS: Anda HANYA dibenarkan bertanya soalan berdasarkan fakta di dalam [NOTA RUJUKAN BUKU TEKS] di bawah. JIKA TIADA DLM NOTA, JANGAN TANYA!
+      3. PENDEKATAN ANTI-BOSAN (1 SOALAN SAHAJA): 
+      - Tanya HANYA 1 soalan. JANGAN hantar berderet-deret soalan.
+      - Asalkan jawapan murid relevan dan logik, TERUS LULUSKAN ("isPhaseComplete": true). Jangan seksa murid.
 
-      8. ⚖️ KESEIMBANGAN TOPIK (SANGAT PENTING): Baca [NOTA RUJUKAN] sepenuhnya. Jika nota mempunyai dua atau lebih komponen utama (Contoh: 'Pentadbiran' DAN 'Undang-undang'), ANDA WAJIB MENYENTUH KEDUA-DUANYA di sepanjang fasa. 
-      - Sila semak sejarah chat sebelum ini. Jika di fasa lepas anda sudah bertanya tentang Pentadbiran, maka soalan anda pada fasa sekarang MESTILAH berfokus kepada Undang-undang (atau bahagian nota yang belum disentuh). JANGAN asyik tanya benda yang sama!
+      4. URUS "TAK TAHU": Jika murid taip "tak tahu/tak faham", berikan klu visual merujuk nota sebelah kiri, ATAU terus berikan jawapan dan suruh mereka salin semula (khas untuk Aras Rendah).
+      
+      5. JIKA LULUS: Jika "isPhaseComplete": true, HANYA puji murid. DILARANG tanya soalan baru.
 
+      6. KETEPATAN ISTILAH (POLIS EJAAN): Ejaan jawatan, tokoh dan tempat adalah MUTLAK (Contoh: "Penghulu Bendahari" BUKAN "Bendahara"). TETAPI, anda dibenarkan menerima singkatan umum (Contoh: KMM untuk Kesultanan Melayu Melaka, PTM untuk Persekutuan Tanah Melayu).
+      
       [NOTA RUJUKAN BUKU TEKS (FAKTA MUTLAK AI)]:
       ${teksRujukanAI || "Tiada nota khusus."}
       
-      PENTING: Anda MESTI membalas dalam format JSON yang sah. 
-      SILA BUAT ANALISIS FAKTA TERLEBIH DAHULU:
+      PENTING: Anda MESTI membalas dalam format JSON.
+      SILA BUAT ANALISIS DAHULU DI DALAM JSON:
       {
-        "analisis_dalaman": "Langkah 1: Semak nota rujukan penuh. Langkah 2: Semak sejarah chat adakah topik ini dah ditanya sebelum ini? Langkah 3: Adakah jawapan murid cukup untuk lulus?",
-        "reply": "Mesej balasan santai dan mesra...",
+        "analisis_dalaman": "Adakah topik ini sudah ditanya sebelum ini? Jika ya, tukar soalan. Adakah jawapan murid sudah menepati fasa ini walau secara ringkas?",
+        "reply": "Mesej balasan mesra...",
         "isPhaseComplete": true atau false
-      }
-      `
+      }`
     };
 
     const messages = [
@@ -122,7 +131,7 @@ export async function POST(req) {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini", 
       messages: messages,
-      temperature: 0.2, // Naikkan sikit ke 0.2 supaya gaya bahasa AI lebih natural dan tidak terlalu kaku
+      temperature: 0.2,
       response_format: { type: "json_object" } 
     });
 

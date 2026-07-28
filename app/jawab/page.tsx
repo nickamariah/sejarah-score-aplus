@@ -32,7 +32,6 @@ function KandunganUjian() {
   const [tahapMurid, setTahapMurid] = useState("Sederhana");
   const [markahLulus, setMarkahLulus] = useState(50); 
   
-  // 🌟 KEMAS KINI: State untuk simpan bilangan percubaan post-test
   const [percubaanTerkini, setPercubaanTerkini] = useState(0);
 
   const shuffleArray = (array: any[]) => {
@@ -44,13 +43,12 @@ function KandunganUjian() {
     return shuffled;
   };
 
+  // 1. KUTIP DATA TAHAP MURID & SASARAN
   useEffect(() => {
     if (!isClient) return;
-
     const rawUser = localStorage.getItem("currentUser");
     if (rawUser) {
       const user = JSON.parse(rawUser);
-
       const fetchTahapMurid = async () => {
         try {
           const userSnap = await getDoc(doc(db, "users", user.id));
@@ -59,12 +57,12 @@ function KandunganUjian() {
             const tahapData = data.tahapInkuiri || "Sederhana";
             setTahapMurid(tahapData);
 
-            if (tahapData === "Tinggi") setMarkahLulus(80);
-            else if (tahapData === "Sederhana") setMarkahLulus(50);
-            else if (tahapData === "Rendah") setMarkahLulus(40);
+            // 🌟 TETAPAN SASARAN LULUS (POST-TEST)
+            if (tahapData === "Tinggi") setMarkahLulus(70);
+            else if (tahapData === "Sederhana") setMarkahLulus(70); // Mesti capai 70
+            else if (tahapData === "Rendah") setMarkahLulus(50); // Mesti capai 50
           }
 
-          // 🌟 KEMAS KINI: Tarik jumlah percubaan sedia ada dari skor_murid (jika post-test)
           if (jenisUjian === "post_test") {
              const docIdUjian = `${user.id}_t${tingkatan}_${bab}_${jenisUjian}`;
              const skorSnap = await getDoc(doc(db, "skor_murid", docIdUjian));
@@ -73,31 +71,35 @@ function KandunganUjian() {
              }
           }
         } catch (error) {
-          console.error("Gagal mendapatkan data murid:", error);
+          console.error("Gagal mendapatkan data tahap murid:", error);
         }
       };
       fetchTahapMurid();
     }
   }, [isClient, tingkatan, bab, jenisUjian]);
 
+  // 2. AUTO-SAVE (DARI LOCAL STORAGE)
   useEffect(() => {
     if (!isClient) return;
+    const simpananObjektif = localStorage.getItem(`auto_obj_${tingkatan}_${bab}_${jenisUjian}`);
+    const simpananStruktur = localStorage.getItem(`auto_str_${tingkatan}_${bab}_${jenisUjian}`);
+    
+    if (simpananObjektif) setJawapanObjektif(JSON.parse(simpananObjektif));
+    if (simpananStruktur) setJawapanStruktur(JSON.parse(simpananStruktur));
+  }, [isClient, tingkatan, bab, jenisUjian]);
 
+  // 3. KUTIP SOALAN DARI FIREBASE
+  useEffect(() => {
+    if (!isClient) return;
     const tarikSoalan = async () => {
       try {
-        const q = query(
-          collection(db, "questionBank"),
-          where("tingkatan", "==", tingkatan),
-          where("bab", "==", bab)
-        );
-
+        const q = query(collection(db, "questionBank"), where("tingkatan", "==", tingkatan), where("bab", "==", bab));
         const querySnapshot = await getDocs(q);
         let soalanObjektif: any[] = [];
         let soalanStruktur: any[] = [];
 
         querySnapshot.forEach((docSnap) => {
           let data = docSnap.data();
-          
           const kegunaan = data.kegunaan || "semua";
           if (kegunaan === "simpanan") return; 
           if (kegunaan !== "semua" && kegunaan !== jenisUjian) return;
@@ -114,14 +116,8 @@ function KandunganUjian() {
         });
 
         const objektifDahShuffle = shuffleArray(soalanObjektif);
-        
-        const strukturDisaring = soalanStruktur.filter((s: any) => {
-          const numUrutan = Number(s.urutan);
-          return !isNaN(numUrutan) && numUrutan > 0 && numUrutan !== 999;
-        });
-        
+        const strukturDisaring = soalanStruktur.filter((s: any) => !isNaN(Number(s.urutan)) && Number(s.urutan) > 0 && Number(s.urutan) !== 999);
         strukturDisaring.sort((a: any, b: any) => Number(a.urutan) - Number(b.urutan));
-        
         setSoalanSenarai([...objektifDahShuffle, ...strukturDisaring]);
       } catch (error) {
         console.error("Ralat tarik soalan:", error);
@@ -129,10 +125,10 @@ function KandunganUjian() {
         setLoading(false);
       }
     };
-
     tarikSoalan();
   }, [tingkatan, bab, jenisUjian, isClient]);
 
+  // 4. HANTAR UJIAN & KIRA MARKAH
   useEffect(() => {
     if (!isClient) return;
 
@@ -154,99 +150,71 @@ function KandunganUjian() {
                 markahPenuhUjian += 1; 
                 const jawapanMurid = String(jawapanObjektif[s.id] || "").trim().toLowerCase();
                 const skemaBersih = String(s.jawapan || "").trim().toLowerCase();
-                
-                if (jawapanMurid === skemaBersih && skemaBersih !== "") {
-                  skorObjektifAkhir += 1;
-                }
+                if (jawapanMurid === skemaBersih && skemaBersih !== "") skorObjektifAkhir += 1;
               } else {
                 markahPenuhUjian += Number(s.markah) || 0; 
               }
             });
 
             setSkor(skorObjektifAkhir); 
-
             let jumlahMarkahStrukturAI = 0;
             let ulasanAIPenuh: Record<string, any> = {};
 
-            const masaGiliranRawak = Math.floor(Math.random() * 8000) + 1000;
-            await new Promise(resolve => setTimeout(resolve, masaGiliranRawak));
+            await new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * 2000) + 1000));
 
             for (const [soalanId, jawapanMurid] of Object.entries(jawapanStruktur)) {
               const detailSoalan = soalanSenarai.find(s => s.id === soalanId);
-
               if (detailSoalan) {
                 try {
                   const res = await fetch("/api/semak-ai", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      soalan: detailSoalan.soalan,
-                      jawapanMurid: jawapanMurid,
-                      markahPenuh: Number(detailSoalan.markah) || 0,
-                      skemaJawapan: detailSoalan.skemaJawapan || detailSoalan.jawapan || ""
-                    })
+                    body: JSON.stringify({ soalan: detailSoalan.soalan, jawapanMurid: jawapanMurid, markahPenuh: Number(detailSoalan.markah) || 0, skemaJawapan: detailSoalan.skemaJawapan || detailSoalan.jawapan || "" })
                   });
-
                   if (!res.ok) throw new Error("Ralat dari server AI");
                   const aiData = await res.json();
-
-                  ulasanAIPenuh[soalanId] = {
-                    markahAI: Number(aiData.markahDicadangkan) || 0,
-                    komenAI: aiData.komen || "Tiada ulasan."
-                  };
+                  ulasanAIPenuh[soalanId] = { markahAI: Number(aiData.markahDicadangkan) || 0, komenAI: aiData.komen || "Tiada ulasan." };
                   jumlahMarkahStrukturAI += (Number(aiData.markahDicadangkan) || 0);
-
                 } catch (err) {
-                  console.error("Gagal API untuk soalan:", soalanId);
-                  ulasanAIPenuh[soalanId] = { markahAI: 0, komenAI: "SISTEM AI GAGAL (Talian Terputus). Sila semak secara manual." };
+                  ulasanAIPenuh[soalanId] = { markahAI: 0, komenAI: "SISTEM AI GAGAL. Sila semak secara manual." };
                 }
-                await new Promise(resolve => setTimeout(resolve, 2500));
+                await new Promise(resolve => setTimeout(resolve, 1500));
               }
             }
 
             const docId = `${user.id}_t${tingkatan}_${bab}_${jenisUjian}`;
             const adaSoalanStruktur = Object.keys(jawapanStruktur).length > 0;
-
             const skorKeseluruhan = skorObjektifAkhir + jumlahMarkahStrukturAI;
             const peratus = markahPenuhUjian > 0 ? Math.round((skorKeseluruhan / markahPenuhUjian) * 100) : 0;
-            
-            // 🌟 KEMAS KINI: Tambah percubaan jika ini post_test
             const percubaanBaru = jenisUjian === "post_test" ? percubaanTerkini + 1 : 1;
             
             setPeratusAkhir(peratus);
-            setPercubaanTerkini(percubaanBaru); // Update state untuk UI
+            setPercubaanTerkini(percubaanBaru);
 
             await setDoc(doc(db, "skor_murid", docId), {
-              idMurid: user.id,
-              namaMurid: user.name || user.nama,
-              tingkatan: tingkatan,
-              bab: bab,
-              skorObjektif: skorObjektifAkhir, 
-              jawapanObjektif: jawapanObjektif,
-              skor: peratus,
-              markahPenuhUjian: markahPenuhUjian,
-              jawapanStruktur: jawapanStruktur,
-              ulasanAI: ulasanAIPenuh,
-              markahStruktur: jumlahMarkahStrukturAI,
-              skorAkhir: skorKeseluruhan,
+              idMurid: user.id, namaMurid: user.name || user.nama, tingkatan, bab,
+              skorObjektif: skorObjektifAkhir, jawapanObjektif, skor: peratus, markahPenuhUjian,
+              jawapanStruktur, ulasanAI: ulasanAIPenuh, markahStruktur: jumlahMarkahStrukturAI, skorAkhir: skorKeseluruhan,
               statusPermarkahanEsei: adaSoalanStruktur ? "disemak_oleh_AI" : "tiada_esei",
-              tarikh: new Date().toISOString(),
-              jenisUjian: jenisUjian,
-              percubaan: percubaanBaru // 🌟 KEMAS KINI: Disimpan dalam DB!
+              tarikh: new Date().toISOString(), jenisUjian, percubaan: percubaanBaru
             });
+
+            localStorage.removeItem(`auto_obj_${tingkatan}_${bab}_${jenisUjian}`);
+            localStorage.removeItem(`auto_str_${tingkatan}_${bab}_${jenisUjian}`);
 
             const chapterId = bab.replace("Bab ", "");
             const modKeyTest = `t${tingkatan}-ch${chapterId}-mod-${jenisUjian}`;
+            const modKeyBimbingan = `t${tingkatan}-ch${chapterId}-mod-bimbingan`; 
             let completed = JSON.parse(localStorage.getItem("completedModules") || "[]");
 
             if (jenisUjian === "pre_test") {
+              // 🌟 PENENTUAN ARAS PRE-TEST 
               let tahapBaru = "Rendah";
-              if (peratus >= 80) tahapBaru = "Tinggi";
+              if (peratus >= 70) tahapBaru = "Tinggi"; // <--- Dinaik taraf jadi 70
               else if (peratus >= 50) tahapBaru = "Sederhana";
 
               if (!completed.includes(modKeyTest)) completed.push(modKeyTest);
               localStorage.setItem("completedModules", JSON.stringify(completed));
-
               await updateDoc(doc(db, "users", user.id), { markahTerkini: peratus, tahapInkuiri: tahapBaru });
 
             } else if (jenisUjian === "post_test") {
@@ -255,13 +223,14 @@ function KandunganUjian() {
                 localStorage.setItem("completedModules", JSON.stringify(completed));
                 await updateDoc(doc(db, "users", user.id), { markahPostTestTerkini: peratus, statusBabTerkini: "Lulus" });
               } else {
-                // Jangan masukkan dalam completedModules jika gagal, supaya boleh ambil lagi
+                completed = completed.filter((mod: string) => mod !== modKeyBimbingan && mod !== modKeyTest);
+                localStorage.setItem("completedModules", JSON.stringify(completed));
                 await updateDoc(doc(db, "users", user.id), { markahPostTestTerkini: peratus, statusBabTerkini: "Ulang Bimbingan" });
               }
             }
 
           } catch (error) {
-            console.error("Ralat simpan data ke Firebase:", error);
+            console.error("Ralat simpan data:", error);
           }
         }
         setMenganalisisAI(false);
@@ -271,8 +240,23 @@ function KandunganUjian() {
     simpanMarkahFirebase();
   }, [tamat, soalanSenarai, tingkatan, bab, isClient, jawapanStruktur, telahDisimpan, jawapanObjektif, jenisUjian, markahLulus, percubaanTerkini]); 
 
-  const pilihJawapanObjektif = (soalanId: string, jawapanDipilih: string) => { setJawapanObjektif(prev => ({ ...prev, [soalanId]: jawapanDipilih })); };
-  const tukarJawapanStruktur = (soalanId: string, teks: string) => { setJawapanStruktur(prev => ({ ...prev, [soalanId]: teks })); };
+  // 5. KAWALAN UI & AUTO SAVE MASA MURID MENJAWAB
+  const pilihJawapanObjektif = (soalanId: string, jawapanDipilih: string) => {
+    setJawapanObjektif(prev => {
+      const stateBaru = { ...prev, [soalanId]: jawapanDipilih };
+      localStorage.setItem(`auto_obj_${tingkatan}_${bab}_${jenisUjian}`, JSON.stringify(stateBaru));
+      return stateBaru;
+    });
+  };
+
+  const tukarJawapanStruktur = (soalanId: string, teks: string) => {
+    setJawapanStruktur(prev => {
+      const stateBaru = { ...prev, [soalanId]: teks };
+      localStorage.setItem(`auto_str_${tingkatan}_${bab}_${jenisUjian}`, JSON.stringify(stateBaru));
+      return stateBaru;
+    });
+  };
+
   const pergiSoalanSebelum = () => { if (indexSemasa > 0) setIndexSemasa(indexSemasa - 1); };
 
   const pergiSoalanSeterusnyaAtauTamat = () => {
@@ -280,29 +264,18 @@ function KandunganUjian() {
     else if (confirm("Adakah anda pasti untuk menghantar ujian ini? Sila pastikan semua jawapan telah disemak.")) setTamat(true);
   };
 
-  const paparanTajukUjian = jenisUjian === "post_test" ? "Ujian Pasca (Post-Test)" : "Ujian Diagnostik (Pre-Test)";
+  const paparanTajukUjian = jenisUjian === "post_test" ? "Pasca-Ujian (Post-Test)" : "Pra-Ujian (Pre-Test)";
 
-  if (!isClient) return <div className="min-h-screen flex items-center justify-center font-bold text-sky-600">Sistem Memulakan Ujian...</div>;
+  if (!isClient) return <div className="min-h-screen flex items-center justify-center font-bold text-sky-600">Memulakan Ujian...</div>;
   if (loading) return <div className="min-h-screen flex items-center justify-center text-sky-700 font-semibold">Memuatkan Soalan Firebase...</div>;
   if (soalanSenarai.length === 0) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-      <div className="p-8 bg-white rounded-xl shadow-md text-center max-w-md">
-        <h2 className="text-xl font-bold text-slate-800 mb-2">Soalan Belum Tersedia</h2>
-        <button onClick={() => router.push('/murid')} className="bg-sky-600 text-white px-6 py-2 rounded-lg hover:bg-sky-700">Kembali</button>
-      </div>
-    </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50"><div className="p-8 bg-white rounded-xl shadow-md text-center"><h2 className="text-xl font-bold mb-2">Soalan Belum Tersedia</h2><button onClick={() => router.push('/murid')} className="bg-sky-600 text-white px-6 py-2 rounded-lg">Kembali</button></div></div>
   );
 
   if (tamat) {
-    if (menganalisisAI || peratusAkhir === null) {
-      return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-sky-600 mb-6"></div>
-          <h2 className="text-3xl font-bold text-sky-700">Sistem AI Sedang Menyemak...</h2>
-          <p className="text-slate-500 mt-2 max-w-md">Guru AI sedang membaca, menganalisis, dan memberikan markah untuk jawapan anda.</p>
-        </div>
-      );
-    }
+    if (menganalisisAI || peratusAkhir === null) return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center"><div className="animate-spin rounded-full h-16 w-16 border-t-4 border-sky-600 mb-6"></div><h2 className="text-3xl font-bold text-sky-700">Sistem AI Sedang Menyemak...</h2></div>
+    );
 
     const isLulus = peratusAkhir >= markahLulus;
     return (
@@ -310,130 +283,84 @@ function KandunganUjian() {
         <div className="max-w-2xl w-full p-8 bg-white rounded-2xl shadow-xl text-center border-t-8 border-sky-500">
           <h2 className="text-3xl font-extrabold mb-4 text-slate-800">{paparanTajukUjian} Tamat</h2>
           <p className="text-lg text-slate-600 mb-6">{bab} | Tingkatan {tingkatan}</p>
-          
-          {/* 🌟 KEMAS KINI: Logik UI Berdasarkan Keputusan dan Percubaan */}
           {jenisUjian === "pre_test" ? (
-             <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 p-6 rounded-xl mb-6">
-                ✅ <strong>Ujian Selesai. (Skor: {peratusAkhir}%)</strong><br/>
-                Sistem telah menganalisis tahap kefahaman anda. Sila teruskan ke Modul Bimbingan di Dashboard.
-             </div>
+             <div className="bg-indigo-50 border-indigo-200 text-indigo-800 p-6 rounded-xl mb-6">✅ <strong>Skor: {peratusAkhir}%</strong><br/>Sistem telah menganalisis tahap kefahaman anda. Teruskan ke Modul Bimbingan.</div>
           ) : (
              isLulus ? (
-               <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-6 rounded-xl mb-6">
-                 🎉 <strong>TAHNIAH! Anda Menguasai Bab Ini dengan {peratusAkhir}%.</strong><br/>
-                 Sebagai pelajar Tahap {tahapMurid}, anda telah berjaya melepasi sasaran {markahLulus}%.
-               </div>
+               <div className="bg-emerald-50 border-emerald-200 text-emerald-800 p-6 rounded-xl mb-6">🎉 <strong>TAHNIAH! Lulus dengan {peratusAkhir}%.</strong><br/>Anda berjaya melepasi sasaran {markahLulus}%.</div>
              ) : (
                percubaanTerkini >= 2 ? (
-                 <div className="bg-red-50 border border-red-200 text-red-800 p-6 rounded-xl mb-6">
-                   ⚠️ <strong>Markah anda: {peratusAkhir}% (Sasaran: {markahLulus}%).</strong><br/>
-                   Anda telah mencuba 2 kali tetapi masih belum melepasi sasaran. Jangan risau, sistem telah merujuk pencapaian ini kepada Guru Sejarah anda untuk bimbingan lanjut.
-                 </div>
+                 <div className="bg-red-50 border-red-200 text-red-800 p-6 rounded-xl mb-6">⚠️ <strong>Markah: {peratusAkhir}% (Sasaran: {markahLulus}%).</strong><br/>Anda telah mencuba 2 kali. Sistem merujuk pencapaian ini kepada Guru untuk bimbingan.</div>
                ) : (
-                 <div className="bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-xl mb-6">
-                   ⚠️ <strong>Markah anda: {peratusAkhir}% (Sasaran: {markahLulus}%).</strong><br/>
-                   Sila ikuti Modul Permainan Interaktif (Games) di Dashboard untuk ulangkaji yang lebih seronok, kemudian cuba lagi.
-                 </div>
+                 <div className="bg-amber-50 border-amber-200 text-amber-800 p-6 rounded-xl mb-6">⚠️ <strong>Markah: {peratusAkhir}% (Sasaran: {markahLulus}%).</strong><br/>Sila ikuti Modul Permainan Interaktif di Dashboard kemudian cuba lagi.</div>
                )
              )
           )}
-          <button onClick={() => router.push('/murid')} className="w-full sm:w-auto bg-slate-800 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-700 transition">Kembali ke Dashboard</button>
+          <button onClick={() => router.push('/murid')} className="bg-slate-800 text-white px-8 py-3 rounded-xl font-bold">Kembali ke Dashboard</button>
         </div>
       </div>
     );
   }
 
   const semasa = soalanSenarai[indexSemasa];
-  const jenisSoalan = semasa.jenis ? semasa.jenis.toLowerCase() : "objektif";
+  const jenisSoalan = semasa.jenis?.toLowerCase() || "objektif";
   const senaraiPilihan = semasa.shuffledPilihan || (semasa.pilihan ? Object.entries(semasa.pilihan) : []);
   const labelBahagian = jenisSoalan === "objektif" ? "Bahagian A: Objektif" : "Bahagian B: Struktur/Esei";
   const isSoalanTerakhir = indexSemasa + 1 === soalanSenarai.length;
 
   let soalanSudahDijawab = false;
-  if (jenisSoalan === "objektif") { soalanSudahDijawab = !!jawapanObjektif[semasa.id]; } 
-  else { const teks = jawapanStruktur[semasa.id] || ""; soalanSudahDijawab = teks.trim().length > 0; }
+  if (jenisSoalan === "objektif") soalanSudahDijawab = !!jawapanObjektif[semasa.id];
+  else soalanSudahDijawab = (jawapanStruktur[semasa.id] || "").trim().length > 0;
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 flex flex-col items-center">
       <div className="max-w-3xl w-full bg-white p-6 md:p-10 rounded-2xl shadow-lg border border-slate-100 flex flex-col min-h-[500px]">
         
-        <div className="flex justify-center mb-6">
-           <span className="bg-indigo-100 text-indigo-800 border border-indigo-200 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm">
-             {paparanTajukUjian}
-           </span>
-        </div>
-
         <div className="flex justify-between items-center mb-8 border-b pb-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-800">{bab}</h1>
-            <p className="text-sm font-bold text-indigo-600 uppercase tracking-wider mt-1">{labelBahagian}</p>
+            <h1 className="text-xl font-bold">{bab}</h1>
+            <p className="text-sm font-bold text-indigo-600 uppercase mt-1">{labelBahagian}</p>
           </div>
-          <span className="bg-sky-100 text-sky-800 px-4 py-2 rounded-lg text-sm font-bold shadow-sm">
-            Soalan {indexSemasa + 1} / {soalanSenarai.length}
-          </span>
+          <span className="bg-sky-100 text-sky-800 px-4 py-2 rounded-lg text-sm font-bold">Soalan {indexSemasa + 1} / {soalanSenarai.length}</span>
         </div>
 
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <h2 className="text-2xl font-semibold text-slate-800 leading-relaxed whitespace-pre-wrap flex-1">
-            {semasa.soalan}
-          </h2>
-          {semasa.markah && (
-            <span className="shrink-0 bg-amber-100 text-amber-800 border border-amber-200 px-4 py-2 rounded-lg text-sm font-bold shadow-sm">
-              [ {semasa.markah} Markah ]
-            </span>
-          )}
+        <div className="mb-8 flex justify-between gap-4">
+          <h2 className="text-2xl font-semibold leading-relaxed whitespace-pre-wrap flex-1">{semasa.soalan}</h2>
+          {semasa.markah && <span className="shrink-0 bg-amber-100 text-amber-800 px-4 py-2 rounded-lg text-sm font-bold">[ {semasa.markah} Markah ]</span>}
         </div>
 
-        {semasa.imageUrl && semasa.imageUrl.trim() !== "" && (
-          <div className="mb-8 flex justify-center bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <img src={semasa.imageUrl} alt="Rajah Soalan" className="max-h-96 w-auto object-contain rounded-lg shadow-sm" />
-          </div>
+        {semasa.imageUrl && (
+          <div className="mb-8 flex justify-center bg-slate-50 p-4 rounded-xl border"><img src={semasa.imageUrl} alt="Rajah" className="max-h-96 rounded-lg" /></div>
         )}
 
         <div className="flex-1">
           {jenisSoalan === "objektif" ? (
             <div className="grid gap-4">
-              {senaraiPilihan.map((item: any, index: number) => {
-                const kunciAsal = item[0];
-                const teks = item[1];
-                const hurufVisual = String.fromCharCode(65 + index);
-                const isSelected = jawapanObjektif[semasa.id] === kunciAsal;
-
+              {senaraiPilihan.map((item: any, i: number) => {
+                const isSelected = jawapanObjektif[semasa.id] === item[0];
                 return (
-                  <button key={kunciAsal} onClick={() => pilihJawapanObjektif(semasa.id, kunciAsal)}
-                    className={`w-full text-left p-5 rounded-xl border-2 transition-all font-medium flex gap-4 items-center group
-                      ${isSelected ? 'border-sky-500 bg-sky-50 text-sky-800 ring-2 ring-sky-200' : 'border-slate-200 hover:border-sky-300 hover:bg-slate-50 text-slate-700'}
-                    `}>
-                    <span className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold shadow-sm shrink-0 transition-colors
-                      ${isSelected ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-600 group-hover:bg-sky-200'}
-                    `}>{hurufVisual}</span>
-                    <span className="text-lg">{teks as string}</span>
+                  <button key={item[0]} onClick={() => pilihJawapanObjektif(semasa.id, item[0])}
+                    className={`w-full text-left p-5 rounded-xl border-2 transition-all font-medium flex gap-4 items-center ${isSelected ? 'border-sky-500 bg-sky-50' : 'border-slate-200'}`}>
+                    <span className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${isSelected ? 'bg-sky-500 text-white' : 'bg-slate-100'}`}>{String.fromCharCode(65 + i)}</span>
+                    <span className="text-lg">{item[1] as string}</span>
                   </button>
                 );
               })}
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
-              <textarea
-                value={jawapanStruktur[semasa.id] || ""} 
-                onChange={(e) => tukarJawapanStruktur(semasa.id, e.target.value)}
-                placeholder="Sila taip jawapan anda di sini... (Wajib dijawab sebelum ke soalan seterusnya)"
-                className="w-full p-5 border-2 border-slate-200 rounded-xl focus:border-sky-500 focus:ring-2 focus:ring-sky-200 focus:outline-none resize-y min-h-[150px] text-lg text-slate-700"
-              ></textarea>
-            </div>
+            <textarea
+              value={jawapanStruktur[semasa.id] || ""} onChange={(e) => tukarJawapanStruktur(semasa.id, e.target.value)}
+              onPaste={(e) => { e.preventDefault(); alert("Paste tidak dibenarkan. Sila taip dengan usaha sendiri ya!"); }} onCopy={(e) => e.preventDefault()} onCut={(e) => e.preventDefault()}
+              autoComplete="off" spellCheck="false"
+              placeholder="Sila taip jawapan (Copy & Paste tidak dibenarkan)"
+              className="w-full p-5 border-2 border-slate-200 rounded-xl focus:border-sky-500 focus:ring-2 resize-y min-h-[150px] text-lg"
+            ></textarea>
           )}
         </div>
 
-        <div className="mt-10 pt-6 border-t border-slate-100 flex justify-between items-center gap-4">
-          <button onClick={pergiSoalanSebelum} disabled={indexSemasa === 0}
-            className="px-6 py-3 rounded-xl font-bold bg-slate-200 text-slate-600 hover:bg-slate-300 disabled:opacity-0 transition-all">
-            ⬅️ Kembali
-          </button>
-          
-          <button onClick={pergiSoalanSeterusnyaAtauTamat} disabled={!soalanSudahDijawab}
-            className={`px-8 py-3 rounded-xl font-bold transition-all shadow-md flex items-center gap-2
-              ${!soalanSudahDijawab ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60' : isSoalanTerakhir ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-sky-600 text-white hover:bg-sky-700'}
-            `}>
+        <div className="mt-10 pt-6 border-t flex justify-between gap-4">
+          <button onClick={pergiSoalanSebelum} disabled={indexSemasa === 0} className="px-6 py-3 rounded-xl font-bold bg-slate-200 disabled:opacity-0">⬅️ Kembali</button>
+          <button onClick={pergiSoalanSeterusnyaAtauTamat} disabled={!soalanSudahDijawab} className={`px-8 py-3 rounded-xl font-bold ${!soalanSudahDijawab ? 'bg-slate-300 text-slate-500' : 'bg-sky-600 text-white'}`}>
             {isSoalanTerakhir ? 'Hantar Ujian ✅' : 'Seterusnya ➡️'}
           </button>
         </div>
@@ -444,9 +371,5 @@ function KandunganUjian() {
 }
 
 export default function UjianDiagnostik() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-bold text-sky-600">Sistem Sedang Memuatkan Ujian...</div>}>
-      <KandunganUjian />
-    </Suspense>
-  );
+  return <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sky-600 font-bold">Memuatkan Sistem Ujian...</div>}><KandunganUjian /></Suspense>;
 }

@@ -8,7 +8,7 @@ import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, where, order
 function KomponenPembelajaran() {
   const searchParams = useSearchParams();
   const babDariURL = searchParams.get("bab") || "tingkatan4_bab1_sub1.1"; 
-  const arasDariURL = searchParams.get("aras") || "rendah";
+  const arasDariURL = (searchParams.get("aras") || "rendah").toLowerCase();
 
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -37,15 +37,17 @@ function KomponenPembelajaran() {
   const pdfFileName = chapterId.split('_sub')[0]; 
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  // 🌟 TAMBAHAN KOD: Rujukan untuk kotak input auto-fokus
   const inputRef = useRef<HTMLInputElement>(null);
   const isInitializing = useRef(false);
   
-  const maxFasa = arasDariURL === "rendah" ? 3 : 6;
+  // 🌟 KEMAS KINI UTAMA: SELARASKAN HAD FASA DENGAN API CHAT
+  const maxFasa = arasDariURL === "rendah" ? 2 : arasDariURL === "sederhana" ? 3 : 6;
   
   const phaseNames = arasDariURL === "rendah" 
+    ? ["Mengingat", "Memahami"] 
+    : arasDariURL === "sederhana" 
     ? ["Mengingat", "Memahami", "Mengaplikasi"] 
-    : ["Mengetahui", "Memahami", "Mengaplikasi", "Menganalisis", "Menilai", "Mencipta Idea"];
+    : ["Mengingat", "Memahami", "Mengaplikasi", "Menganalisis", "Menilai", "Mencipta"];
 
   useEffect(() => {
     const fetchChapterData = async () => {
@@ -112,9 +114,7 @@ function KomponenPembelajaran() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 🌟 TAMBAHAN KOD: useEffect untuk auto-fokus kotak chat
   useEffect(() => {
-    // Jika AI dah siap loading (bukan isLoading) dan murid belum habis semua fasa
     if (!isLoading && inputRef.current && !isMastered) {
       setTimeout(() => {
         inputRef.current?.focus();
@@ -217,13 +217,19 @@ function KomponenPembelajaran() {
 
         await addDoc(messagesCollectionRef, {
           role: "assistant",
-          content: `Hai! Saya I-RAGs 🤖. Jom mulakan sesi inkuiri untuk topik **${namaBabSebenar.toUpperCase()} (${currentSub} ${namaSubtopikSebenar})**. Boleh beritahu saya apa persoalan utama yang bermain di fikiran awak tentang tajuk ini?`,
+          content: `Hai! Saya I-RAGs 🤖. Jom mulakan sesi bimbingan pantas untuk topik **${namaBabSebenar.toUpperCase()} (${currentSub} ${namaSubtopikSebenar})**. Boleh beritahu saya, apa yang awak paling ingat tentang tajuk ini?`,
           timestamp: serverTimestamp()
         });
       } else {
         const dataSesi = docSnap.data();
-        setCurrentPhase(dataSesi.currentPhase || 1);
-        if (dataSesi.status === "completed") setIsMastered(true);
+        // 🌟 Pastikan fasa semasa tidak lebih besar dari maxFasa baharu
+        let fasaTerkini = dataSesi.currentPhase || 1;
+        if (fasaTerkini > maxFasa) fasaTerkini = maxFasa;
+        
+        setCurrentPhase(fasaTerkini);
+        if (dataSesi.status === "completed" || fasaTerkini >= maxFasa && dataSesi.status === "completed") {
+            setIsMastered(true);
+        }
       }
     };
     
@@ -238,7 +244,7 @@ function KomponenPembelajaran() {
     });
 
     return () => unsubscribe();
-  }, [sessionId, chapterId, studentId, chapterData]); 
+  }, [sessionId, chapterId, studentId, chapterData, maxFasa]); 
 
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -256,7 +262,6 @@ function KomponenPembelajaran() {
 
       const teksRujukanAI = currentSubInfo?.teksAI || "";
 
-      // 1. Tembak soalan murid ke AI
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -271,10 +276,8 @@ function KomponenPembelajaran() {
       const data = await response.json(); 
 
       if (data.reply) {
-        // 2. Simpan jawapan/pujian dari AI
         await addDoc(messagesCollectionRef, { role: "assistant", content: data.reply, timestamp: serverTimestamp() });
 
-        // 3. JIKA MURID LULUS FASA INI
         if (data.isPhaseComplete) {
           if (currentPhase < maxFasa) {
             const nextPhase = currentPhase + 1;
@@ -283,18 +286,17 @@ function KomponenPembelajaran() {
             
             await addDoc(messagesCollectionRef, {
               role: "assistant",
-              content: `✨ Tahniah! Awak dah lepasi Fasa ${currentPhase}. Mari kita ke **Fasa ${nextPhase} (${phaseNames[nextPhase-1]})** pula.`,
+              content: `✨ Terbaik! Awak dah lepasi Fasa ${currentPhase}. Mari kita ke **Fasa ${nextPhase} (${phaseNames[nextPhase-1]})** pula.`,
               timestamp: serverTimestamp()
             });
 
-            // 🌟 4. AUTO-TRIGGER AI
             const autoTriggerResponse = await fetch('/api/chat', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 studentId, chapterId, aras: arasDariURL,
                 currentPhase: nextPhase, 
-                text: `[SISTEM AUTO]: Murid telah lulus fasa tadi. Sila berikan SOALAN PERTAMA anda untuk menguji murid bagi FASA ${nextPhase} pula. Terus tanya soalan, jangan berbasa-basi.`, 
+                text: `[SISTEM AUTO]: Murid telah lulus fasa tadi. Sila berikan SOALAN PERTAMA anda untuk menguji murid bagi FASA ${nextPhase} pula. Terus tanya 1 soalan, jangan berbasa-basi panjang.`, 
                 soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema,
                 tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, 
                 previousMessages: [] 
@@ -306,13 +308,13 @@ function KomponenPembelajaran() {
               await addDoc(messagesCollectionRef, { role: "assistant", content: autoData.reply, timestamp: serverTimestamp() });
             }
 
-          } else if (currentPhase === maxFasa) {
+          } else if (currentPhase >= maxFasa) {
             setIsMastered(true);
             await updateDoc(sessionDocRef, { status: "completed" });
             
             await addDoc(messagesCollectionRef, {
               role: "assistant",
-              content: `🎉 **SYABAS!** Awak telah berjaya menjawab dengan cemerlang! Ini bermakna awak telah menguasai sepenuhnya subtopik ini.`,
+              content: `🎉 **SYABAS!** Awak dah buktikan kefahaman yang sangat baik. Bimbingan tamat dengan cemerlang! Sila klik butang di bawah untuk tamatkan.`,
               timestamp: serverTimestamp()
             });
           }
@@ -327,7 +329,6 @@ function KomponenPembelajaran() {
 
   const sendQuickPrompt = (text: string) => {
     setInput(text);
-    // Tambah sedikit delay untuk pastikan state 'input' di-set sebelum kursor difokuskan
     setTimeout(() => {
       inputRef.current?.focus();
     }, 50);
@@ -409,7 +410,7 @@ function KomponenPembelajaran() {
               <div className="text-2xl lg:text-4xl bg-white rounded-full p-1 shadow-sm">🤖</div>
               <div>
                 <h2 className="font-extrabold text-base lg:text-xl tracking-wide leading-tight">I-RAGs Tutor</h2>
-                <p className="text-blue-100 text-[10px] lg:text-xs font-medium">Model {maxFasa} Fasa Inkuiri</p>
+                <p className="text-blue-100 text-[10px] lg:text-xs font-medium">Bimbingan Aras {arasDariURL === "rendah" ? "Rendah" : arasDariURL === "sederhana" ? "Sederhana" : "Tinggi"}</p>
               </div>
             </div>
             <button onClick={() => setShowPdfMobile(true)} className="lg:hidden bg-amber-400 hover:bg-amber-500 text-amber-900 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 shadow-sm">
@@ -490,7 +491,7 @@ function KomponenPembelajaran() {
                 onClick={() => setShowVideoModal(true)} 
                 className="bg-red-100 text-red-700 text-xs lg:text-sm font-bold px-3 py-1.5 rounded-full hover:bg-red-200 shadow-sm flex items-center gap-1 ml-auto"
               >
-                🎬 Tonton Video Bimbingan
+                🎬 Tonton Video
               </button>
             )}
           </div>
@@ -505,14 +506,14 @@ function KomponenPembelajaran() {
               onClick={gotoNextSubtopic} 
               className="bg-emerald-600 text-white text-sm lg:text-lg font-bold px-6 py-3 rounded-full shadow-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 mx-auto"
             >
-              <span>{currentIndex !== -1 && currentIndex + 1 < subtopicsList.length ? "Seterusnya" : "Kembali ke Dashboard"}</span>
+              <span>{currentIndex !== -1 && currentIndex + 1 < subtopicsList.length ? "Seterusnya" : "Selesai Bimbingan (Kembali)"}</span>
               <span className="text-xl">{currentIndex !== -1 && currentIndex + 1 < subtopicsList.length ? "🔓🚀" : "🏠"}</span>
             </button>
           </div>
         ) : (
           <form onSubmit={sendMessage} className="p-3 lg:p-4 bg-white border-t border-gray-200 flex gap-2 items-center shadow-inner shrink-0">
             <input 
-              ref={inputRef} // 🌟 TAMBAHAN KOD: Ikat rujukan ke elemen input ini
+              ref={inputRef}
               type="text" 
               value={input} 
               onChange={(e) => setInput(e.target.value)} 
