@@ -24,3 +24,61 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* PAKSA WARNA KEKAL GELAP UNTUK AUTOFILL BROWSER */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px #0f172a inset !important; /* Warna dark mode kita */
+    -webkit-text-fill-color: white !important; /* Paksa tulisan putih */
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+/* PAKSA TEMA GELAP PADA KOTAK INPUT MOBILE */
+input, textarea, select {
+    color-scheme: dark;
+}
+
+/* --- KOD TAMBAHAN UNTUK PAKSA TEMA GELAP PADA TELEFON --- */
+
+/* 1. Paksa browser telefon kenal sistem kita sebagai Tema Gelap */
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  background-color: #0f172a;
+  color: #ffffff;
+}
+
+/* 2. Matikan paksaan warna putih dari Apple Safari / Android Chrome untuk Kotak Teks */
+textarea, 
+input[type="text"], 
+input[type="email"], 
+input[type="password"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: #1e293b !important; /* Latar belakang kotak gelap */
+  color: white !important; /* Tulisan putih */
+  border: 1px solid #475569 !important;
+}
+
+/* 3. Betulkan Autofill supaya tak jadi putih tiba-tiba */
+input:-webkit-autofill,
+textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 30px #1e293b inset !important;
+  -webkit-text-fill-color: white !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* 4. Pastikan Radio Button (Soalan Objektif) kekal nampak dan tak jadi putih */
+input[type="radio"] {
+  -webkit-appearance: auto;
+  appearance: auto;
+  color-scheme: dark; /* Paksa radio button guna gaya gelap */
+}
