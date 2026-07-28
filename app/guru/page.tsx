@@ -124,12 +124,29 @@ export default function GuruDashboard() {
   const tarikSoalanFirebase = async () => {
     setLoadingSoalan(true);
     try {
-      const q = query(collection(db, "questionBank"), orderBy("createdAt", "desc"));
+      // 🌟 KEMAS KINI: Kita buang orderBy() di sini supaya ia tak sembunyikan soalan manual
+      const q = query(collection(db, "questionBank"));
       const querySnapshot = await getDocs(q);
       const data: any[] = [];
-      querySnapshot.forEach((doc) => { data.push({ id: doc.id, ...doc.data() }); });
+      
+      querySnapshot.forEach((doc) => { 
+        data.push({ id: doc.id, ...doc.data() }); 
+      });
+
+      // 🌟 KEMAS KINI: Kita susun guna JavaScript. 
+      // Soalan baru (ada createdAt) duduk atas. Soalan lama manual duduk bawah.
+      data.sort((a, b) => {
+        const masaA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const masaB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return masaB - masaA;
+      });
+
       setSoalanList(data);
-    } catch (error) { console.error(error); } finally { setLoadingSoalan(false); }
+    } catch (error) { 
+      console.error("Ralat tarik soalan:", error); 
+    } finally { 
+      setLoadingSoalan(false); 
+    }
   };
 
   const tarikBahanFirebase = async () => {
