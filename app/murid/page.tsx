@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, Gamepad2, AlertTriangle, Clock, FileSearch, Award
+  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, Gamepad2, AlertTriangle, Clock, FileSearch, Award, MessageSquare
 } from "lucide-react";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, addDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase"; 
 
 type Subtopic = { id: string; title: string; };
@@ -51,6 +51,11 @@ export default function MuridDashboard() {
   const [progressBab, setProgressBab] = useState<Record<number, BabProgress>>({});
   const [aiSelesaiList, setAiSelesaiList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // State untuk Maklum Balas (Feedback)
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const tarikDataFirebase = async () => {
@@ -131,6 +136,27 @@ export default function MuridDashboard() {
     return `sub${chapterData.subtopics[chapterData.subtopics.length - 1].id}`;
   };
 
+  const hantarMaklumBalas = async () => {
+    if (!feedbackMsg.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(db, "feedbacks"), {
+        idMurid: userData?.idPengguna || userData?.id || "Tiada ID",
+        namaMurid: userData?.nama || userData?.name || "Pelajar",
+        mesej: feedbackMsg,
+        tarikh: new Date().toISOString()
+      });
+      setFeedbackMsg("");
+      setShowFeedback(false);
+      alert("Terima kasih! Maklum balas anda telah dihantar kepada guru.");
+    } catch (error) {
+      console.error("Gagal hantar maklum balas:", error);
+      alert("Ralat sistem. Gagal menghantar maklum balas.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const openModule = (chapterId: number, type: string, aras: string, subSemasa: string) => {
     const t = activeLevel === "t4" ? "4" : "5";
     if (type === "pre") window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}&jenisUjian=pre_test`;
@@ -146,7 +172,6 @@ export default function MuridDashboard() {
     let aras = "rendah"; let targetLulus = 50;
     if (pre !== undefined && pre >= 50 && pre < 70) { aras = "sederhana"; targetLulus = 70; }
     
-    // 🌟 Jika Pre-Test >= 70, dikira Lulus Terus (Bimbingan & Pasca Ghaib)
     const preLulusTerus = pre !== undefined && pre >= 70;
     const postLulus = post !== undefined && post >= targetLulus;
     const isLulus = preLulusTerus || postLulus;
@@ -175,7 +200,7 @@ export default function MuridDashboard() {
   const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 md:px-6 font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 px-4 py-8 md:px-6 font-sans text-slate-900 relative">
       <div className="mx-auto max-w-6xl">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-gradient-to-r from-sky-600 to-indigo-700 p-8 shadow-lg text-white mb-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
@@ -196,7 +221,7 @@ export default function MuridDashboard() {
           </div>
         </motion.div>
 
-        {/* 🌟 DIKEMBALIKAN: ANALISIS PENGUASAAN BAB (TOP BAR) */}
+        {/* ANALISIS PENGUASAAN BAB (TOP BAR) */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200 mb-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><BarChart3 className="w-6 h-6" /></div>
@@ -278,7 +303,6 @@ export default function MuridDashboard() {
                     <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="border-t bg-slate-50/50 p-6 overflow-hidden">
                       {logic.limitReached && !isKawalan && <div className="mb-6 bg-red-50 p-4 rounded-xl text-red-700 shadow-sm border border-red-200 flex items-start gap-3"><AlertTriangle className="w-6 h-6 shrink-0"/><div><h4 className="font-bold">Lulus Bersyarat</h4><p className="text-sm">Anda telah cuba 2 kali. Sila rujuk Guru untuk bimbingan bersemuka.</p></div></div>}
                       
-                      {/* 🌟 DIKEMBALIKAN: MESEJ TAHNIAH & BUTANG SIJIL */}
                       {logic.isLulus && !isKawalan && (
                         <div className="mb-6 bg-emerald-50 p-5 rounded-xl text-emerald-800 shadow-sm border border-emerald-200 flex flex-col md:flex-row items-center justify-between gap-4">
                           <div className="flex items-center gap-3">
@@ -288,13 +312,12 @@ export default function MuridDashboard() {
                               <p className="text-sm opacity-90">Prestasi anda sangat cemerlang.</p>
                             </div>
                           </div>
-                          {/* 🌟 BUTANG SIJIL KHAS UNTUK MURID LULUS */}
-                         <button 
-  onClick={() => window.open(`/sijil?tingkatan=${activeLevel === 't4' ? '4' : '5'}&bab=${chapter.id}&skor=${skorTertinggi}&nama=${encodeURIComponent(userData?.nama || userData?.name || 'Pelajar Cemerlang')}`, '_blank')} 
-  className="shrink-0 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 font-bold px-6 py-2.5 rounded-xl shadow-md hover:scale-105 transition-transform flex items-center gap-2"
->
-  <Award className="w-5 h-5"/> Buka Sijil Pencapaian
-</button>
+                          <button 
+                            onClick={() => window.open(`/sijil?tingkatan=${activeLevel === 't4' ? '4' : '5'}&bab=${chapter.id}&skor=${skorTertinggi}&nama=${encodeURIComponent(userData?.nama || userData?.name || 'Pelajar Cemerlang')}`, '_blank')} 
+                            className="shrink-0 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 font-bold px-6 py-2.5 rounded-xl shadow-md hover:scale-105 transition-transform flex items-center gap-2"
+                          >
+                            <Award className="w-5 h-5"/> Buka Sijil Pencapaian
+                          </button>
                         </div>
                       )}
 
@@ -326,7 +349,6 @@ export default function MuridDashboard() {
                               <button onClick={() => openModule(chapter.id, "pre", "", "")} className="w-full px-5 py-2 bg-sky-600 text-white text-sm font-bold rounded-xl hover:bg-sky-700">Mula Ujian</button>
                             )}
                             
-                            {/* 🌟 DIKEMBALIKAN: BUTANG SEMAK JAWAPAN (PRE-TEST) */}
                             {logic.pre !== undefined && logic.docIdPre && !logic.adaRalatSemakanPre && (
                                <button onClick={() => window.location.href = `/student/semakan-ujian/${logic.docIdPre}`} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 flex items-center gap-1 shadow-sm">
                                  <FileSearch className="w-4 h-4"/> Semak
@@ -335,7 +357,7 @@ export default function MuridDashboard() {
                           </div>
                         </div>
 
-                        {/* KAD 2: BIMBINGAN AI / PERMAINAN (Disembunyikan jika murid Cemerlang) */}
+                        {/* KAD 2: BIMBINGAN AI / PERMAINAN */}
                         {!isKawalan && !logic.preLulusTerus && (
                           <div className={`p-5 rounded-2xl border ${
                               logic.pre === undefined ? 'bg-slate-100 border-slate-200 opacity-60' : 
@@ -376,7 +398,7 @@ export default function MuridDashboard() {
                           </div>
                         )}
 
-                        {/* KAD 3: UJIAN PASCA (Disembunyikan jika murid Cemerlang) */}
+                        {/* KAD 3: UJIAN PASCA */}
                         {!isKawalan && !logic.preLulusTerus && (
                           <div className={`p-5 rounded-2xl border ${
                               logic.pre === undefined || ((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? 'bg-slate-100 border-slate-200 opacity-60' : 
@@ -393,7 +415,6 @@ export default function MuridDashboard() {
                               </div>
                               <p className="text-xs text-slate-500 leading-relaxed mb-3">Sasaran Lulus: {logic.targetLulus}%</p>
                               
-                              {/* 🌟 PAPARAN MARKAH PECAHAN (POST TEST) */}
                               {logic.post !== undefined && logic.postPenuh !== undefined && (
                                 <div className={`p-3 rounded-xl text-xs font-medium border ${logic.adaRalatSemakanPost ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50/60 border-blue-100 text-slate-700'}`}>
                                   <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span>Objektif:</span> <span className="font-bold">{logic.postObjektif} markah</span></p>
@@ -421,7 +442,6 @@ export default function MuridDashboard() {
                                 </button>
                               )}
 
-                              {/* 🌟 DIKEMBALIKAN: BUTANG SEMAK JAWAPAN (POST-TEST) */}
                               {logic.post !== undefined && logic.docIdPost && !logic.adaRalatSemakanPost && (
                                  <button onClick={() => window.location.href = `/student/semakan-ujian/${logic.docIdPost}`} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 flex items-center gap-1 shadow-sm">
                                    <FileSearch className="w-4 h-4"/> Semak
@@ -440,6 +460,46 @@ export default function MuridDashboard() {
           })}
         </div>
       </div>
+
+      {/* 🌟 BUTANG TERAPUNG FEEDBACK */}
+      <button 
+        onClick={() => setShowFeedback(true)}
+        className="fixed bottom-6 right-6 bg-slate-800 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform z-50 flex items-center justify-center border-2 border-white/20"
+        title="Beri Maklum Balas"
+      >
+        <MessageSquare className="w-6 h-6" />
+      </button>
+
+      {/* 🌟 MODAL FEEDBACK */}
+      <AnimatePresence>
+        {showFeedback && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
+              <div className="bg-slate-800 p-5 text-white flex justify-between items-center">
+                <h3 className="font-bold text-lg flex items-center gap-2"><MessageSquare className="w-5 h-5"/> Suara Anda</h3>
+                <button onClick={() => setShowFeedback(false)} className="text-slate-400 hover:text-white transition">✖</button>
+              </div>
+              <div className="p-6">
+                <p className="text-sm text-slate-600 mb-4">Ada sebarang masalah, cadangan, atau pujian tentang Hub I-RAGs? Tuliskan di bawah. Cikgu akan membacanya!</p>
+                <textarea
+                  value={feedbackMsg}
+                  onChange={(e) => setFeedbackMsg(e.target.value)}
+                  placeholder="Contoh: Saya suka main game tadi! Tapi kadang-kadang AI lambat sikit balas..."
+                  className="w-full p-4 border-2 border-slate-200 rounded-xl focus:border-slate-800 focus:ring-0 resize-y min-h-[120px] text-sm"
+                ></textarea>
+                <button 
+                  onClick={hantarMaklumBalas}
+                  disabled={isSubmitting || !feedbackMsg.trim()}
+                  className={`w-full mt-4 py-3 rounded-xl font-bold text-white transition-colors ${isSubmitting || !feedbackMsg.trim() ? 'bg-slate-300 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700'}`}
+                >
+                  {isSubmitting ? 'Menghantar...' : 'Hantar Maklum Balas'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
