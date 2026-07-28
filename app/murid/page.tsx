@@ -38,22 +38,10 @@ const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
   ]
 };
 
-// 🌟 INTERFACE DIKEMAS KINI UNTUK MARKAH PECAHAN & RALAT
 interface BabProgress { 
-  preSkor?: number; 
-  preObjektif?: number;
-  preStruktur?: number;
-  prePenuh?: number;
-  adaRalatSemakanPre?: boolean;
-  postSkor?: number; 
-  postObjektif?: number;
-  postStruktur?: number;
-  postPenuh?: number;
-  adaRalatSemakanPost?: boolean;
-  jumlahCubaanPost: number; 
-  aiSelesai: boolean; 
-  gameSelesai: boolean; 
-  docIdPre?: string; 
+  preSkor?: number; preObjektif?: number; preStruktur?: number; prePenuh?: number; adaRalatSemakanPre?: boolean;
+  postSkor?: number; postObjektif?: number; postStruktur?: number; postPenuh?: number; adaRalatSemakanPost?: boolean;
+  jumlahCubaanPost: number; aiSelesai: boolean; gameSelesai: boolean; docIdPre?: string; 
 }
 
 export default function MuridDashboard() {
@@ -93,32 +81,22 @@ export default function MuridDashboard() {
           const babNum = parseInt(data.bab.replace("Bab ", ""));
           if (!tempProgress[babNum]) tempProgress[babNum] = { jumlahCubaanPost: 0, aiSelesai: false, gameSelesai: false };
           
-          // 🌟 LOGIK KESAN RALAT AI (GAGAL SEMAK)
           let adaRalat = false;
           if (data.ulasanAI && data.statusPermarkahanEsei !== "disemak_oleh_guru") {
              for (const key in data.ulasanAI) {
-                if (typeof data.ulasanAI[key].komenAI === 'string' && data.ulasanAI[key].komenAI.includes("GAGAL")) {
-                   adaRalat = true;
-                   break;
-                }
+                if (typeof data.ulasanAI[key].komenAI === 'string' && data.ulasanAI[key].komenAI.includes("GAGAL")) { adaRalat = true; break; }
              }
           }
 
           if (data.jenisUjian === "pre_test" || !data.jenisUjian) { 
-             tempProgress[babNum].preSkor = data.skor; 
-             tempProgress[babNum].preObjektif = data.skorObjektif;
-             tempProgress[babNum].preStruktur = data.markahStruktur;
-             tempProgress[babNum].prePenuh = data.markahPenuhUjian;
-             tempProgress[babNum].docIdPre = docSnap.id; 
-             tempProgress[babNum].adaRalatSemakanPre = adaRalat;
+             tempProgress[babNum].preSkor = data.skor; tempProgress[babNum].preObjektif = data.skorObjektif;
+             tempProgress[babNum].preStruktur = data.markahStruktur; tempProgress[babNum].prePenuh = data.markahPenuhUjian;
+             tempProgress[babNum].docIdPre = docSnap.id; tempProgress[babNum].adaRalatSemakanPre = adaRalat;
           } 
           else if (data.jenisUjian === "post_test") { 
-             tempProgress[babNum].postSkor = data.skor; 
-             tempProgress[babNum].postObjektif = data.skorObjektif;
-             tempProgress[babNum].postStruktur = data.markahStruktur;
-             tempProgress[babNum].postPenuh = data.markahPenuhUjian;
-             tempProgress[babNum].jumlahCubaanPost = data.percubaan || 1; 
-             tempProgress[babNum].adaRalatSemakanPost = adaRalat;
+             tempProgress[babNum].postSkor = data.skor; tempProgress[babNum].postObjektif = data.skorObjektif;
+             tempProgress[babNum].postStruktur = data.markahStruktur; tempProgress[babNum].postPenuh = data.markahPenuhUjian;
+             tempProgress[babNum].jumlahCubaanPost = data.percubaan || 1; tempProgress[babNum].adaRalatSemakanPost = adaRalat;
           }
         });
 
@@ -207,6 +185,12 @@ export default function MuridDashboard() {
               <div>
                 <p className="text-sky-100 text-sm mb-1">Selamat datang kembali,</p>
                 <h1 className="text-3xl font-extrabold uppercase">{userData?.nama || userData?.name}</h1>
+                
+                {/* 🌟 DIKEMBALIKAN: KOD/ID MURID */}
+                <p className="text-sky-50 flex items-center gap-3 mt-2 font-medium opacity-90">
+                  ID Pengguna: <span className="font-bold tracking-wider">{userData?.idPengguna || userData?.id}</span>
+                </p>
+                
               </div>
             </div>
             <button onClick={handleLogout} className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold border border-white/20 flex gap-2"><LogOut className="w-5 h-5"/> Log Keluar</button>
@@ -236,8 +220,10 @@ export default function MuridDashboard() {
             const isKawalan = userData?.kumpulan === "Kawalan";
             const subSemasa = getCurrentSubtopic(chapter.id, chapter);
             
-            // Tentukan adakah ralat menghalang Bimbingan AI
             const ralatMenghalangBimbingan = logic.attempt === 0 ? logic.adaRalatSemakanPre : logic.adaRalatSemakanPost;
+            
+            // Logik paparan skor terbaik di tajuk Bab
+            const skorTertinggi = logic.post !== undefined && logic.post > (logic.pre || 0) ? logic.post : logic.pre;
 
             return (
               <div key={chapter.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -246,10 +232,21 @@ export default function MuridDashboard() {
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold ${statusUI.color}`}>{statusUI.icon}</div>
                     <div className="text-left"><h3 className="font-bold text-lg">{chapter.title}</h3></div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    {logic.pre !== undefined && <div className="text-right"><span className="text-xs text-slate-500">Skor Diagnostik</span><p className="font-bold text-sky-700">{logic.pre}%</p></div>}
-                    <ChevronDown className={`w-6 h-6 text-slate-400 ${expandedChapter === chapter.id ? "rotate-180" : ""}`} />
+                  
+                  {/* 🌟 DIKEMBALIKAN: KOTAK MARKAH BERWARNA (PILL) */}
+                  <div className="flex items-center gap-4 shrink-0">
+                    {skorTertinggi !== undefined && (
+                      <span className={`px-4 py-1.5 rounded-full text-sm font-bold border shadow-sm ${
+                        logic.isLulus ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 
+                        ralatMenghalangBimbingan ? 'bg-rose-50 border-rose-200 text-rose-700' :
+                        skorTertinggi >= 50 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-red-50 border-red-200 text-red-700'
+                      }`}>
+                        Markah: {ralatMenghalangBimbingan ? '??' : skorTertinggi}%
+                      </span>
+                    )}
+                    <ChevronDown className={`w-6 h-6 text-slate-400 transition-transform ${expandedChapter === chapter.id ? "rotate-180" : ""}`} />
                   </div>
+                  
                 </button>
 
                 <AnimatePresence>
@@ -269,7 +266,6 @@ export default function MuridDashboard() {
                             </div>
                             <p className="text-xs text-slate-500 leading-relaxed mb-3">Penentuan aras kefahaman awal anda.</p>
                             
-                            {/* 🌟 PAPARAN MARKAH PECAHAN */}
                             {logic.pre !== undefined && logic.prePenuh !== undefined && (
                               <div className={`p-3 rounded-xl text-xs font-medium border ${logic.adaRalatSemakanPre ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-white/60 border-emerald-100 text-slate-700'}`}>
                                 <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span>Objektif:</span> <span className="font-bold">{logic.preObjektif} markah</span></p>
@@ -281,7 +277,7 @@ export default function MuridDashboard() {
                           
                           <div className="flex justify-between items-center mt-2">
                             {logic.pre !== undefined ? (
-                                logic.adaRalatSemakanPre ? <span className="text-sm font-bold text-rose-600 flex items-center gap-1"><Clock className="w-4 h-4"/> Dalam Semakan Guru</span>
+                                logic.adaRalatSemakanPre ? <span className="text-sm font-bold text-rose-600 flex items-center gap-1"><Clock className="w-4 h-4"/> Semakan Guru</span>
                                 : <span className="text-sm font-bold text-emerald-600">Selesai ({logic.pre}%)</span>
                             ) : (
                               <button onClick={() => openModule(chapter.id, "pre", "", "")} className="w-full px-5 py-2 bg-sky-600 text-white text-sm font-bold rounded-xl hover:bg-sky-700">Mula Ujian</button>
@@ -307,7 +303,7 @@ export default function MuridDashboard() {
                               </div>
                               <p className="text-xs text-slate-500 leading-relaxed">
                                 {logic.pre === undefined ? "Siapkan Ujian Diagnostik dahulu." :
-                                 ralatMenghalangBimbingan ? "Sila check sebentar lagi. Status tahap penguasaan anda pada bab ini sedang dikemas kini oleh guru (Ralat AI)." :
+                                 ralatMenghalangBimbingan ? "Sila check sebentar lagi. Status tahap penguasaan anda pada bab ini sedang dikemas kini oleh guru." :
                                  logic.attempt === 1 ? "Ulang kaji seronok secara santai." : "Bimbingan Inkuiri bersama Tutor AI."}
                               </p>
                             </div>
@@ -347,7 +343,6 @@ export default function MuridDashboard() {
                               </div>
                               <p className="text-xs text-slate-500 leading-relaxed mb-3">Sasaran Lulus: {logic.targetLulus}%</p>
                               
-                              {/* 🌟 PAPARAN MARKAH PECAHAN (POST TEST) */}
                               {logic.post !== undefined && logic.postPenuh !== undefined && (
                                 <div className={`p-3 rounded-xl text-xs font-medium border ${logic.adaRalatSemakanPost ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50/60 border-blue-100 text-slate-700'}`}>
                                   <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span>Objektif:</span> <span className="font-bold">{logic.postObjektif} markah</span></p>
