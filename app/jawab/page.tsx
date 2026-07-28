@@ -18,11 +18,10 @@ function KandunganUjian() {
 
   const [soalanSenarai, setSoalanSenarai] = useState<any[]>([]);
   const [indexSemasa, setIndexSemasa] = useState(0);
-  const [skor, setSkor] = useState(0); // Ini akan dikira pada akhir ujian nanti
+  const [skor, setSkor] = useState(0); 
   const [tamat, setTamat] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 🌟 KEMAS KINI: Kita tak guna jawapanTeks lagi, kita ikat terus dengan state array supaya tak hilang bila "Kembali"
   const [jawapanStruktur, setJawapanStruktur] = useState<Record<string, string>>({});
   const [jawapanObjektif, setJawapanObjektif] = useState<Record<string, string>>({});
   
@@ -87,16 +86,10 @@ function KandunganUjian() {
         querySnapshot.forEach((docSnap) => {
           let data = docSnap.data();
           
-          // 🌟 KEMAS KINI UTAMA: Tapis berdasarkan KEGUNAAN soalan
           const kegunaan = data.kegunaan || "semua";
-          
-          // 1. Jika soalan ini SIMPANAN, kita terus abaikan
           if (kegunaan === "simpanan") return; 
-          
-          // 2. Jika soalan ini KHAS untuk Pre-Test atau Post-Test, pastikan ia sepadan
           if (kegunaan !== "semua" && kegunaan !== jenisUjian) return;
 
-          // Jika melepasi tapisan, asingkan ikut jenis
           if (data.jenis === "objektif") {
             if (data.pilihan) {
               let pilihanArray = Object.entries(data.pilihan);
@@ -108,19 +101,15 @@ function KandunganUjian() {
           }
         });
 
-        // Soalan objektif di-shuffle
         const objektifDahShuffle = shuffleArray(soalanObjektif);
         
-        // 🌟 KEMAS KINI KEDUA: Tapis (Filter) Soalan Struktur
         const strukturDisaring = soalanStruktur.filter((s: any) => {
           const numUrutan = Number(s.urutan);
           return !isNaN(numUrutan) && numUrutan > 0 && numUrutan !== 999;
         });
         
-        // Susun soalan struktur mengikut urutan
         strukturDisaring.sort((a: any, b: any) => Number(a.urutan) - Number(b.urutan));
         
-        // Hantar gabungan soalan objektif + soalan struktur
         setSoalanSenarai([...objektifDahShuffle, ...strukturDisaring]);
       } catch (error) {
         console.error("Ralat tarik soalan:", error);
@@ -130,7 +119,7 @@ function KandunganUjian() {
     };
 
     tarikSoalan();
-  }, [tingkatan, bab, jenisUjian, isClient]); // Tambah jenisUjian dalam dependency
+  }, [tingkatan, bab, jenisUjian, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
@@ -145,7 +134,6 @@ function KandunganUjian() {
           const user = JSON.parse(rawUser);
 
           try {
-            // Kira markah objektif secara total
             let skorObjektifAkhir = 0;
             let markahPenuhUjian = 0;
 
@@ -271,7 +259,6 @@ function KandunganUjian() {
     simpanMarkahFirebase();
   }, [tamat, soalanSenarai, tingkatan, bab, isClient, jawapanStruktur, telahDisimpan, jawapanObjektif, jenisUjian, markahLulus]); 
 
-  // 🌟 FUNGSI NAVIGASI UJIAN
   const pilihJawapanObjektif = (soalanId: string, jawapanDipilih: string) => {
     setJawapanObjektif(prev => ({ ...prev, [soalanId]: jawapanDipilih }));
   };
@@ -288,7 +275,7 @@ function KandunganUjian() {
     if (indexSemasa + 1 < soalanSenarai.length) {
       setIndexSemasa(indexSemasa + 1);
     } else {
-      if (confirm("Adakah anda pasti untuk menghantar ujian ini? Pastikan semua soalan telah dijawab.")) {
+      if (confirm("Adakah anda pasti untuk menghantar ujian ini? Sila pastikan semua jawapan telah disemak.")) {
         setTamat(true);
       }
     }
@@ -343,8 +330,18 @@ function KandunganUjian() {
   const jenisSoalan = semasa.jenis ? semasa.jenis.toLowerCase() : "objektif";
   const senaraiPilihan = semasa.shuffledPilihan || (semasa.pilihan ? Object.entries(semasa.pilihan) : []);
   const labelBahagian = jenisSoalan === "objektif" ? "Bahagian A: Objektif" : "Bahagian B: Struktur/Esei";
-
   const isSoalanTerakhir = indexSemasa + 1 === soalanSenarai.length;
+
+  // 🌟 KEMAS KINI UTAMA: Logik Validasi - Adakah murid dah jawab soalan semasa?
+  let soalanSudahDijawab = false;
+  if (jenisSoalan === "objektif") {
+    // True jika ada data terpilih untuk soalan id ini
+    soalanSudahDijawab = !!jawapanObjektif[semasa.id];
+  } else {
+    // True jika kotak teks tidak kosong selepas dibuang 'space' (spasi)
+    const teks = jawapanStruktur[semasa.id] || "";
+    soalanSudahDijawab = teks.trim().length > 0;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 flex flex-col items-center">
@@ -418,7 +415,7 @@ function KandunganUjian() {
               <textarea
                 value={jawapanStruktur[semasa.id] || ""} 
                 onChange={(e) => tukarJawapanStruktur(semasa.id, e.target.value)}
-                placeholder="Sila taip jawapan anda di sini..."
+                placeholder="Sila taip jawapan anda di sini... (Wajib dijawab sebelum ke soalan seterusnya)"
                 className="w-full p-5 border-2 border-slate-200 rounded-xl focus:border-sky-500 focus:ring-2 focus:ring-sky-200 focus:outline-none resize-y min-h-[150px] text-lg text-slate-700"
               ></textarea>
             </div>
@@ -434,12 +431,16 @@ function KandunganUjian() {
             ⬅️ Kembali
           </button>
           
+          {/* 🌟 KEMAS KINI: Butang akan KELABU dan tak boleh ditekan jika belum jawab */}
           <button
             onClick={pergiSoalanSeterusnyaAtauTamat}
+            disabled={!soalanSudahDijawab}
             className={`px-8 py-3 rounded-xl font-bold transition-all shadow-md flex items-center gap-2
-              ${isSoalanTerakhir 
-                ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
-                : 'bg-sky-600 text-white hover:bg-sky-700'
+              ${!soalanSudahDijawab
+                 ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60' 
+                 : isSoalanTerakhir 
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                    : 'bg-sky-600 text-white hover:bg-sky-700'
               }
             `}
           >
