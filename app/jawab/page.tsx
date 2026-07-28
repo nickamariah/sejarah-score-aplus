@@ -31,6 +31,9 @@ function KandunganUjian() {
   const [peratusAkhir, setPeratusAkhir] = useState<number | null>(null);
   const [tahapMurid, setTahapMurid] = useState("Sederhana");
   const [markahLulus, setMarkahLulus] = useState(50); 
+  
+  // 🌟 KEMAS KINI: State untuk simpan bilangan percubaan post-test
+  const [percubaanTerkini, setPercubaanTerkini] = useState(0);
 
   const shuffleArray = (array: any[]) => {
     let shuffled = [...array];
@@ -60,13 +63,22 @@ function KandunganUjian() {
             else if (tahapData === "Sederhana") setMarkahLulus(50);
             else if (tahapData === "Rendah") setMarkahLulus(40);
           }
+
+          // 🌟 KEMAS KINI: Tarik jumlah percubaan sedia ada dari skor_murid (jika post-test)
+          if (jenisUjian === "post_test") {
+             const docIdUjian = `${user.id}_t${tingkatan}_${bab}_${jenisUjian}`;
+             const skorSnap = await getDoc(doc(db, "skor_murid", docIdUjian));
+             if (skorSnap.exists() && skorSnap.data().percubaan) {
+                setPercubaanTerkini(skorSnap.data().percubaan);
+             }
+          }
         } catch (error) {
-          console.error("Gagal mendapatkan data tahap murid:", error);
+          console.error("Gagal mendapatkan data murid:", error);
         }
       };
       fetchTahapMurid();
     }
-  }, [isClient]);
+  }, [isClient, tingkatan, bab, jenisUjian]);
 
   useEffect(() => {
     if (!isClient) return;
@@ -186,10 +198,7 @@ function KandunganUjian() {
 
                 } catch (err) {
                   console.error("Gagal API untuk soalan:", soalanId);
-                  ulasanAIPenuh[soalanId] = {
-                    markahAI: 0,
-                    komenAI: "SISTEM AI GAGAL (Talian Terputus). Sila semak secara manual."
-                  };
+                  ulasanAIPenuh[soalanId] = { markahAI: 0, komenAI: "SISTEM AI GAGAL (Talian Terputus). Sila semak secara manual." };
                 }
                 await new Promise(resolve => setTimeout(resolve, 2500));
               }
@@ -201,7 +210,11 @@ function KandunganUjian() {
             const skorKeseluruhan = skorObjektifAkhir + jumlahMarkahStrukturAI;
             const peratus = markahPenuhUjian > 0 ? Math.round((skorKeseluruhan / markahPenuhUjian) * 100) : 0;
             
+            // 🌟 KEMAS KINI: Tambah percubaan jika ini post_test
+            const percubaanBaru = jenisUjian === "post_test" ? percubaanTerkini + 1 : 1;
+            
             setPeratusAkhir(peratus);
+            setPercubaanTerkini(percubaanBaru); // Update state untuk UI
 
             await setDoc(doc(db, "skor_murid", docId), {
               idMurid: user.id,
@@ -218,12 +231,12 @@ function KandunganUjian() {
               skorAkhir: skorKeseluruhan,
               statusPermarkahanEsei: adaSoalanStruktur ? "disemak_oleh_AI" : "tiada_esei",
               tarikh: new Date().toISOString(),
-              jenisUjian: jenisUjian 
+              jenisUjian: jenisUjian,
+              percubaan: percubaanBaru // 🌟 KEMAS KINI: Disimpan dalam DB!
             });
 
             const chapterId = bab.replace("Bab ", "");
             const modKeyTest = `t${tingkatan}-ch${chapterId}-mod-${jenisUjian}`;
-            const modKeyBimbingan = `t${tingkatan}-ch${chapterId}-mod-bimbingan`; 
             let completed = JSON.parse(localStorage.getItem("completedModules") || "[]");
 
             if (jenisUjian === "pre_test") {
@@ -242,8 +255,7 @@ function KandunganUjian() {
                 localStorage.setItem("completedModules", JSON.stringify(completed));
                 await updateDoc(doc(db, "users", user.id), { markahPostTestTerkini: peratus, statusBabTerkini: "Lulus" });
               } else {
-                completed = completed.filter((mod: string) => mod !== modKeyBimbingan && mod !== modKeyTest);
-                localStorage.setItem("completedModules", JSON.stringify(completed));
+                // Jangan masukkan dalam completedModules jika gagal, supaya boleh ambil lagi
                 await updateDoc(doc(db, "users", user.id), { markahPostTestTerkini: peratus, statusBabTerkini: "Ulang Bimbingan" });
               }
             }
@@ -257,31 +269,18 @@ function KandunganUjian() {
     };
 
     simpanMarkahFirebase();
-  }, [tamat, soalanSenarai, tingkatan, bab, isClient, jawapanStruktur, telahDisimpan, jawapanObjektif, jenisUjian, markahLulus]); 
+  }, [tamat, soalanSenarai, tingkatan, bab, isClient, jawapanStruktur, telahDisimpan, jawapanObjektif, jenisUjian, markahLulus, percubaanTerkini]); 
 
-  const pilihJawapanObjektif = (soalanId: string, jawapanDipilih: string) => {
-    setJawapanObjektif(prev => ({ ...prev, [soalanId]: jawapanDipilih }));
-  };
-
-  const tukarJawapanStruktur = (soalanId: string, teks: string) => {
-    setJawapanStruktur(prev => ({ ...prev, [soalanId]: teks }));
-  };
-
-  const pergiSoalanSebelum = () => {
-    if (indexSemasa > 0) setIndexSemasa(indexSemasa - 1);
-  };
+  const pilihJawapanObjektif = (soalanId: string, jawapanDipilih: string) => { setJawapanObjektif(prev => ({ ...prev, [soalanId]: jawapanDipilih })); };
+  const tukarJawapanStruktur = (soalanId: string, teks: string) => { setJawapanStruktur(prev => ({ ...prev, [soalanId]: teks })); };
+  const pergiSoalanSebelum = () => { if (indexSemasa > 0) setIndexSemasa(indexSemasa - 1); };
 
   const pergiSoalanSeterusnyaAtauTamat = () => {
-    if (indexSemasa + 1 < soalanSenarai.length) {
-      setIndexSemasa(indexSemasa + 1);
-    } else {
-      if (confirm("Adakah anda pasti untuk menghantar ujian ini? Sila pastikan semua jawapan telah disemak.")) {
-        setTamat(true);
-      }
-    }
+    if (indexSemasa + 1 < soalanSenarai.length) setIndexSemasa(indexSemasa + 1);
+    else if (confirm("Adakah anda pasti untuk menghantar ujian ini? Sila pastikan semua jawapan telah disemak.")) setTamat(true);
   };
 
-  const paparanTajukUjian = jenisUjian === "post_test" ? "Pasca-Ujian (Post-Test)" : "Pra-Ujian (Pre-Test)";
+  const paparanTajukUjian = jenisUjian === "post_test" ? "Ujian Pasca (Post-Test)" : "Ujian Diagnostik (Pre-Test)";
 
   if (!isClient) return <div className="min-h-screen flex items-center justify-center font-bold text-sky-600">Sistem Memulakan Ujian...</div>;
   if (loading) return <div className="min-h-screen flex items-center justify-center text-sky-700 font-semibold">Memuatkan Soalan Firebase...</div>;
@@ -311,13 +310,31 @@ function KandunganUjian() {
         <div className="max-w-2xl w-full p-8 bg-white rounded-2xl shadow-xl text-center border-t-8 border-sky-500">
           <h2 className="text-3xl font-extrabold mb-4 text-slate-800">{paparanTajukUjian} Tamat</h2>
           <p className="text-lg text-slate-600 mb-6">{bab} | Tingkatan {tingkatan}</p>
+          
+          {/* 🌟 KEMAS KINI: Logik UI Berdasarkan Keputusan dan Percubaan */}
           {jenisUjian === "pre_test" ? (
-             <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 p-6 rounded-xl mb-6">✅ <strong>Ujian Selesai. (Skor: {peratusAkhir}%)</strong><br/>Sistem telah menganalisis tahap kefahaman anda. Sila teruskan ke Modul Bimbingan di Dashboard.</div>
+             <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 p-6 rounded-xl mb-6">
+                ✅ <strong>Ujian Selesai. (Skor: {peratusAkhir}%)</strong><br/>
+                Sistem telah menganalisis tahap kefahaman anda. Sila teruskan ke Modul Bimbingan di Dashboard.
+             </div>
           ) : (
              isLulus ? (
-               <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-6 rounded-xl mb-6">🎉 <strong>TAHNIAH! Anda Lulus dengan {peratusAkhir}%.</strong><br/>Sebagai pelajar Tahap {tahapMurid}, anda telah berjaya melepasi sasaran {markahLulus}%. Teruskan ke modul/bab seterusnya!</div>
+               <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-6 rounded-xl mb-6">
+                 🎉 <strong>TAHNIAH! Anda Menguasai Bab Ini dengan {peratusAkhir}%.</strong><br/>
+                 Sebagai pelajar Tahap {tahapMurid}, anda telah berjaya melepasi sasaran {markahLulus}%.
+               </div>
              ) : (
-               <div className="bg-rose-50 border border-rose-200 text-rose-800 p-6 rounded-xl mb-6">⚠️ <strong>Markah anda: {peratusAkhir}% (Sasaran Tahap {tahapMurid}: {markahLulus}%).</strong><br/>Sila ulangkaji bimbingan tersebut dan ambil semula ujian ini.</div>
+               percubaanTerkini >= 2 ? (
+                 <div className="bg-red-50 border border-red-200 text-red-800 p-6 rounded-xl mb-6">
+                   ⚠️ <strong>Markah anda: {peratusAkhir}% (Sasaran: {markahLulus}%).</strong><br/>
+                   Anda telah mencuba 2 kali tetapi masih belum melepasi sasaran. Jangan risau, sistem telah merujuk pencapaian ini kepada Guru Sejarah anda untuk bimbingan lanjut.
+                 </div>
+               ) : (
+                 <div className="bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-xl mb-6">
+                   ⚠️ <strong>Markah anda: {peratusAkhir}% (Sasaran: {markahLulus}%).</strong><br/>
+                   Sila ikuti Modul Permainan Interaktif (Games) di Dashboard untuk ulangkaji yang lebih seronok, kemudian cuba lagi.
+                 </div>
+               )
              )
           )}
           <button onClick={() => router.push('/murid')} className="w-full sm:w-auto bg-slate-800 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-700 transition">Kembali ke Dashboard</button>
@@ -332,16 +349,9 @@ function KandunganUjian() {
   const labelBahagian = jenisSoalan === "objektif" ? "Bahagian A: Objektif" : "Bahagian B: Struktur/Esei";
   const isSoalanTerakhir = indexSemasa + 1 === soalanSenarai.length;
 
-  // 🌟 KEMAS KINI UTAMA: Logik Validasi - Adakah murid dah jawab soalan semasa?
   let soalanSudahDijawab = false;
-  if (jenisSoalan === "objektif") {
-    // True jika ada data terpilih untuk soalan id ini
-    soalanSudahDijawab = !!jawapanObjektif[semasa.id];
-  } else {
-    // True jika kotak teks tidak kosong selepas dibuang 'space' (spasi)
-    const teks = jawapanStruktur[semasa.id] || "";
-    soalanSudahDijawab = teks.trim().length > 0;
-  }
+  if (jenisSoalan === "objektif") { soalanSudahDijawab = !!jawapanObjektif[semasa.id]; } 
+  else { const teks = jawapanStruktur[semasa.id] || ""; soalanSudahDijawab = teks.trim().length > 0; }
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 flex flex-col items-center">
@@ -387,24 +397,16 @@ function KandunganUjian() {
                 const kunciAsal = item[0];
                 const teks = item[1];
                 const hurufVisual = String.fromCharCode(65 + index);
-                
                 const isSelected = jawapanObjektif[semasa.id] === kunciAsal;
 
                 return (
-                  <button
-                    key={kunciAsal}
-                    onClick={() => pilihJawapanObjektif(semasa.id, kunciAsal)}
+                  <button key={kunciAsal} onClick={() => pilihJawapanObjektif(semasa.id, kunciAsal)}
                     className={`w-full text-left p-5 rounded-xl border-2 transition-all font-medium flex gap-4 items-center group
-                      ${isSelected 
-                        ? 'border-sky-500 bg-sky-50 text-sky-800 ring-2 ring-sky-200' 
-                        : 'border-slate-200 hover:border-sky-300 hover:bg-slate-50 text-slate-700'
-                      }`}
-                  >
+                      ${isSelected ? 'border-sky-500 bg-sky-50 text-sky-800 ring-2 ring-sky-200' : 'border-slate-200 hover:border-sky-300 hover:bg-slate-50 text-slate-700'}
+                    `}>
                     <span className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold shadow-sm shrink-0 transition-colors
                       ${isSelected ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-600 group-hover:bg-sky-200'}
-                    `}>
-                      {hurufVisual}
-                    </span>
+                    `}>{hurufVisual}</span>
                     <span className="text-lg">{teks as string}</span>
                   </button>
                 );
@@ -423,27 +425,15 @@ function KandunganUjian() {
         </div>
 
         <div className="mt-10 pt-6 border-t border-slate-100 flex justify-between items-center gap-4">
-          <button
-            onClick={pergiSoalanSebelum}
-            disabled={indexSemasa === 0}
-            className="px-6 py-3 rounded-xl font-bold bg-slate-200 text-slate-600 hover:bg-slate-300 disabled:opacity-0 transition-all"
-          >
+          <button onClick={pergiSoalanSebelum} disabled={indexSemasa === 0}
+            className="px-6 py-3 rounded-xl font-bold bg-slate-200 text-slate-600 hover:bg-slate-300 disabled:opacity-0 transition-all">
             ⬅️ Kembali
           </button>
           
-          {/* 🌟 KEMAS KINI: Butang akan KELABU dan tak boleh ditekan jika belum jawab */}
-          <button
-            onClick={pergiSoalanSeterusnyaAtauTamat}
-            disabled={!soalanSudahDijawab}
+          <button onClick={pergiSoalanSeterusnyaAtauTamat} disabled={!soalanSudahDijawab}
             className={`px-8 py-3 rounded-xl font-bold transition-all shadow-md flex items-center gap-2
-              ${!soalanSudahDijawab
-                 ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60' 
-                 : isSoalanTerakhir 
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
-                    : 'bg-sky-600 text-white hover:bg-sky-700'
-              }
-            `}
-          >
+              ${!soalanSudahDijawab ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60' : isSoalanTerakhir ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-sky-600 text-white hover:bg-sky-700'}
+            `}>
             {isSoalanTerakhir ? 'Hantar Ujian ✅' : 'Seterusnya ➡️'}
           </button>
         </div>
