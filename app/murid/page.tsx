@@ -480,7 +480,7 @@ export default function MuridDashboard() {
                 <button onClick={() => setShowFeedback(false)} className="text-slate-400 hover:text-white transition">✖</button>
               </div>
               <div className="p-6">
-                <p className="text-sm text-slate-600 mb-4">Ada sebarang masalah, cadangan, atau pujian tentang Hub I-RAGs? Tuliskan di bawah. Cikgu akan membacanya!</p>
+                <p className="text-sm text-slate-600 mb-4">Sila tulis pandangan, cadangan atau komen anda untuk membantu meningkatkan mutu Laman Pembelajaran HUB I-RAGS. Cikgu Nic akan membacanya!</p>
                 <textarea
                   value={feedbackMsg}
                   onChange={(e) => setFeedbackMsg(e.target.value)}
