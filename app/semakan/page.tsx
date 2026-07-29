@@ -73,7 +73,7 @@ function PaparanSijil() {
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden border-4 border-double border-orange-200 relative">
           
           {/* Corak Sijil (Header) */}
-          <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 p-10 text-white text-center relative overflow-hidden">
+          <div className="bg-linear-to-r from-amber-500 via-orange-500 to-amber-500 p-10 text-white text-center relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
             <h1 className="text-4xl font-black mb-2 relative z-10 tracking-wider">SIJIL PENGESAHAN I-RAGS</h1>
             <p className="text-orange-100 font-medium text-lg relative z-10">Pencapaian Cemerlang Ujian Diagnostik</p>
@@ -123,7 +123,7 @@ function PaparanSijil() {
             window.close(); // 1. Cuba tutup tab (Berfungsi jika murid klik dari butang oren)
             window.history.back(); // 2. Jika browser halang, sistem akan bawa kembali ke page markah
           }} 
-          className="text-gray-500 hover:text-gray-800 font-bold transition flex items-center gap-2 bg-white px-6 py-2 rounded-full shadow-sm border border-gray-200 hover:bg-gray-50 hover:text-red-500"
+          className="text-gray-500 hover:text-gray-800 font-bold transition flex items-center gap-2 bg-white px-6 py-2 rounded-full shadow-sm border border-gray-200 "
         >
           Tutup Sijil ✖
         </button>

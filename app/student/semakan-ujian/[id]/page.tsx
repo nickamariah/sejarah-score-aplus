@@ -25,7 +25,7 @@ interface SkorMuridData {
   statusPermarkahanEsei: string;
   namaGuru?: string; 
   tarikh: string;
-  jenisUjian?: string; // Boleh jadi undefined kalau murid ambil ujian buat kali pertama
+  jenisUjian?: string; 
   jawapanObjektif?: Record<string, string>; 
   jawapanStruktur: Record<string, string>; 
   ulasanAI: Record<string, UlasanDetail>;
@@ -55,6 +55,8 @@ export default function SemakanUjianMurid() {
           const resultData = docSnap.data() as SkorMuridData;
           setData(resultData);
 
+          const jenisUjianMurid = resultData.jenisUjian || "pre_test"; // Fallback jika tiada jenis
+
           // B) Tarik teks soalan sebenar dari questionBank
           const q = query(
             collection(db, "questionBank"), 
@@ -63,10 +65,27 @@ export default function SemakanUjianMurid() {
           );
           const qSnap = await getDocs(q);
           const qList: any[] = [];
-          qSnap.forEach((d) => qList.push({ id: d.id, ...d.data() }));
           
-          // Susun soalan ikut ID (S001, S002...)
-          qList.sort((a, b) => a.id.localeCompare(b.id));
+          qSnap.forEach((d) => {
+            const soalanData = d.data();
+            const kegunaan = soalanData.kegunaan || "semua";
+
+            // 🌟 PENAPISAN KETAT: Membuang Soalan Draf & Soalan Ujian Lain
+            // a) Buang soalan Simpanan (Draf)
+            if (kegunaan === "simpanan") return;
+            
+            // b) Pastikan ia sesuai dengan ujian (Pre/Post) yang diambil murid
+            if (kegunaan !== "semua" && kegunaan !== jenisUjianMurid) return;
+
+            // c) Pastikan soalan ada No. Susunan (urutan yang sah)
+            const urutan = Number(soalanData.urutan);
+            if (!isNaN(urutan) && urutan > 0 && urutan !== 999) {
+               qList.push({ id: d.id, ...soalanData });
+            }
+          });
+          
+          // Susun soalan sama seperti urutan yang murid jawab masa ujian (bukan ikut ID abjad)
+          qList.sort((a, b) => Number(a.urutan) - Number(b.urutan));
           setSoalanBank(qList);
 
         } else {
@@ -107,22 +126,15 @@ export default function SemakanUjianMurid() {
   const jawapanObjektifMurid = data.jawapanObjektif || {};
 
   // ==========================================
-  // 🌟 LOGIK SYARAT BUTANG SIJIL (DIKEMASKINI)
+  // 🌟 LOGIK SYARAT BUTANG SIJIL
   // ==========================================
-  // 1. Dapatkan markah peratusan
   const markahPeratus = data.skor || 0;
-  
-  // 2. Dapatkan jenis ujian dari database. Jika kosong, kita PAKSA ia jadi 'pre_test'
-  // Pastikan ejaan 'pre_test' ini SAMA SEBIJI dengan apa yang cikgu simpan di Firebase
   const jenisUjian = data.jenisUjian ? data.jenisUjian.toLowerCase() : 'pre_test'; 
   
-  // 3. Syarat Ketat:
   const layakSijilPreTest = jenisUjian === 'pre_test' && markahPeratus >= 80;
   const layakSijilPostTest = jenisUjian === 'post_test';
-
-  // 4. Keputusan akhir untuk tunjuk butang atau tidak:
   const paparButangSijil = layakSijilPreTest || layakSijilPostTest;
-  // 5. Paparan Utama (Header & Markah)
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6 bg-gray-50 min-h-screen">
       
@@ -178,13 +190,13 @@ export default function SemakanUjianMurid() {
           </div>
         </div>
 
-        {/* 🌟 BAHAGIAN BUTANG SIJIL BERSYARAT */}
+        {/* BAHAGIAN BUTANG SIJIL BERSYARAT */}
         <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col items-center">
           {paparButangSijil ? (
             <Link 
                href={`/semakan?id=${documentId}`} 
               target="_blank"
-              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:-translate-y-1 hover:scale-105 flex items-center gap-2"
+              className="bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:-translate-y-1 hover:scale-105 flex items-center gap-2"
             >
               <span className="text-xl">🎓</span> 
               <span>Dapatkan Sijil Pengesahan I-RAGS</span>
@@ -249,7 +261,7 @@ export default function SemakanUjianMurid() {
               const jawapanEseiMurid = data.jawapanStruktur?.[soalan.id];
               const ulasan = data.ulasanAI?.[soalan.id];
               
-              // 🌟 KIRA MARKAH AKHIR
+              // Kira Markah Akhir
               const markahAkhir = data.markahGuru?.[soalan.id] !== undefined 
                                     ? data.markahGuru[soalan.id] 
                                     : (ulasan?.markahAI || 0);
@@ -279,12 +291,12 @@ export default function SemakanUjianMurid() {
                     <div className="p-4 rounded-md border bg-gray-50 border-gray-200">
                       <span className="text-xs font-semibold uppercase block mb-1 text-gray-500">Jawapan Anda:</span>
                       <p className="font-medium text-gray-800 whitespace-pre-wrap">
-                        {jawapanEseiMurid ? jawapanEseiMurid : <span className="text-gray-400 italic">Tiada jawapan diberikan</span>}
+                        {jawapanEseiMurid ? jawapanEseiMurid : <span className="text-rose-400 italic">⚠️ Tiada jawapan diberikan</span>}
                       </p>
                     </div>
                   </div>
 
-                  {ulasan && (
+                  {ulasan && jawapanEseiMurid && (
                     <div className="bg-indigo-50 p-4 rounded-md border border-indigo-100 flex gap-4 items-start">
                       <div className="text-2xl mt-1">🤖</div>
                       <div className="flex-1">
