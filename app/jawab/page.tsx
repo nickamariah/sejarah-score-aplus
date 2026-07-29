@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, getDoc } from "firebase/firestore"; 
 import { db } from "../../lib/firebase";
-import { Loader2, Image as ImageIcon, ChevronRight, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Image as ImageIcon, ChevronRight, Volume2, VolumeX, Music } from "lucide-react";
 
 // ==========================================
 // 1. KOMPONEN GAMBAR SOALAN
@@ -49,7 +49,6 @@ function KandunganUjian() {
   const [jawapanStruktur, setJawapanStruktur] = useState<Record<string, string>>({});
   const [jawapanObjektif, setJawapanObjektif] = useState<Record<string, string>>({});
   
-  // 🔥 STATE BARU: Untuk kawal mod interaktif "Semak Serta-Merta"
   const [soalanSelesai, setSoalanSelesai] = useState(false);
   const [jawapanTepatSemasa, setJawapanTepatSemasa] = useState(false);
 
@@ -61,14 +60,52 @@ function KandunganUjian() {
   const [percubaanTerkini, setPercubaanTerkini] = useState(0);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  const bgmRef = useRef<HTMLAudioElement>(null);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  
+  const senaraiLagu = [
+    { id: '1', nama: '🎵 Lofi Santai', src: '/santai.mp3' },
+    { id: '2', nama: '🚀 Rentak Fokus', src: '/fokus.mp3' },
+    { id: '3', nama: '⚔️ Epik Sejarah', src: '/epik.mp3' },
+  ];
+  const [selectedTrack, setSelectedTrack] = useState(senaraiLagu[0].src);
 
-  // 🔥 FUNGSI BUNYI (GAMIFIKASI)
   const playSound = (jenis: 'betul' | 'salah' | 'info') => {
     try {
       const audio = new Audio(jenis === 'betul' ? '/ting.mp3' : jenis === 'salah' ? '/buzzer.mp3' : '/ting.mp3');
       audio.play().catch(e => console.log("Pelayar menyekat bunyi auto:", e));
     } catch (error) { console.log("Audio ralat"); }
   };
+
+  const toggleMusic = () => {
+    if (bgmRef.current) {
+      if (isMusicPlaying) {
+        bgmRef.current.pause();
+      } else {
+        bgmRef.current.play().catch(e => console.log("Autoplay dihalang:", e));
+      }
+      setIsMusicPlaying(!isMusicPlaying);
+    }
+  };
+
+  const handleTrackChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSrc = e.target.value;
+    setSelectedTrack(newSrc);
+    if (bgmRef.current) {
+      bgmRef.current.src = newSrc;
+      if (isMusicPlaying) {
+        bgmRef.current.play().catch(e => console.log("Autoplay dihalang:", e));
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (tamat && bgmRef.current) {
+      bgmRef.current.pause();
+      setIsMusicPlaying(false);
+    }
+  }, [tamat]);
 
   const shuffleArray = (array: any[]) => {
     let shuffled = [...array];
@@ -247,9 +284,8 @@ function KandunganUjian() {
     simpanMarkahFirebase();
   }, [tamat, soalanSenarai, tingkatan, bab, isClient, jawapanStruktur, telahDisimpan, jawapanObjektif, jenisUjian, markahLulus, percubaanTerkini]); 
 
-  // 🔥 LOGIK MENJAWAB & KUIZ
   const handleInputStruktur = (e: React.ChangeEvent<HTMLTextAreaElement>, soalanId: string) => {
-    if(soalanSelesai) return; // Kunci jika dah semak
+    if(soalanSelesai) return; 
     setJawapanStruktur(prev => { 
       const stateBaru = { ...prev, [soalanId]: e.target.value }; 
       localStorage.setItem(`auto_str_${tingkatan}_${bab}_${jenisUjian}`, JSON.stringify(stateBaru)); 
@@ -269,7 +305,7 @@ function KandunganUjian() {
   };
 
   const pilihJawapanObjektif = (soalanId: string, jawapanDipilih: string) => {
-    if(soalanSelesai) return; // Kunci jika dah jawab
+    if(soalanSelesai) return; 
     
     setJawapanObjektif(prev => { 
         const stateBaru = { ...prev, [soalanId]: jawapanDipilih }; 
@@ -277,7 +313,6 @@ function KandunganUjian() {
         return stateBaru; 
     });
 
-    // Semak serta-merta
     const semasa = soalanSenarai[indexSemasa];
     const skemaBersih = String(semasa.jawapan || "").trim().toLowerCase();
     const isCorrect = jawapanDipilih.toLowerCase() === skemaBersih;
@@ -287,10 +322,22 @@ function KandunganUjian() {
 
     if(isCorrect) playSound('betul');
     else playSound('salah');
+
+    const isSoalanTerakhir = indexSemasa + 1 === soalanSenarai.length;
+
+    // 🔥 LOGIK BARU: Auto-Seterusnya selepas 2.5 saat jika soalan objektif (dan bukan soalan terakhir)
+    if (!isSoalanTerakhir) {
+      setTimeout(() => {
+        setSoalanSelesai(false);
+        setJawapanTepatSemasa(false);
+        setIndexSemasa(prev => prev + 1);
+        window.scrollTo({ top: 0, behavior: "smooth" }); 
+      }, 2500); // 2.5 saat
+    }
   };
 
   const pergiSoalanSeterusnyaAtauTamat = () => {
-    setSoalanSelesai(false); // Reset mod untuk soalan baru
+    setSoalanSelesai(false);
     setJawapanTepatSemasa(false);
 
     if (indexSemasa + 1 < soalanSenarai.length) setIndexSemasa(indexSemasa + 1);
@@ -327,28 +374,58 @@ function KandunganUjian() {
   const senaraiPilihan = semasa.shuffledPilihan || (semasa.pilihan ? Object.entries(semasa.pilihan) : []);
   const isSoalanTerakhir = indexSemasa + 1 === soalanSenarai.length;
   const progressPercentage = ((indexSemasa + 1) / soalanSenarai.length) * 100;
-
-  // Dapatkan teks jawapan betul untuk ditunjuk jika salah
-   // Dapatkan teks jawapan betul untuk ditunjuk jika salah
   const jawapanBetulTeks = jenisSoalan === "objektif" ? (senaraiPilihan.find((p: any[]) => p[0] === semasa.jawapan)?.[1] || semasa.jawapan) : "";
 
   return (
     <div className="min-h-screen bg-slate-50 pb-28 pt-20"> 
+      
+      <audio ref={bgmRef} src={selectedTrack} loop />
+
       <div className="fixed top-0 left-0 w-full bg-white shadow-sm border-b border-slate-200 z-40">
          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
            <div>
              <h1 className="text-sm md:text-base font-extrabold text-slate-800">{bab}</h1>
              <p className="text-[10px] md:text-xs font-bold text-sky-600 uppercase mt-0.5">Soalan Kuiz Interaktif</p>
            </div>
-           <div className="text-right">
-             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Kemajuan</span>
-             <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-md">{indexSemasa + 1} / {soalanSenarai.length}</span>
+           
+           <div className="flex items-center gap-3 md:gap-4">
+             <div className="flex items-center gap-1 md:gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
+                <button 
+                  onClick={toggleMusic} 
+                  className={`p-1.5 rounded-lg transition-colors ${isMusicPlaying ? 'bg-white text-emerald-500 shadow-sm' : 'bg-transparent text-slate-400 hover:bg-slate-200'}`}
+                  title={isMusicPlaying ? "Matikan Muzik" : "Hidupkan Muzik"}
+                >
+                  {isMusicPlaying ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                </button>
+                
+                <div className="flex items-center border-l border-slate-300 pl-1 md:pl-2">
+                  <Music size={12} className="text-slate-400 mr-1 hidden md:block" />
+                  <select 
+                    value={selectedTrack}
+                    onChange={handleTrackChange}
+                    className="bg-transparent text-[10px] md:text-xs font-bold text-slate-700 outline-none cursor-pointer py-1 pr-2 hover:text-sky-600 transition-colors appearance-none"
+                  >
+                    {senaraiLagu.map(lagu => (
+                      <option key={lagu.id} value={lagu.src}>{lagu.nama}</option>
+                    ))}
+                  </select>
+                </div>
+             </div>
+
+             <div className="text-right hidden md:block">
+               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Kemajuan</span>
+               <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-md">{indexSemasa + 1} / {soalanSenarai.length}</span>
+             </div>
            </div>
          </div>
          <div className="w-full bg-slate-100 h-1.5"><div className="bg-sky-500 h-full transition-all duration-300" style={{ width: `${progressPercentage}%` }}></div></div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 w-full">
+      <div className="max-w-3xl mx-auto px-4 w-full mt-2">
+         <div className="md:hidden text-center mb-4 text-xs font-bold text-slate-500">
+           Soalan {indexSemasa + 1} daripada {soalanSenarai.length}
+         </div>
+
          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
            
            <div className="flex justify-between items-start gap-4 mb-6">
@@ -366,14 +443,13 @@ function KandunganUjian() {
                    const isCorrectOption = soalanSelesai && item[0] === semasa.jawapan;
                    const isWrongSelected = soalanSelesai && isSelected && !jawapanTepatSemasa;
                    
-                   // Logik Warna Gamifikasi
-                   let butangWarna = 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50'; // Default
+                   let butangWarna = 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50'; 
                    let hurufWarna = 'bg-slate-100 text-slate-500';
 
                    if (soalanSelesai) {
                      if (isCorrectOption) { butangWarna = 'border-emerald-500 bg-emerald-50 shadow-md'; hurufWarna = 'bg-emerald-500 text-white'; }
                      else if (isWrongSelected) { butangWarna = 'border-red-500 bg-red-50 opacity-90'; hurufWarna = 'bg-red-500 text-white'; }
-                     else { butangWarna = 'border-slate-200 bg-slate-50 opacity-40'; } // Kelabukan yang lain
+                     else { butangWarna = 'border-slate-200 bg-slate-50 opacity-40'; } 
                    } else if (isSelected) {
                      butangWarna = 'border-sky-500 bg-sky-50 shadow-sm'; hurufWarna = 'bg-sky-500 text-white';
                    }
@@ -389,7 +465,6 @@ function KandunganUjian() {
                    );
                  })}
 
-                 {/* Mesej Maklum Balas Emoji Objektif */}
                  {soalanSelesai && (
                    <div className={`mt-4 p-4 rounded-xl flex items-start gap-3 border ${jawapanTepatSemasa ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
                      <span className="text-2xl mt-0.5">{jawapanTepatSemasa ? '🎯' : '😢'}</span>
@@ -411,7 +486,6 @@ function KandunganUjian() {
                    className={`w-full p-4 md:p-5 text-slate-900 border-2 rounded-xl focus:ring-4 focus:ring-sky-500/10 resize-none min-h-40 max-h-96 overflow-y-auto text-sm md:text-base transition-all outline-none leading-relaxed ${soalanSelesai ? 'bg-slate-100 border-slate-300 opacity-80' : 'bg-slate-50 border-slate-300 focus:bg-white focus:border-sky-500'}`}
                  />
                  
-                 {/* Papar Skema selepas Hantar */}
                  {soalanSelesai ? (
                    <div className="mt-4 p-5 bg-sky-50 border border-sky-200 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
                      <h4 className="font-bold text-sky-800 flex items-center gap-2 mb-2">💡 Rujukan Skema Jawapan AI:</h4>
@@ -433,8 +507,8 @@ function KandunganUjian() {
          </div>
       </div>
 
-      {/* FOOTER - Butang Seterusnya Sahaja */}
-      {soalanSelesai && (
+      {/* 🔥 HANYA PAPARKAN FOOTER JIKA: Soalan Struktur ATAU Ia adalah Soalan Terakhir */}
+      {soalanSelesai && (jenisSoalan !== "objektif" || isSoalanTerakhir) && (
         <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] animate-in slide-in-from-bottom-full duration-300">
            <div className="max-w-3xl mx-auto flex justify-end">
              <button onClick={pergiSoalanSeterusnyaAtauTamat} className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-bold transition-all text-sm md:text-base w-full shadow-lg ${isSoalanTerakhir ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/30' : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/30'}`}>
