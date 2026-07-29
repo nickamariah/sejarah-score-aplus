@@ -643,7 +643,7 @@ export default function GuruDashboard() {
                           <tbody>
                             {soalanListFiltered.length > 0 ? soalanListFiltered.map((q, i) => (
                               <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30">
-                                <td className="p-4 text-slate-400 text-sm font-bold text-amber-500">{q.id}</td>
+                                <td className="p-4 text-sm font-bold text-amber-500">{q.id}</td>
                                 <td className="p-4 text-slate-200 text-sm">{q.topik}</td>
                                 <td className="p-4"><span className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider ${q.kegunaan === 'pre_test' ? 'bg-indigo-900/30 text-indigo-400' : q.kegunaan === 'post_test' ? 'bg-emerald-900/30 text-emerald-400' : q.kegunaan === 'simpanan' ? 'bg-slate-700/50 text-slate-400 border border-slate-600' : 'bg-blue-900/30 text-blue-400'}`}>{q.kegunaan === 'semua' || !q.kegunaan ? "PRE & POST" : q.kegunaan === 'simpanan' ? "SIMPANAN" : q.kegunaan}</span></td>
                                 <td className="p-4"><span className={`text-[10px] px-2 py-1 rounded-md font-bold ${q.jenis === 'objektif' ? 'bg-amber-900/30 text-amber-400' : 'bg-purple-900/30 text-purple-400'}`}>{q.jenis?.toUpperCase()}</span></td>
@@ -737,7 +737,7 @@ export default function GuruDashboard() {
                       </div>
 
                       <h4 className="text-lg md:text-xl font-bold text-white mb-2 line-clamp-2">{bahan.title}</h4>
-                      <p className="text-xs text-slate-400 mb-2 font-mono text-amber-500/80">ID: {bahan.id}</p>
+                      <p className="text-xs text-sm font-bold text-amber-500">ID: {bahan.id}</p>
                       
                       {editSubtopikId === bahan.id ? (
                         <div className="mt-3 bg-slate-900/50 p-4 rounded-lg border border-amber-600/50">
@@ -923,7 +923,7 @@ export default function GuruDashboard() {
 
       <AnimatePresence>
         {toast && (
-          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed bottom-6 right-6 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-[60] border border-slate-700 text-sm font-medium"><div className={`w-3 h-3 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>{toast.message}</motion.div>
+          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed bottom-6 right-6 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-60 border border-slate-700 text-sm font-medium"><div className={`w-3 h-3 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>{toast.message}</motion.div>
         )}
       </AnimatePresence>
     </div>

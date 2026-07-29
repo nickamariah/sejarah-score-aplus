@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation"; 
 import { db } from "@/lib/firebase"; 
 import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, getDocs } from "firebase/firestore";
-import { Bot, Send, ArrowLeft, BookOpen, Video, Lightbulb, HelpCircle, Trophy, CheckCircle2, Loader2, PlayCircle, X } from "lucide-react";
+import { Bot, Send, ArrowLeft, BookOpen, Video, Lightbulb, HelpCircle, CheckCircle2, Loader2, PlayCircle, X } from "lucide-react";
 
 function KomponenPembelajaran() {
   const searchParams = useSearchParams();
@@ -230,7 +230,7 @@ function KomponenPembelajaran() {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 studentId, chapterId, aras: arasDariURL, currentPhase: nextPhase, 
-                text: `[SISTEM AUTO]: Murid lulus fasa tadi. Berikan SOALAN PERTAMA untuk menguji FASA ${nextPhase}. Tanya 1 soalan, jangan berbasa-basi.`, 
+                text: `[SISTEM AUTO]: Murid lulus fasa tadi. Berikan SOALAN PERTAMA untuk menguji FASA ${nextPhase}. Tanya 1 soalan sahaja.`, 
                 soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema, tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, previousMessages: [] 
               })
             });
@@ -251,7 +251,7 @@ function KomponenPembelajaran() {
   const sendQuickPrompt = (text: string) => { setInput(text); setTimeout(() => { inputRef.current?.focus(); }, 50); };
 
   // ===============================================
-  // REKA BENTUK UI KEMASKINI (HEADER DIKECILKAN)
+  // REKA BENTUK UI KEMASKINI
   // ===============================================
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-slate-100 overflow-hidden font-sans relative">
@@ -259,7 +259,7 @@ function KomponenPembelajaran() {
       {/* 🟢 PANEL KIRI: PDF & VIDEO */}
       <div className={`${showPdfMobile ? 'fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-sm' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-2xl lg:shadow-none h-full lg:w-[var(--left-width)]`} style={{ "--left-width": `${leftWidth}%` } as React.CSSProperties}>
         
-        <div className="bg-slate-900 text-white p-2 lg:p-3 shadow-md flex items-center justify-between gap-3 z-30 shrink-0 border-b border-slate-700">
+        <div className="bg-slate-900 text-white p-3 lg:p-4 shadow-md flex items-center justify-between gap-3 z-30 shrink-0 border-b border-slate-700">
           <button onClick={() => window.location.href = '/murid'} className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300 transition shrink-0 border border-slate-600">
             <ArrowLeft size={14}/> Kembali
           </button>
@@ -293,26 +293,25 @@ function KomponenPembelajaran() {
       {/* DRAGGER PEMBAHAGI SCREEN (DESKTOP) */}
       <div className="hidden lg:flex flex-col justify-center items-center w-1.5 bg-slate-300 hover:bg-sky-500 active:bg-sky-600 cursor-col-resize z-30 transition-colors" onMouseDown={() => setIsDragging(true)}><div className="h-8 w-1 bg-slate-400 rounded-full"></div></div>
 
-      {/* 🟢 PANEL KANAN: CHATBOT AI (DIKEMASKINI: HEADER SUPER KOMPAK) */}
-      <div className="w-full lg:flex-1 h-full bg-white flex flex-col z-10 relative">
+      {/* 🟢 PANEL KANAN: CHATBOT AI */}
+      <div className="w-full lg:flex-1 h-full bg-slate-50 flex flex-col z-10 relative">
         
-        {/* HEADER CHAT (NIPIS DAN KEMAS) */}
-        <div className="bg-gradient-to-r from-sky-700 to-indigo-800 text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative">
-          
+        {/* HEADER CHAT (KOMPAK DAN BERSIH - Butang nota dialihkan ke bawah) */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative">
           <div className="flex justify-between items-center gap-2 mb-1.5">
-            {/* Tajuk & Icon Bot */}
+            
             <div className="flex items-center gap-2">
               <button onClick={() => window.location.href = '/murid'} className="lg:hidden p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors border border-white/10 text-white"><ArrowLeft size={16}/></button>
-              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm p-1 border border-sky-200 shrink-0"><Bot size={18} className="text-sky-600"/></div>
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm p-1 border border-sky-200 shrink-0"><Bot size={18} className="text-blue-600"/></div>
               <div className="leading-tight">
                 <h2 className="font-bold text-[13px] lg:text-sm tracking-wide">Cikgu AI I-RAGs</h2>
-                <p className="text-sky-200 text-[9px] lg:text-[10px] font-medium flex items-center gap-1">Aras {arasDariURL.charAt(0).toUpperCase() + arasDariURL.slice(1)} <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block animate-pulse"></span></p>
+                <p className="text-blue-200 text-[9px] lg:text-[10px] font-medium flex items-center gap-1">Aras {arasDariURL.charAt(0).toUpperCase() + arasDariURL.slice(1)} <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block animate-pulse"></span></p>
               </div>
             </div>
 
-            {/* Fasa Inkuiri Bloom (Satu baris sahaja - Jimat Ruang) */}
+            {/* Fasa Inkuiri Bloom */}
             <div className="flex flex-col items-end w-[130px] lg:w-[180px]">
-               <div className="text-[8px] lg:text-[9px] font-bold text-sky-100 uppercase tracking-wider mb-1 flex justify-between w-full">
+               <div className="text-[8px] lg:text-[9px] font-bold text-blue-100 uppercase tracking-wider mb-1 flex justify-between w-full">
                   <span>Fasa Inkuiri</span> <span className="text-amber-300">{currentPhase}/{maxFasa}</span>
                </div>
                <div className="flex gap-0.5 w-full">
@@ -322,12 +321,9 @@ function KomponenPembelajaran() {
                   })}
                </div>
             </div>
-
-            {/* Butang Nota Mobile */}
-            <button onClick={() => setShowPdfMobile(true)} className="lg:hidden shrink-0 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold px-2.5 py-1.5 rounded-lg text-[10px] flex items-center gap-1 shadow-sm"><BookOpen size={14}/> Nota</button>
           </div>
 
-          {/* Bar Subtopik (Lebih Nipis) */}
+          {/* Bar Subtopik */}
           <div className="flex gap-1 overflow-x-auto bg-black/20 p-1 rounded-lg no-scrollbar items-center">
             {subtopicsList.length > 0 ? subtopicsList.map((sub: any, index: number) => {
               const isPast = index < currentIndex;
@@ -340,17 +336,17 @@ function KomponenPembelajaran() {
           </div>
         </div>
 
-        {/* KAWASAN KANDUNGAN CHAT (KINI JAUH LEBIH LUAS) */}
-        <div className="flex-1 p-3 lg:p-4 overflow-y-auto bg-slate-50 relative custom-scrollbar">
+        {/* KAWASAN KANDUNGAN CHAT */}
+        <div className="flex-1 p-3 lg:p-4 overflow-y-auto bg-[url('/bg-chat-pattern.png')] bg-blue-50/50 relative custom-scrollbar">
           
           <div className="text-center mb-4 mt-1"><span className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-200 px-3 py-1 rounded-full">Sesi Bermula</span></div>
 
           {messages.map((msg) => (
             <div key={msg.id} className={`mb-3 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               {msg.role === "assistant" && (
-                <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-sky-100 flex items-center justify-center shrink-0 mr-2 mt-auto border border-sky-200 hidden md:flex"><Bot size={14} className="text-sky-600"/></div>
+                <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-white flex items-center justify-center shrink-0 mr-2 mt-auto border border-slate-200 hidden md:flex"><Bot size={14} className="text-blue-600"/></div>
               )}
-              <div className={`px-3 py-2.5 lg:px-4 lg:py-3 rounded-2xl max-w-[90%] md:max-w-[80%] text-[13px] lg:text-[15px] leading-relaxed shadow-sm ${msg.role === "user" ? "bg-sky-600 text-white rounded-br-sm" : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"}`}>
+              <div className={`px-3 py-2.5 lg:px-4 lg:py-3 rounded-2xl max-w-[90%] md:max-w-[80%] text-[13px] lg:text-[15px] leading-relaxed shadow-sm ${msg.role === "user" ? "bg-blue-600 text-white rounded-br-sm" : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"}`}>
                 <div className="prose prose-sm md:prose-base prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
               </div>
             </div>
@@ -358,24 +354,49 @@ function KomponenPembelajaran() {
 
           {isLoading && (
             <div className="flex justify-start mb-4">
-              <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-sky-100 flex items-center justify-center shrink-0 mr-2 mt-auto border border-sky-200 hidden md:flex"><Bot size={14} className="text-sky-600"/></div>
-              <div className="px-3 py-2 bg-white border border-slate-200 rounded-2xl rounded-bl-sm shadow-sm flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 text-sky-500 animate-spin" /><span className="text-slate-500 text-[11px] lg:text-xs font-medium">I-RAGs sedang menaip...</span></div>
+              <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-white flex items-center justify-center shrink-0 mr-2 mt-auto border border-slate-200 hidden md:flex"><Bot size={14} className="text-blue-600"/></div>
+              <div className="px-3 py-2 bg-white border border-slate-200 rounded-2xl rounded-bl-sm shadow-sm flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" /><span className="text-slate-500 text-[11px] lg:text-xs font-medium">I-RAGs sedang menaip...</span></div>
             </div>
           )}
           <div ref={messagesEndRef} className="h-1" />
         </div>
 
-        {/* INPUT TERLEKAT DI BAWAH (NIPIS DAN KOMPAK) */}
+        {/* INPUT TERLEKAT DI BAWAH */}
         <div className="bg-white border-t border-slate-200 shadow-[0_-4px_10px_-10px_rgba(0,0,0,0.1)] shrink-0 z-20">
             
-            {/* Butang Bantuan Cepat */}
+            {/* 🌟 KUMPULAN BUTANG TINDAKAN (NOTA & VIDEO DI KIRI, BANTUAN DI KANAN) */}
             {!isLoading && !isMastered && (
-              <div className="flex flex-wrap gap-1.5 px-2.5 py-1.5 bg-slate-50 border-b border-slate-100">
-                <button onClick={() => sendQuickPrompt("Boleh bagi hint atau klu sikit?")} className="bg-amber-100 text-amber-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1 rounded-md hover:bg-amber-200 transition-colors flex items-center gap-1 border border-amber-200/50"><Lightbulb size={12}/> Hint</button>
-                <button onClick={() => sendQuickPrompt("Saya kurang faham, boleh cikgu terangkan?")} className="bg-rose-100 text-rose-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1 rounded-md hover:bg-rose-200 transition-colors flex items-center gap-1 border border-rose-200/50"><HelpCircle size={12}/> Tak Faham</button>
-                {arasDariURL === "rendah" && (
-                  <button onClick={() => setShowVideoModal(true)} className="bg-purple-100 text-purple-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1 rounded-md hover:bg-purple-200 transition-colors flex items-center gap-1 border border-purple-200/50 ml-auto"><PlayCircle size={12}/> Video</button>
-                )}
+              <div className="flex flex-wrap gap-2 px-3 py-2.5 bg-slate-50 border-b border-slate-100 items-center justify-between">
+                
+                {/* BAHAGIAN KIRI: RUJUKAN */}
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setShowPdfMobile(true)} 
+                    className="lg:hidden bg-amber-400 text-amber-950 text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-amber-500 transition-colors flex items-center gap-1.5 shadow-sm"
+                  >
+                    <BookOpen size={14}/> Nota
+                  </button>
+
+                  {arasDariURL === "rendah" && (
+                    <button 
+                      onClick={() => setShowVideoModal(true)} 
+                      className="bg-red-600 text-white text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-red-700 transition-all flex items-center gap-1.5 shadow-md shadow-red-500/30 animate-pulse hover:animate-none"
+                    >
+                      <PlayCircle size={16}/> Video
+                    </button>
+                  )}
+                </div>
+
+                {/* BAHAGIAN KANAN: BANTUAN AI */}
+                <div className="flex items-center gap-2">
+                  <button onClick={() => sendQuickPrompt("Boleh bagi hint atau klu sikit?")} className="bg-emerald-100 text-emerald-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1.5 rounded-md hover:bg-emerald-200 transition-colors flex items-center gap-1 shadow-sm border border-emerald-200/50">
+                    <Lightbulb size={12}/> Hint
+                  </button>
+                  <button onClick={() => sendQuickPrompt("Saya kurang faham, boleh cikgu terangkan?")} className="bg-rose-100 text-rose-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1.5 rounded-md hover:bg-rose-200 transition-colors flex items-center gap-1 shadow-sm border border-rose-200/50">
+                    <HelpCircle size={12}/> Tak Faham
+                  </button>
+                </div>
+
               </div>
             )}
 
@@ -395,11 +416,11 @@ function KomponenPembelajaran() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                   placeholder="Taip di sini..." 
-                  className="flex-1 bg-slate-100 text-slate-900 placeholder-slate-400 border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/50 resize-none min-h-[40px] max-h-[100px]" 
+                  className="flex-1 bg-slate-100 text-slate-900 placeholder-slate-400 border border-slate-300 rounded-xl px-3 py-2.5 text-[13px] md:text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 resize-none min-h-[45px] max-h-[100px]" 
                   disabled={isLoading}
                   rows={1}
                 />
-                <button type="submit" disabled={isLoading || !input.trim()} className="bg-sky-600 text-white rounded-xl w-10 h-10 shrink-0 flex items-center justify-center hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors">
+                <button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-600 text-white rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors">
                   <Send size={16} className={input.trim() && !isLoading ? "translate-x-0.5" : ""} />
                 </button>
               </form>
@@ -412,7 +433,7 @@ function KomponenPembelajaran() {
 
 export default function SplitScreenLearning() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-50 flex-col gap-3"><Loader2 className="w-8 h-8 animate-spin text-sky-600"/><div className="text-xs font-bold text-slate-500">Memuatkan Sistem...</div></div>}>
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-50 flex-col gap-3"><Loader2 className="w-8 h-8 animate-spin text-blue-600"/><div className="text-xs font-bold text-slate-500">Memuatkan Sistem...</div></div>}>
       <KomponenPembelajaran />
     </Suspense>
   );
