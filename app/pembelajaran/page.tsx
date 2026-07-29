@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation"; 
 import { db } from "@/lib/firebase"; 
 import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, getDocs } from "firebase/firestore";
-import { Bot, Send, ArrowLeft, BookOpen, Video, Lightbulb, HelpCircle, CheckCircle2, Loader2, PlayCircle, X } from "lucide-react";
+import { Bot, Send, ArrowLeft, BookOpen, Video, Lightbulb, HelpCircle, CheckCircle2, Loader2, PlayCircle, X, Mic } from "lucide-react";
 
 function KomponenPembelajaran() {
   const searchParams = useSearchParams();
@@ -28,6 +28,11 @@ function KomponenPembelajaran() {
   const [koleksiSkema, setKoleksiSkema] = useState("");
 
   const [studentId, setStudentId] = useState("murid_test");
+
+  // STATE UNTUK SPEECH-TO-TEXT
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
   useEffect(() => {
     const rawUser = localStorage.getItem("currentUser");
     if (rawUser) setStudentId(JSON.parse(rawUser).id);
@@ -97,6 +102,35 @@ function KomponenPembelajaran() {
     };
     tarikSoalanPeperiksaan();
   }, [chapterId, currentSub]);
+
+  // INIT WEB SPEECH API
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false; 
+        recognition.interimResults = false;
+        recognition.lang = 'ms-MY'; 
+        
+        recognition.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setInput((prev) => prev + (prev.trim() !== '' ? ' ' : '') + transcript);
+          setTimeout(() => {
+            if (inputRef.current) {
+              inputRef.current.style.height = 'auto';
+              inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
+            }
+          }, 50);
+        };
+        
+        recognition.onend = () => setIsListening(false);
+        recognition.onerror = () => setIsListening(false);
+        
+        recognitionRef.current = recognition;
+      }
+    }
+  }, []);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
   useEffect(() => { if (!isLoading && inputRef.current && !isMastered) setTimeout(() => { inputRef.current?.focus(); }, 100); }, [isLoading, isMastered]);
@@ -190,44 +224,41 @@ function KomponenPembelajaran() {
     return () => unsubscribe();
   }, [sessionId, chapterId, studentId, chapterData, maxFasa, currentSub, namaBabSebenar, namaSubtopikSebenar]); 
 
-  // ==========================================
-  // TAMBAHAN FUNGSI BARU (Auto-Resize & TTS)
-  // ==========================================
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     if (inputRef.current) {
-      inputRef.current.style.height = 'auto'; // Reset dulu
-      inputRef.current.style.height = `${inputRef.current.scrollHeight}px`; // Set ikut kandungan
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
     }
   };
 
-  const bacaTeks = (teksRaw: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      // Bersihkan teks dari simbol markdown atau tag html supaya AI baca sedap didengar
-      const teksBersih = teksRaw.replace(/\*\*/g, '').replace(/<[^>]*>?/gm, '');
-      const sebutan = new SpeechSynthesisUtterance(teksBersih);
-      sebutan.lang = 'ms-MY';
-      sebutan.rate = 1.0;
-      window.speechSynthesis.speak(sebutan);
+  const toggleListening = (e: React.MouseEvent) => {
+    e.preventDefault(); 
+    if (!recognitionRef.current) {
+      alert("Maaf, pelayar web anda (browser) tidak menyokong fungsi suara-ke-teks. Sila guna Google Chrome.");
+      return;
+    }
+    
+    if (isListening) {
+      recognitionRef.current.stop();
     } else {
-      alert("Maaf, peranti anda tidak menyokong fungsi suara.");
+      recognitionRef.current.start();
+      setIsListening(true);
     }
   };
-
-  const hentiBaca = () => {
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-  };
-  // ==========================================
 
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim()) return;
 
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+
     const teksMurid = input;
     setInput(""); setIsLoading(true);
     
-    // Kembalikan saiz input kepada asal lepas hantar
     if (inputRef.current) inputRef.current.style.height = 'auto';
 
     const sessionDocRef = doc(db, "chat_sessions", sessionId);
@@ -283,7 +314,7 @@ function KomponenPembelajaran() {
 
   const sendQuickPrompt = (text: string) => { 
     setInput(text); 
-    if (inputRef.current) inputRef.current.style.height = 'auto'; // reset saiz 
+    if (inputRef.current) inputRef.current.style.height = 'auto'; 
     setTimeout(() => { inputRef.current?.focus(); }, 50); 
   };
 
@@ -296,33 +327,53 @@ function KomponenPembelajaran() {
       {/* 🟢 PANEL KIRI: PDF & VIDEO */}
       <div className={`${showPdfMobile ? 'fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-sm' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-2xl lg:shadow-none h-full lg:w-(--left-width)`} style={{ "--left-width": `${leftWidth}%` } as React.CSSProperties}>
         
-        <div className="bg-slate-900 text-white p-3 lg:p-4 shadow-md flex items-center justify-between gap-3 z-30 shrink-0 border-b border-slate-700">
+        {/* 🔥 HEADER BARU: Letak Toggle Butang Nota & Video di sini */}
+        <div className="bg-slate-900 text-white p-3 lg:p-4 shadow-md flex items-center gap-3 z-30 shrink-0 border-b border-slate-700 overflow-x-auto no-scrollbar">
+          
           <button onClick={() => window.location.href = '/murid'} className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300 transition shrink-0 border border-slate-600">
             <ArrowLeft size={14}/> Kembali
           </button>
           
-          <h2 className="text-xs lg:text-sm font-bold truncate flex items-center gap-1.5 text-sky-100">
-            {showVideoModal ? <><Video size={16} className="text-red-400"/> Video Bimbingan</> : <><BookOpen size={16} className="text-sky-400"/> Nota: {chapterData ? chapterData.title : formatTajuk(chapterId)}</>}
+          {/* BUTANG TOGGLE NOTA / VIDEO (Sangat Jelas & Boleh Ditekan) */}
+          <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700 shrink-0">
+            <button
+              onClick={() => setShowVideoModal(false)}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${!showVideoModal ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'}`}
+            >
+              <BookOpen size={14}/> Nota
+            </button>
+            <button
+              onClick={() => setShowVideoModal(true)}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${showVideoModal ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'}`}
+            >
+              <PlayCircle size={14}/> Video
+            </button>
+          </div>
+
+          <h2 className="text-xs font-bold truncate flex-1 text-right text-slate-400 hidden lg:block">
+            {chapterData ? chapterData.title : formatTajuk(chapterId)}
           </h2>
           
-          <button onClick={() => {setShowPdfMobile(false); setShowVideoModal(false);}} className="lg:hidden bg-slate-700 hover:bg-slate-600 text-slate-300 p-1.5 rounded-full transition-colors"><X size={18}/></button>
+          <button onClick={() => {setShowPdfMobile(false); setShowVideoModal(false);}} className="lg:hidden ml-auto bg-slate-700 hover:bg-slate-600 text-slate-300 p-1.5 rounded-full transition-colors"><X size={18}/></button>
         </div>
         
         <div className="flex-1 w-full h-full bg-slate-100 relative flex flex-col">
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
+          
           <div className={`absolute inset-0 z-40 flex flex-col bg-slate-900 transition-all duration-300 ${showVideoModal ? "opacity-100 visible pointer-events-auto" : "opacity-0 invisible pointer-events-none"}`}>
-               <div className="bg-red-600/20 text-white p-2 flex justify-between items-center px-3 shadow-md z-20 border-b border-red-500/30">
-                  <span className="font-bold text-xs flex items-center gap-1.5 text-red-100"><PlayCircle size={16} className="text-red-400"/> Tonton Video</span>
-                  <button onClick={() => setShowVideoModal(false)} className="bg-slate-800/80 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-slate-600 flex items-center gap-1"><BookOpen size={14}/> Baca Nota</button>
-               </div>
                <div className="flex-1 w-full h-full flex items-center justify-center p-4 relative bg-black">
                   {videoKhas ? (
-                    <iframe className="w-full h-full max-h-[70vh] aspect-video rounded-xl shadow-2xl border border-slate-700" src={showVideoModal ? videoKhas : ""} title="Video Bimbingan" frameBorder="0" allowFullScreen></iframe>
+                    <iframe className="w-full h-full aspect-video rounded-xl shadow-2xl border border-slate-700" src={showVideoModal ? videoKhas : ""} title="Video Bimbingan" frameBorder="0" allowFullScreen></iframe>
                   ) : (
-                    <div className="text-center text-slate-400"><Video size={48} className="mx-auto mb-3 opacity-30"/><p className="text-sm">Tiada video YouTube disertakan.</p><button onClick={() => setShowVideoModal(false)} className="mt-4 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md">Kembali ke Nota</button></div>
+                    <div className="text-center text-slate-400">
+                      <Video size={48} className="mx-auto mb-3 opacity-30"/>
+                      <p className="text-sm font-bold">Tiada video YouTube disertakan.</p>
+                      <button onClick={() => setShowVideoModal(false)} className="mt-4 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md">Kembali ke Nota</button>
+                    </div>
                   )}
                </div>
           </div>
+          
           <div className="absolute inset-0 w-full h-full z-10 bg-white"><iframe src={getNotaUrl()} className="w-full h-full border-0" title="Nota Bimbingan"/></div>
         </div>
       </div>
@@ -333,7 +384,7 @@ function KomponenPembelajaran() {
       {/* 🟢 PANEL KANAN: CHATBOT AI */}
       <div className="w-full lg:flex-1 h-full bg-slate-50 flex flex-col z-10 relative">
         
-        {/* HEADER CHAT (KOMPAK DAN BERSIH - Butang nota dialihkan ke bawah) */}
+        {/* HEADER CHAT */}
         <div className="bg-linear-to-r from-blue-600 to-indigo-700 text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative">
           <div className="flex justify-between items-center gap-2 mb-1.5">
             
@@ -346,7 +397,6 @@ function KomponenPembelajaran() {
               </div>
             </div>
 
-            {/* Fasa Inkuiri Bloom */}
             <div className="flex flex-col items-end w-32.5 lg:w-45">
                <div className="text-[8px] lg:text-[9px] font-bold text-blue-100 uppercase tracking-wider mb-1 flex justify-between w-full">
                   <span>Fasa Inkuiri</span> <span className="text-amber-300">{currentPhase}/{maxFasa}</span>
@@ -360,7 +410,6 @@ function KomponenPembelajaran() {
             </div>
           </div>
 
-          {/* Bar Subtopik */}
           <div className="flex gap-1 overflow-x-auto bg-black/20 p-1 rounded-lg no-scrollbar items-center">
             {subtopicsList.length > 0 ? subtopicsList.map((sub: any, index: number) => {
               const isPast = index < currentIndex;
@@ -385,18 +434,6 @@ function KomponenPembelajaran() {
               )}
               <div className={`px-3 py-2.5 lg:px-4 lg:py-3 rounded-2xl max-w-[90%] md:max-w-[80%] text-[13px] lg:text-[15px] leading-relaxed shadow-sm ${msg.role === "user" ? "bg-blue-600 text-white rounded-br-sm" : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"}`}>
                 <div className="prose prose-sm md:prose-base prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
-                
-                {/* Butang Dengar AI (Baru ditambah) */}
-                {msg.role === "assistant" && (
-                  <div className="mt-2 flex gap-2 border-t border-slate-100 pt-2">
-                    <button onClick={() => bacaTeks(msg.content)} className="text-[10px] md:text-[11px] font-semibold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-2 py-1 rounded-md border border-emerald-100 flex items-center gap-1 transition-colors">
-                      🔊 Dengar
-                    </button>
-                    <button onClick={hentiBaca} className="text-[10px] md:text-[11px] font-semibold bg-rose-50 text-rose-500 hover:bg-rose-100 px-2 py-1 rounded-md border border-rose-100 flex items-center gap-1 transition-colors">
-                      ⏹️ Henti
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           ))}
@@ -413,11 +450,10 @@ function KomponenPembelajaran() {
         {/* INPUT TERLEKAT DI BAWAH */}
         <div className="bg-white border-t border-slate-200 shadow-[0_-4px_10px_-10px_rgba(0,0,0,0.1)] shrink-0 z-20">
             
-            {/* 🌟 KUMPULAN BUTANG TINDAKAN (NOTA & VIDEO DI KIRI, BANTUAN DI KANAN) */}
             {!isLoading && !isMastered && (
               <div className="flex flex-wrap gap-2 px-3 py-2.5 bg-slate-50 border-b border-slate-100 items-center justify-between">
                 
-                {/* BAHAGIAN KIRI: RUJUKAN */}
+                {/* BAHAGIAN KIRI: RUJUKAN (Khas Mobile Sahaja) */}
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => { setShowPdfMobile(true); setShowVideoModal(false); }} 
@@ -426,18 +462,16 @@ function KomponenPembelajaran() {
                     <BookOpen size={14}/> Nota
                   </button>
 
-                  {arasDariURL === "rendah" && (
-                    <button 
-                      onClick={() => { setShowPdfMobile(true); setShowVideoModal(true); }} 
-                      className="bg-red-600 text-white text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-red-700 transition-all flex items-center gap-1.5 shadow-md shadow-red-500/30 animate-pulse hover:animate-none"
-                    >
-                      <PlayCircle size={16}/> Video
-                    </button>
-                  )}
+                  <button 
+                    onClick={() => { setShowPdfMobile(true); setShowVideoModal(true); }} 
+                    className="lg:hidden bg-red-600 text-white text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-red-700 transition-all flex items-center gap-1.5 shadow-sm"
+                  >
+                    <PlayCircle size={14}/> Video
+                  </button>
                 </div>
 
                 {/* BAHAGIAN KANAN: BANTUAN AI */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 ml-auto">
                   <button onClick={() => sendQuickPrompt("Boleh bagi hint atau klu sikit?")} className="bg-emerald-100 text-emerald-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1.5 rounded-md hover:bg-emerald-200 transition-colors flex items-center gap-1 shadow-sm border border-emerald-200/50">
                     <Lightbulb size={12}/> Hint
                   </button>
@@ -449,7 +483,6 @@ function KomponenPembelajaran() {
               </div>
             )}
 
-            {/* Borang Input Chat */}
             {isMastered ? (
               <div className="p-3 lg:p-4 bg-emerald-50 text-center flex flex-col md:flex-row items-center justify-center gap-3">
                 <div className="flex items-center gap-2"><CheckCircle2 className="w-6 h-6 text-emerald-500" /><div className="text-left"><h3 className="text-sm font-bold text-emerald-800 leading-tight">Dikuasai!</h3><p className="text-emerald-700 font-medium text-[10px]">Syabas, selesai bimbingan.</p></div></div>
@@ -458,17 +491,33 @@ function KomponenPembelajaran() {
                 </button>
               </div>
             ) : (
-              <form onSubmit={sendMessage} className="p-2 lg:p-3 flex gap-2 items-end bg-white">
+              <form onSubmit={sendMessage} className="p-2 lg:p-3 flex gap-2 items-end bg-white relative">
+                
                 <textarea 
                   ref={inputRef}
                   value={input} 
                   onChange={handleInput}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                  placeholder="Taip di sini..." 
-                  className="flex-1 bg-slate-100 text-slate-900 placeholder-slate-400 border border-slate-300 rounded-xl px-3 py-2.5 text-[13px] md:text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 resize-none <min-w-45></min-w-45> <max-h-30></max-h-30> overflow-y-auto" 
+                  placeholder={isListening ? "Sedang mendengar suara anda..." : "Taip di sini..."} 
+                  className={`flex-1 bg-slate-100 text-slate-900 placeholder-slate-400 border border-slate-300 rounded-xl px-3 py-2.5 text-[13px] md:text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 resize-none min-w-45 max-h-30 overflow-y-auto ${isListening ? 'border-red-400 ring-1 ring-red-400/50 bg-red-50' : ''}`} 
                   disabled={isLoading}
                   rows={1}
                 />
+                
+                <button 
+                  type="button" 
+                  onClick={toggleListening}
+                  disabled={isLoading}
+                  title="Gunakan Suara"
+                  className={`rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center transition-colors mb-0.5 shadow-sm border ${
+                    isListening 
+                      ? 'bg-red-500 text-white border-red-600 animate-pulse' 
+                      : 'bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200 hover:text-slate-700'
+                  }`}
+                >
+                  <Mic size={18} />
+                </button>
+
                 <button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-600 text-white rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors mb-0.5">
                   <Send size={16} className={input.trim() && !isLoading ? "translate-x-0.5" : ""} />
                 </button>
