@@ -187,7 +187,7 @@ export default function GuruDashboard() {
   const tarikDataMaklumBalas = async () => {
     setLoadingMaklumBalas(true);
     try {
-      const q = query(collection(db, "feedback"), orderBy("tarikh", "desc"));
+      const q = query(collection(db, "maklum_balas_murid"), orderBy("tarikh", "desc"));
       const querySnapshot = await getDocs(q);
       const data: any[] = [];
       querySnapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() }));
@@ -737,7 +737,7 @@ export default function GuruDashboard() {
                       </div>
 
                       <h4 className="text-lg md:text-xl font-bold text-white mb-2 line-clamp-2">{bahan.title}</h4>
-                      <p className="text-xs text-sm font-bold text-amber-500">ID: {bahan.id}</p>
+                      <p className="text-sm font-bold text-amber-500">ID: {bahan.id}</p>
                       
                       {editSubtopikId === bahan.id ? (
                         <div className="mt-3 bg-slate-900/50 p-4 rounded-lg border border-amber-600/50">

@@ -209,7 +209,7 @@ export default function MuridDashboard() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 md:px-6 font-sans text-slate-900 relative">
       <div className="mx-auto max-w-6xl">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-gradient-to-r from-sky-600 to-indigo-700 p-8 shadow-lg text-white mb-8 relative overflow-hidden">
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-linear-to-r from-sky-600 to-indigo-700 p-8 shadow-lg text-white mb-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between relative z-10">
             <div className="flex items-center gap-5">
@@ -321,7 +321,7 @@ export default function MuridDashboard() {
                           </div>
                           <button 
                             onClick={() => window.open(`/sijil?tingkatan=${activeLevel === 't4' ? '4' : '5'}&bab=${chapter.id}&skor=${skorTertinggi}&nama=${encodeURIComponent(userData?.nama || userData?.name || 'Pelajar Cemerlang')}`, '_blank')} 
-                            className="shrink-0 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 font-bold px-6 py-2.5 rounded-xl shadow-md hover:scale-105 transition-transform flex items-center gap-2"
+                            className="shrink-0 bg-linear-to-r from-amber-400 to-yellow-500 text-amber-950 font-bold px-6 py-2.5 rounded-xl shadow-md hover:scale-105 transition-transform flex items-center gap-2"
                           >
                             <Award className="w-5 h-5"/> Buka Sijil Pencapaian
                           </button>
@@ -483,7 +483,7 @@ export default function MuridDashboard() {
       {/* 🌟 MODAL FEEDBACK YANG DIBETULKAN (Mempunyai "Jenis") */}
       <AnimatePresence>
         {showFeedback && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
               
               {/* Header Modal */}
@@ -517,7 +517,7 @@ export default function MuridDashboard() {
                      value={feedbackMsg}
                      onChange={(e) => setFeedbackMsg(e.target.value)}
                      placeholder="Contoh: Saya suka main game tadi! Tapi kadang-kadang AI lambat sikit balas..."
-                     className="w-full p-4 bg-slate-50 border border-slate-300 rounded-xl focus:border-sky-500 outline-none resize-y min-h-[120px] text-sm text-slate-800"
+                     className="w-full p-4 bg-slate-50 border border-slate-300 rounded-xl focus:border-sky-500 outline-none resize-y min-h-30 text-sm text-slate-800"
                    ></textarea>
                 </div>
 

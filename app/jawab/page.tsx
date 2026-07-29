@@ -25,7 +25,7 @@ const GambarSoalan = ({ src }: { src: string }) => {
       <img
         src={src}
         alt="Rujukan Soalan"
-        className={`max-w-full max-h-[300px] object-contain rounded-xl shadow-sm border border-slate-200 transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+        className={`max-w-full max-h-75 object-contain rounded-xl shadow-sm border border-slate-200 transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
         onLoad={() => setIsLoaded(true)}
         onError={() => { setHasError(true); setIsLoaded(true); }}
       />
@@ -380,7 +380,7 @@ function KandunganUjian() {
                    onPaste={(e) => { e.preventDefault(); alert("Sila taip sendiri. Kemahiran mengingati fakta amat penting!"); }} onCopy={(e) => e.preventDefault()} onCut={(e) => e.preventDefault()}
                    autoComplete="off" spellCheck="false"
                    placeholder="Sila taip jawapan di sini..."
-                   className="w-full p-4 md:p-5 bg-white text-slate-900 placeholder-slate-400 border-2 border-slate-300 rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 resize-y min-h-[160px] text-sm md:text-base transition-all outline-none"
+                   className="w-full p-4 md:p-5 bg-white text-slate-900 placeholder-slate-400 border-2 border-slate-300 rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 resize-y min-h-40 text-sm md:text-base transition-all outline-none"
                  ></textarea>
                  {jawapanStruktur[semasa.id]?.trim().length > 0 && (
                     <div className="absolute top-4 right-4 text-emerald-500 bg-white rounded-full"><CheckCircle2 size={20}/></div>

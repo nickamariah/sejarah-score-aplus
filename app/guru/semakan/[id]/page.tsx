@@ -28,21 +28,6 @@ export default function PemarkahanGuru() {
           const rekod = docSnap.data();
           setDataMurid(rekod);
 
-          // Sediakan markah input awal
-          const markahAwal: Record<string, number> = {};
-          if (rekod.jawapanStruktur) {
-            Object.keys(rekod.jawapanStruktur).forEach(soalanId => {
-              if (rekod.markahGuru && rekod.markahGuru[soalanId] !== undefined) {
-                markahAwal[soalanId] = rekod.markahGuru[soalanId];
-              } else if (rekod.ulasanAI && rekod.ulasanAI[soalanId]) {
-                markahAwal[soalanId] = rekod.ulasanAI[soalanId].markahAI || 0;
-              } else {
-                markahAwal[soalanId] = 0;
-              }
-            });
-          }
-          setMarkahGuru(markahAwal);
-
           // 2. Tarik soalan sebenar dari Bank Soalan
           const q = query(
             collection(db, "questionBank"), 
@@ -51,15 +36,44 @@ export default function PemarkahanGuru() {
           );
           const qSnap = await getDocs(q);
           const qList: any[] = [];
+          
           qSnap.forEach((d) => {
              const soalanData = d.data();
-             if(soalanData.jenis !== "objektif") {
-                qList.push({ id: d.id, ...soalanData });
+             const kegunaan = soalanData.kegunaan || "semua";
+             
+             // 🌟 PENAPISAN KETAT: Sama seperti apa yang murid nampak masa ujian
+             if (soalanData.jenis !== "objektif") {
+                // a) Buang soalan Simpanan (Draf)
+                if (kegunaan === "simpanan") return;
+                
+                // b) Pastikan ia sesuai dengan ujian (Pre/Post) yang diambil murid
+                if (kegunaan !== "semua" && kegunaan !== rekod.jenisUjian) return;
+
+                // c) Pastikan soalan ada No. Susunan (urutan yang sah)
+                const urutan = Number(soalanData.urutan);
+                if (!isNaN(urutan) && urutan > 0 && urutan !== 999) {
+                   qList.push({ id: d.id, ...soalanData });
+                }
              }
           });
           
-          qList.sort((a, b) => a.id.localeCompare(b.id));
+          // Susun soalan sama seperti urutan dalam kertas ujian murid
+          qList.sort((a, b) => Number(a.urutan) - Number(b.urutan));
           setSoalanBank(qList);
+
+          // Sediakan markah input awal (Hanya untuk soalan yang wujud dalam ujian)
+          const markahAwal: Record<string, number> = {};
+          qList.forEach(soalan => {
+            if (rekod.markahGuru && rekod.markahGuru[soalan.id] !== undefined) {
+              markahAwal[soalan.id] = rekod.markahGuru[soalan.id];
+            } else if (rekod.ulasanAI && rekod.ulasanAI[soalan.id]) {
+              markahAwal[soalan.id] = rekod.ulasanAI[soalan.id].markahAI || 0;
+            } else {
+              markahAwal[soalan.id] = 0; // Jika murid biarkan kosong, default markah 0
+            }
+          });
+          setMarkahGuru(markahAwal);
+
         }
       } catch (error) {
         console.error("Ralat Firebase:", error);
@@ -169,7 +183,7 @@ export default function PemarkahanGuru() {
               <div className="p-3 bg-indigo-900/30 text-indigo-400 rounded-lg"><BookOpen size={24}/></div>
               <div>
                 <p className="text-xs text-slate-500 uppercase font-bold">Topik Ujian</p>
-                <p className="text-lg font-bold text-white">{dataMurid.bab}</p>
+                <p className="text-lg font-bold text-white">{dataMurid.bab} <span className="text-sm font-medium text-amber-500">({dataMurid.jenisUjian === "post_test" ? "Post-Test" : "Pre-Test"})</span></p>
                 <p className="text-sm text-slate-400">Tingkatan {dataMurid.tingkatan}</p>
               </div>
             </div>
@@ -199,12 +213,12 @@ export default function PemarkahanGuru() {
                   <div>
                     <p className="text-xs font-bold text-slate-500 uppercase mb-2">Jawapan Murid:</p>
                     <div className="bg-[#0f172a] border border-slate-700 p-4 rounded-xl text-slate-300 whitespace-pre-wrap">
-                      {jawapanMurid ? jawapanMurid : <span className="text-slate-600 italic">Tiada jawapan diberikan.</span>}
+                      {jawapanMurid ? jawapanMurid : <span className="text-rose-400/80 italic font-medium">⚠️ Tiada jawapan diberikan / Ditinggalkan kosong oleh murid.</span>}
                     </div>
                   </div>
 
                   {/* ULASAN AI (RUJUKAN GURU) */}
-                  {ulasanAI && (
+                  {ulasanAI && jawapanMurid && (
                     <div className={`p-4 rounded-xl border ${isAIGagal ? 'bg-rose-900/10 border-rose-900/50' : 'bg-cyan-900/10 border-cyan-900/50'}`}>
                       <p className={`text-xs font-bold uppercase mb-2 flex items-center gap-2 ${isAIGagal ? 'text-rose-400' : 'text-cyan-400'}`}>
                         {isAIGagal ? <AlertTriangle size={14}/> : '🤖'} Ulasan AI (Cadangan: {ulasanAI.markahAI}M)
@@ -233,7 +247,7 @@ export default function PemarkahanGuru() {
             );
           }) : (
             <div className="bg-[#1e293b] p-10 rounded-2xl border border-slate-700 text-center text-slate-500">
-              Tiada soalan struktur ditemui untuk ujian ini.
+              Tiada soalan struktur ditemui untuk ujian ini. Semua soalan adalah objektif atau murid belum memulakan ujian struktur.
             </div>
           )}
         </div>

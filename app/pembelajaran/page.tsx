@@ -257,7 +257,7 @@ function KomponenPembelajaran() {
     <div className="flex flex-col lg:flex-row h-screen bg-slate-100 overflow-hidden font-sans relative">
       
       {/* 🟢 PANEL KIRI: PDF & VIDEO */}
-      <div className={`${showPdfMobile ? 'fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-sm' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-2xl lg:shadow-none h-full lg:w-[var(--left-width)]`} style={{ "--left-width": `${leftWidth}%` } as React.CSSProperties}>
+      <div className={`${showPdfMobile ? 'fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-sm' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-2xl lg:shadow-none h-full lg:w-(--left-width)`} style={{ "--left-width": `${leftWidth}%` } as React.CSSProperties}>
         
         <div className="bg-slate-900 text-white p-3 lg:p-4 shadow-md flex items-center justify-between gap-3 z-30 shrink-0 border-b border-slate-700">
           <button onClick={() => window.location.href = '/murid'} className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300 transition shrink-0 border border-slate-600">
@@ -297,7 +297,7 @@ function KomponenPembelajaran() {
       <div className="w-full lg:flex-1 h-full bg-slate-50 flex flex-col z-10 relative">
         
         {/* HEADER CHAT (KOMPAK DAN BERSIH - Butang nota dialihkan ke bawah) */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative">
+        <div className="bg-linear-to-r from-blue-600 to-indigo-700 text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative">
           <div className="flex justify-between items-center gap-2 mb-1.5">
             
             <div className="flex items-center gap-2">
@@ -310,7 +310,7 @@ function KomponenPembelajaran() {
             </div>
 
             {/* Fasa Inkuiri Bloom */}
-            <div className="flex flex-col items-end w-[130px] lg:w-[180px]">
+            <div className="flex flex-col items-end w-32.5 lg:w-45">
                <div className="text-[8px] lg:text-[9px] font-bold text-blue-100 uppercase tracking-wider mb-1 flex justify-between w-full">
                   <span>Fasa Inkuiri</span> <span className="text-amber-300">{currentPhase}/{maxFasa}</span>
                </div>
@@ -331,7 +331,7 @@ function KomponenPembelajaran() {
               let style = "bg-white/10 text-white/50 border border-white/5"; 
               if (isPast) style = "bg-emerald-500 text-white border-emerald-400 font-bold shadow-sm"; 
               if (isActive) style = "bg-sky-100 text-sky-900 font-bold border-white shadow-sm ring-1 ring-sky-300"; 
-              return <div key={sub.id} className={`flex-1 text-center py-1 rounded-[4px] text-[9px] lg:text-[10px] truncate px-1.5 transition-all min-w-[45px] ${style}`} title={sub.title}>{sub.id}</div>;
+              return <div key={sub.id} className={`flex-1 text-center py-1 rounded-sm text-[9px] lg:text-[10px] truncate px-1.5 transition-all min-w-11.25 ${style}`} title={sub.title}>{sub.id}</div>;
             }) : <div className="text-[10px] text-white/70 italic text-center w-full">Memuatkan...</div>}
           </div>
         </div>
@@ -344,7 +344,7 @@ function KomponenPembelajaran() {
           {messages.map((msg) => (
             <div key={msg.id} className={`mb-3 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               {msg.role === "assistant" && (
-                <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-white flex items-center justify-center shrink-0 mr-2 mt-auto border border-slate-200 hidden md:flex"><Bot size={14} className="text-blue-600"/></div>
+                <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-white hidden md:flex items-center justify-center shrink-0 mr-2 mt-auto border border-slate-200"><Bot size={14} className="text-blue-600"/></div>
               )}
               <div className={`px-3 py-2.5 lg:px-4 lg:py-3 rounded-2xl max-w-[90%] md:max-w-[80%] text-[13px] lg:text-[15px] leading-relaxed shadow-sm ${msg.role === "user" ? "bg-blue-600 text-white rounded-br-sm" : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"}`}>
                 <div className="prose prose-sm md:prose-base prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
@@ -354,7 +354,7 @@ function KomponenPembelajaran() {
 
           {isLoading && (
             <div className="flex justify-start mb-4">
-              <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-white flex items-center justify-center shrink-0 mr-2 mt-auto border border-slate-200 hidden md:flex"><Bot size={14} className="text-blue-600"/></div>
+              <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-white hidden md:flex items-center justify-center shrink-0 mr-2 mt-auto border border-slate-200"><Bot size={14} className="text-blue-600"/></div>
               <div className="px-3 py-2 bg-white border border-slate-200 rounded-2xl rounded-bl-sm shadow-sm flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" /><span className="text-slate-500 text-[11px] lg:text-xs font-medium">I-RAGs sedang menaip...</span></div>
             </div>
           )}
