@@ -9,7 +9,6 @@ function KandunganSijil() {
   const tingkatan = searchParams?.get("tingkatan") || "4";
   const bab = searchParams?.get("bab") || "1";
   const skor = searchParams?.get("skor") || "100";
-  // 🌟 Tangkap nama dari URL
   const namaDariURL = searchParams?.get("nama");
 
   const [namaMurid, setNamaMurid] = useState("MEMUATKAN NAMA...");
@@ -18,10 +17,8 @@ function KandunganSijil() {
   useEffect(() => {
     setIsClient(true);
     if (namaDariURL) {
-      // Jika ada nama dihantar dari Dashboard, guna nama tu
       setNamaMurid(decodeURIComponent(namaDariURL));
     } else {
-      // Fallback jika URL tiada nama
       const rawUser = localStorage.getItem("currentUser");
       if (rawUser) {
         const user = JSON.parse(rawUser);
@@ -30,7 +27,6 @@ function KandunganSijil() {
     }
   }, [namaDariURL]);
 
-  // 🌟 DATA DINAMIK: Warna & Kata-Kata Semangat Berbeza Mengikut Bab
   const sijilTema: Record<string, { gradient: string; border: string; quote: string; tajuk: string }> = {
     "1": { 
       gradient: "from-amber-50 to-orange-100", border: "border-orange-300", 
@@ -57,7 +53,6 @@ function KandunganSijil() {
       tajuk: "Persekutuan Tanah Melayu 1948",
       quote: `"Penyatuan membawa kekuatan. Anda telah menunjukkan kefahaman jitu tentang erti perpaduan tanah air."` 
     },
-    // Default jika bab > 5 atau T5
     "default": { 
       gradient: "from-slate-50 to-sky-100", border: "border-sky-300", 
       tajuk: `Bab ${bab}`,
@@ -67,12 +62,23 @@ function KandunganSijil() {
 
   const tema = sijilTema[bab] || sijilTema["default"];
 
+  // 🌟 LOGIK AUTO-RESIZE NAMA MURID
+  const panjangNama = namaMurid.length;
+  let saizFontNama = "text-3xl md:text-5xl"; // Saiz standard (Bawah 25 huruf)
+  
+  if (panjangNama > 40) {
+    saizFontNama = "text-xl md:text-2xl"; // Untuk nama terlalu panjang (cth: ada 5 patah perkataan)
+  } else if (panjangNama > 30) {
+    saizFontNama = "text-2xl md:text-3xl"; // Untuk nama sederhana panjang
+  } else if (panjangNama > 22) {
+    saizFontNama = "text-3xl md:text-4xl"; // Untuk nama agak panjang sikit
+  }
+
   if (!isClient) return null;
 
   return (
     <div className="min-h-screen bg-slate-800 p-4 sm:p-8 flex flex-col items-center justify-center font-sans">
       
-      {/* 🛑 BUTANG KAWALAN (Akan ghaib bila di-print) */}
       <div className="mb-6 flex gap-4 print:hidden">
         <button onClick={() => window.close()} className="bg-slate-700 text-white px-5 py-2 rounded-xl flex items-center gap-2 hover:bg-slate-600 transition shadow-lg">
           <ArrowLeft className="w-5 h-5" /> Tutup
@@ -82,15 +88,12 @@ function KandunganSijil() {
         </button>
       </div>
 
-      {/* 📜 KANVAS SIJIL (Format A4 Landscape) */}
       <div 
-        className={`w-full max-w-[1050px] aspect-[1.414] bg-gradient-to-br ${tema.gradient} rounded-lg shadow-2xl p-6 md:p-12 flex flex-col relative overflow-hidden`}
-        style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }} // Memaksa browser print warna background
+        className={`w-full max-w-262.5 aspect-[1.414] bg-linear-to-br ${tema.gradient} rounded-lg shadow-2xl p-6 md:p-12 flex flex-col relative overflow-hidden`}
+        style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }} 
       >
-        {/* Border Dalam (Corak Sijil) */}
         <div className={`absolute inset-4 md:inset-8 border-[6px] border-double ${tema.border} opacity-50 rounded-lg pointer-events-none`}></div>
         
-        {/* Dekorasi Bucu */}
         <Star className={`absolute top-10 left-10 w-12 h-12 ${tema.border.replace('border-', 'text-')} opacity-30`} />
         <Star className={`absolute top-10 right-10 w-12 h-12 ${tema.border.replace('border-', 'text-')} opacity-30`} />
         <Star className={`absolute bottom-10 left-10 w-12 h-12 ${tema.border.replace('border-', 'text-')} opacity-30`} />
@@ -109,8 +112,8 @@ function KandunganSijil() {
 
           <p className="text-lg md:text-xl text-slate-600 mb-4 italic">Dengan bangganya dianugerahkan kepada:</p>
           
-          {/* NAMA MURID */}
-          <h2 className="text-3xl md:text-5xl font-black text-sky-900 mb-6 border-b-2 border-slate-300 pb-2 inline-block px-8 uppercase tracking-wide">
+          {/* 🌟 NAMA MURID (Dilengkapi Auto-Resize & Whitespace-Nowrap) */}
+          <h2 className={`${saizFontNama} font-black text-sky-900 mb-6 border-b-2 border-slate-300 pb-2 inline-block px-8 uppercase tracking-wide whitespace-nowrap`}>
             {namaMurid}
           </h2>
 
@@ -120,7 +123,6 @@ function KandunganSijil() {
             dengan memperoleh skor ujian sebanyak <span className="font-bold text-2xl text-emerald-600">{skor}%</span>.
           </p>
 
-          {/* KATA-KATA SEMANGAT */}
           <div className={`mt-auto bg-white/60 p-4 md:p-6 rounded-2xl border ${tema.border} shadow-sm max-w-3xl`}>
             <p className="text-sm md:text-lg font-bold text-slate-800 italic">
               {tema.quote}
