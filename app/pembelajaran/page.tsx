@@ -416,7 +416,7 @@ function KomponenPembelajaran() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                   placeholder="Taip di sini..." 
-                  className="flex-1 bg-slate-100 text-slate-900 placeholder-slate-400 border border-slate-300 rounded-xl px-3 py-2.5 text-[13px] md:text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 resize-none min-h-[45px] max-h-[100px]" 
+                  className="flex-1 bg-slate-100 text-slate-900 placeholder-slate-400 border border-slate-300 rounded-xl px-3 py-2.5 text-[13px] md:text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 resize-none min-w-11.25 max-height: 100px;" 
                   disabled={isLoading}
                   rows={1}
                 />
