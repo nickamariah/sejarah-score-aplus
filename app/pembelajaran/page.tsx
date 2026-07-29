@@ -29,7 +29,6 @@ function KomponenPembelajaran() {
 
   const [studentId, setStudentId] = useState("murid_test");
 
-  // STATE UNTUK SPEECH-TO-TEXT
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
@@ -103,7 +102,6 @@ function KomponenPembelajaran() {
     tarikSoalanPeperiksaan();
   }, [chapterId, currentSub]);
 
-  // INIT WEB SPEECH API
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -146,7 +144,7 @@ function KomponenPembelajaran() {
     const handleMouseUp = () => { if (isDragging) setIsDragging(false); };
     if (isDragging) { document.addEventListener("mousemove", handleMouseMove); document.addEventListener("mouseup", handleMouseUp); document.body.style.userSelect = "none"; } 
     else { document.body.style.userSelect = ""; }
-    return () => { document.removeEventListener("mousemove", handleMouseMove); document.removeEventListener("mouseup", handleMouseUp); document.body.style.userSelect = ""; };
+    return () => { document.removeEventListener("mousemove", handleMouseMove); document.removeEventListener("mousemove", handleMouseUp); document.body.style.userSelect = ""; };
   }, [isDragging]);
 
   const formatTajuk = (id: string) => id.replace('tingkatan', 'Tg. ').replace('_bab', ' Bab ').replace('_sub', ' - Subtopik ');
@@ -318,23 +316,18 @@ function KomponenPembelajaran() {
     setTimeout(() => { inputRef.current?.focus(); }, 50); 
   };
 
-  // ===============================================
-  // REKA BENTUK UI KEMASKINI
-  // ===============================================
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-slate-100 overflow-hidden font-sans relative">
       
       {/* 🟢 PANEL KIRI: PDF & VIDEO */}
       <div className={`${showPdfMobile ? 'fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-sm' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-2xl lg:shadow-none h-full lg:w-(--left-width)`} style={{ "--left-width": `${leftWidth}%` } as React.CSSProperties}>
         
-        {/* 🔥 HEADER BARU: Letak Toggle Butang Nota & Video di sini */}
         <div className="bg-slate-900 text-white p-3 lg:p-4 shadow-md flex items-center gap-3 z-30 shrink-0 border-b border-slate-700 overflow-x-auto no-scrollbar">
           
           <button onClick={() => window.location.href = '/murid'} className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300 transition shrink-0 border border-slate-600">
             <ArrowLeft size={14}/> Kembali
           </button>
           
-          {/* BUTANG TOGGLE NOTA / VIDEO (Sangat Jelas & Boleh Ditekan) */}
           <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700 shrink-0">
             <button
               onClick={() => setShowVideoModal(false)}
@@ -378,13 +371,11 @@ function KomponenPembelajaran() {
         </div>
       </div>
 
-      {/* DRAGGER PEMBAHAGI SCREEN (DESKTOP) */}
       <div className="hidden lg:flex flex-col justify-center items-center w-1.5 bg-slate-300 hover:bg-sky-500 active:bg-sky-600 cursor-col-resize z-30 transition-colors" onMouseDown={() => setIsDragging(true)}><div className="h-8 w-1 bg-slate-400 rounded-full"></div></div>
 
       {/* 🟢 PANEL KANAN: CHATBOT AI */}
       <div className="w-full lg:flex-1 h-full bg-slate-50 flex flex-col z-10 relative">
         
-        {/* HEADER CHAT */}
         <div className="bg-linear-to-r from-blue-600 to-indigo-700 text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative">
           <div className="flex justify-between items-center gap-2 mb-1.5">
             
@@ -422,7 +413,6 @@ function KomponenPembelajaran() {
           </div>
         </div>
 
-        {/* KAWASAN KANDUNGAN CHAT */}
         <div className="flex-1 p-3 lg:p-4 overflow-y-auto bg-[url('/bg-chat-pattern.png')] bg-blue-50/50 relative custom-scrollbar">
           
           <div className="text-center mb-4 mt-1"><span className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-200 px-3 py-1 rounded-full">Sesi Bermula</span></div>
@@ -447,13 +437,12 @@ function KomponenPembelajaran() {
           <div ref={messagesEndRef} className="h-1" />
         </div>
 
-        {/* INPUT TERLEKAT DI BAWAH */}
         <div className="bg-white border-t border-slate-200 shadow-[0_-4px_10px_-10px_rgba(0,0,0,0.1)] shrink-0 z-20">
             
             {!isLoading && !isMastered && (
               <div className="flex flex-wrap gap-2 px-3 py-2.5 bg-slate-50 border-b border-slate-100 items-center justify-between">
                 
-                {/* BAHAGIAN KIRI: RUJUKAN (Khas Mobile Sahaja) */}
+                {/* 🌟 KEMAS KINI: Butang Video untuk Rendah & Sederhana di Mobile */}
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => { setShowPdfMobile(true); setShowVideoModal(false); }} 
@@ -462,15 +451,16 @@ function KomponenPembelajaran() {
                     <BookOpen size={14}/> Nota
                   </button>
 
-                  <button 
-                    onClick={() => { setShowPdfMobile(true); setShowVideoModal(true); }} 
-                    className="lg:hidden bg-red-600 text-white text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-red-700 transition-all flex items-center gap-1.5 shadow-sm"
-                  >
-                    <PlayCircle size={14}/> Video
-                  </button>
+                  {(arasDariURL === "rendah" || arasDariURL === "sederhana") && (
+                    <button 
+                      onClick={() => { setShowPdfMobile(true); setShowVideoModal(true); }} 
+                      className="lg:hidden bg-red-600 text-white text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-red-700 transition-all flex items-center gap-1.5 shadow-sm"
+                    >
+                      <PlayCircle size={14}/> Video
+                    </button>
+                  )}
                 </div>
 
-                {/* BAHAGIAN KANAN: BANTUAN AI */}
                 <div className="flex items-center gap-2 ml-auto">
                   <button onClick={() => sendQuickPrompt("Boleh bagi hint atau klu sikit?")} className="bg-emerald-100 text-emerald-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1.5 rounded-md hover:bg-emerald-200 transition-colors flex items-center gap-1 shadow-sm border border-emerald-200/50">
                     <Lightbulb size={12}/> Hint
