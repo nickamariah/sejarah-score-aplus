@@ -52,9 +52,9 @@ export default function MuridDashboard() {
   const [aiSelesaiList, setAiSelesaiList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // State untuk Maklum Balas (Feedback)
+  // State untuk Maklum Balas
   const [showFeedback, setShowFeedback] = useState(false);
-  const [feedbackJenis, setFeedbackJenis] = useState("Pujian"); // Ditambah untuk padan dengan Admin
+  const [feedbackJenis, setFeedbackJenis] = useState("Pujian");
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -137,23 +137,21 @@ export default function MuridDashboard() {
     return `sub${chapterData.subtopics[chapterData.subtopics.length - 1].id}`;
   };
 
-  // 🌟 FUNGSI PENGHANTARAN MAKLUM BALAS YANG DIBETULKAN
   const hantarMaklumBalas = async () => {
     if (!feedbackMsg.trim()) return;
     setIsSubmitting(true);
     try {
-      // PASTIKAN NAMA KOLEKSI IALAH "maklum_balas_murid" SUPAYA ADMIN BOLEH BACA
       await addDoc(collection(db, "maklum_balas_murid"), {
         muridId: userData?.idPengguna || userData?.id || "Tiada ID",
         namaMurid: userData?.nama || userData?.name || "Pelajar",
         tingkatan: userData?.tingkatan || "Tiada Maklumat",
         kelas: userData?.kelas || "Tiada Maklumat",
-        jenis: feedbackJenis, // Wajib ada untuk penapisan admin
+        jenis: feedbackJenis,
         mesej: feedbackMsg,
         tarikh: new Date().toISOString()
       });
       setFeedbackMsg("");
-      setFeedbackJenis("Pujian"); // Reset dropdown
+      setFeedbackJenis("Pujian"); 
       setShowFeedback(false);
       alert("Terima kasih! Maklum balas anda telah dihantar kepada guru.");
     } catch (error) {
@@ -282,6 +280,9 @@ export default function MuridDashboard() {
             const ralatMenghalangBimbingan = logic.attempt === 0 ? logic.adaRalatSemakanPre : logic.adaRalatSemakanPost;
             const skorTertinggi = logic.post !== undefined && logic.post > (logic.pre || 0) ? logic.post : logic.pre;
 
+            // 🌟 SYARAT KETAT: Adakah Pre-Test sudah siap disemak sepenuhnya?
+            const preTelahDinilai = logic.pre !== undefined && !logic.adaRalatSemakanPre;
+
             return (
               <div key={chapter.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <button onClick={() => setExpandedChapter(expandedChapter === chapter.id ? null : chapter.id)} className="w-full px-6 py-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
@@ -330,7 +331,7 @@ export default function MuridDashboard() {
 
                       <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                         
-                        {/* KAD 1: UJIAN DIAGNOSTIK */}
+                        {/* KAD 1: UJIAN DIAGNOSTIK (Sentiasa Papar Terlebih Dahulu) */}
                         <div className={`p-5 rounded-2xl border ${logic.pre !== undefined ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-sky-200 shadow-sm'} flex flex-col justify-between gap-4`}>
                           <div>
                             <div className="flex items-center gap-3 mb-2">
@@ -364,59 +365,54 @@ export default function MuridDashboard() {
                           </div>
                         </div>
 
-                        {/* KAD 2: BIMBINGAN AI / PERMAINAN */}
-                        {!isKawalan && !logic.preLulusTerus && (
+                        {/* 🌟 KAD 2: BIMBINGAN AI / PERMAINAN (HANYA MUNCUL JIKA PRE-TEST SIAP DISEMAK) */}
+                        {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && (
                           <div className={`p-5 rounded-2xl border ${
-                              logic.pre === undefined ? 'bg-slate-100 border-slate-200 opacity-60' : 
-                              logic.limitReached ? 'hidden' : 
-                              logic.aiSelesai || logic.gameSelesai ? 'bg-emerald-50 border-emerald-200' : 
-                              ralatMenghalangBimbingan ? 'bg-rose-50 border-rose-200' : 'bg-white border-amber-200 shadow-sm'
+                              (logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.gameSelesai) 
+                                ? 'bg-emerald-50 border-emerald-200' 
+                                : 'bg-white border-amber-200 shadow-sm'
                             } flex flex-col justify-between gap-4`}>
                             
                             <div>
                               <div className="flex items-center gap-3 mb-2">
-                                <div className={`p-2 rounded-lg ${logic.pre === undefined ? 'bg-slate-200 text-slate-400' : ralatMenghalangBimbingan ? 'bg-rose-100 text-rose-600' : logic.attempt === 1 ? 'bg-purple-100 text-purple-600' : 'bg-amber-100 text-amber-600'}`}>
-                                  {logic.pre === undefined ? <Lock className="w-5 h-5" /> : ralatMenghalangBimbingan ? <AlertTriangle className="w-5 h-5" /> : logic.attempt === 1 ? <Gamepad2 className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+                                <div className={`p-2 rounded-lg ${ralatMenghalangBimbingan ? 'bg-rose-100 text-rose-600' : logic.attempt === 1 ? 'bg-purple-100 text-purple-600' : 'bg-amber-100 text-amber-600'}`}>
+                                  {ralatMenghalangBimbingan ? <AlertTriangle className="w-5 h-5" /> : logic.attempt === 1 ? <Gamepad2 className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
                                 </div>
                                 <h4 className="font-bold">{ralatMenghalangBimbingan ? "Menunggu Semakan" : logic.attempt === 1 ? "Permainan Interaktif" : `Bimbingan AI (${logic.aras})`}</h4>
                               </div>
                               <p className="text-xs text-slate-500 leading-relaxed">
-                                {logic.pre === undefined ? "Siapkan Ujian Diagnostik dahulu." :
-                                 ralatMenghalangBimbingan ? "Sila check sebentar lagi. Status tahap penguasaan anda sedang dikemas kini oleh guru." :
+                                {ralatMenghalangBimbingan ? "Status tahap penguasaan anda sedang dikemas kini oleh guru." :
                                  logic.attempt === 1 ? "Ulang kaji seronok secara santai." : "Bimbingan Inkuiri bersama Tutor AI."}
                               </p>
                             </div>
                             
                             <div className="mt-2">
-                              {logic.pre !== undefined && (
-                                ralatMenghalangBimbingan ? (
-                                    <button disabled className="w-full px-5 py-2 text-rose-400 bg-rose-100/50 text-sm font-bold rounded-xl cursor-not-allowed border border-rose-200">Menunggu Guru...</button>
-                                ) :
-                                (logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.gameSelesai) ? (
-                                  <span className="text-sm font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Selesai</span>
-                                ) : (
-                                  <button onClick={() => openModule(chapter.id, logic.attempt === 1 ? "game" : "ai", logic.aras, subSemasa)} 
-                                          className={`w-full px-5 py-2 text-white text-sm font-bold rounded-xl ${logic.attempt === 1 ? 'bg-purple-600 hover:bg-purple-700' : 'bg-amber-500 hover:bg-amber-600'}`}>
-                                    {logic.attempt === 1 ? "Main Sekarang" : "Mula Bimbingan"}
-                                  </button>
-                                )
+                              {ralatMenghalangBimbingan ? (
+                                  <button disabled className="w-full px-5 py-2 text-rose-400 bg-rose-100/50 text-sm font-bold rounded-xl cursor-not-allowed border border-rose-200">Menunggu Guru...</button>
+                              ) :
+                              (logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.gameSelesai) ? (
+                                <span className="text-sm font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Selesai</span>
+                              ) : (
+                                <button onClick={() => openModule(chapter.id, logic.attempt === 1 ? "game" : "ai", logic.aras, subSemasa)} 
+                                        className={`w-full px-5 py-2 text-white text-sm font-bold rounded-xl ${logic.attempt === 1 ? 'bg-purple-600 hover:bg-purple-700' : 'bg-amber-500 hover:bg-amber-600'}`}>
+                                  {logic.attempt === 1 ? "Main Sekarang" : "Mula Bimbingan"}
+                                </button>
                               )}
                             </div>
                           </div>
                         )}
 
-                        {/* KAD 3: UJIAN PASCA */}
-                        {!isKawalan && !logic.preLulusTerus && (
+                        {/* 🌟 KAD 3: UJIAN PASCA (HANYA MUNCUL JIKA PRE-TEST SIAP DISEMAK) */}
+                        {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && (
                           <div className={`p-5 rounded-2xl border ${
-                              logic.pre === undefined || ((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? 'bg-slate-100 border-slate-200 opacity-60' : 
-                              logic.limitReached ? 'hidden' : 
+                              ((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? 'bg-slate-100 border-slate-200 opacity-60' : 
                               logic.isLulus ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-blue-200 shadow-sm'
                             } flex flex-col justify-between gap-4`}>
                             
                             <div>
                               <div className="flex items-center gap-3 mb-2">
-                                <div className={`p-2 rounded-lg ${logic.pre === undefined || ((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? 'bg-slate-200 text-slate-400' : logic.isLulus ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
-                                  {logic.pre === undefined || ((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? <Lock className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+                                <div className={`p-2 rounded-lg ${((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? 'bg-slate-200 text-slate-400' : logic.isLulus ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                                  {((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? <Lock className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                                 </div>
                                 <h4 className="font-bold">Ujian Pasca {logic.attempt === 1 ? "(Ulangan)" : ""}</h4>
                               </div>
@@ -438,14 +434,14 @@ export default function MuridDashboard() {
                               ) : (
                                 <button 
                                   onClick={() => openModule(chapter.id, "post", "", "")}
-                                  disabled={logic.pre === undefined || ((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai))}
+                                  disabled={((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai))}
                                   className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${
-                                    logic.pre === undefined || ((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai))
+                                    ((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai))
                                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed w-full' 
                                       : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm w-full'
                                   }`}
                                 >
-                                  {logic.pre === undefined || ((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? 'Terkunci' : 'Mula Ujian'}
+                                  {((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? 'Terkunci' : 'Mula Ujian'}
                                 </button>
                               )}
 
@@ -480,23 +476,20 @@ export default function MuridDashboard() {
         </span>
       </button>
 
-      {/* 🌟 MODAL FEEDBACK YANG DIBETULKAN (Mempunyai "Jenis") */}
+      {/* 🌟 MODAL FEEDBACK */}
       <AnimatePresence>
         {showFeedback && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
               
-              {/* Header Modal */}
               <div className="bg-slate-800 p-5 text-white flex justify-between items-center">
                 <h3 className="font-bold text-lg flex items-center gap-2"><MessageSquare className="w-5 h-5 text-amber-400"/> Suara Pelajar</h3>
                 <button onClick={() => setShowFeedback(false)} className="text-slate-400 hover:text-rose-400 transition-colors"><X className="w-6 h-6" /></button>
               </div>
 
-              {/* Isi Kandungan Modal */}
               <div className="p-6">
                 <p className="text-sm text-slate-600 mb-6">Kongsi pandangan, aduan masalah, atau pujian tentang Hub I-RAGs. Cikgu akan membaca dan mengambil maklum!</p>
                 
-                {/* PILIHAN JENIS (Wajib utk filter Admin) */}
                 <div className="mb-4">
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Kategori</label>
                   <select 
