@@ -52,7 +52,6 @@ export default function MuridDashboard() {
   const [aiSelesaiList, setAiSelesaiList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // State untuk Maklum Balas
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackJenis, setFeedbackJenis] = useState("Pujian");
   const [feedbackMsg, setFeedbackMsg] = useState("");
@@ -331,7 +330,7 @@ export default function MuridDashboard() {
 
                       <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                         
-                        {/* KAD 1: UJIAN DIAGNOSTIK (Sentiasa Papar Terlebih Dahulu) */}
+                        {/* KAD 1: UJIAN DIAGNOSTIK */}
                         <div className={`p-5 rounded-2xl border ${logic.pre !== undefined ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-sky-200 shadow-sm'} flex flex-col justify-between gap-4`}>
                           <div>
                             <div className="flex items-center gap-3 mb-2">
@@ -365,7 +364,7 @@ export default function MuridDashboard() {
                           </div>
                         </div>
 
-                        {/* 🌟 KAD 2: BIMBINGAN AI / PERMAINAN (HANYA MUNCUL JIKA PRE-TEST SIAP DISEMAK) */}
+                        {/* KAD 2: BIMBINGAN AI / PERMAINAN */}
                         {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && (
                           <div className={`p-5 rounded-2xl border ${
                               (logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.gameSelesai) 
@@ -402,17 +401,16 @@ export default function MuridDashboard() {
                           </div>
                         )}
 
-                        {/* 🌟 KAD 3: UJIAN PASCA (HANYA MUNCUL JIKA PRE-TEST SIAP DISEMAK) */}
-                        {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && (
+                        {/* 🌟 KAD 3: UJIAN PASCA (HANYA MUNCUL JIKA BIMBINGAN/GAME SELESAI) */}
+                        {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && ((logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.gameSelesai)) && (
                           <div className={`p-5 rounded-2xl border ${
-                              ((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? 'bg-slate-100 border-slate-200 opacity-60' : 
                               logic.isLulus ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-blue-200 shadow-sm'
-                            } flex flex-col justify-between gap-4`}>
+                            } flex flex-col justify-between gap-4 animate-in zoom-in duration-300`}>
                             
                             <div>
                               <div className="flex items-center gap-3 mb-2">
-                                <div className={`p-2 rounded-lg ${((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? 'bg-slate-200 text-slate-400' : logic.isLulus ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
-                                  {((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? <Lock className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+                                <div className={`p-2 rounded-lg ${logic.isLulus ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                                  <CheckCircle2 className="w-5 h-5" />
                                 </div>
                                 <h4 className="font-bold">Ujian Pasca {logic.attempt === 1 ? "(Ulangan)" : ""}</h4>
                               </div>
@@ -434,19 +432,14 @@ export default function MuridDashboard() {
                               ) : (
                                 <button 
                                   onClick={() => openModule(chapter.id, "post", "", "")}
-                                  disabled={((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai))}
-                                  className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${
-                                    ((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai))
-                                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed w-full' 
-                                      : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm w-full'
-                                  }`}
+                                  className="px-5 py-2 text-sm font-bold rounded-xl transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-sm w-full"
                                 >
-                                  {((logic.attempt === 0 && !logic.aiSelesai) || (logic.attempt === 1 && !logic.gameSelesai)) ? 'Terkunci' : 'Mula Ujian'}
+                                  Mula Ujian
                                 </button>
                               )}
 
                               {logic.post !== undefined && logic.docIdPost && !logic.adaRalatSemakanPost && (
-                                 <button onClick={() => window.location.href = `/student/semakan-ujian/${logic.docIdPost}`} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 flex items-center gap-1 shadow-sm">
+                                 <button onClick={() => window.location.href = `/student/semakan-ujian/${logic.docIdPost}`} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 flex items-center gap-1 shadow-sm ml-2">
                                    <FileSearch className="w-4 h-4"/> Semak
                                  </button>
                               )}
