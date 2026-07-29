@@ -329,7 +329,8 @@ function KandunganUjian() {
   const progressPercentage = ((indexSemasa + 1) / soalanSenarai.length) * 100;
 
   // Dapatkan teks jawapan betul untuk ditunjuk jika salah
-  const jawapanBetulTeks = jenisSoalan === "objektif" ? (senaraiPilihan.find(p => p[0] === semasa.jawapan)?.[1] || semasa.jawapan) : "";
+   // Dapatkan teks jawapan betul untuk ditunjuk jika salah
+  const jawapanBetulTeks = jenisSoalan === "objektif" ? (senaraiPilihan.find((p: any[]) => p[0] === semasa.jawapan)?.[1] || semasa.jawapan) : "";
 
   return (
     <div className="min-h-screen bg-slate-50 pb-28 pt-20"> 
