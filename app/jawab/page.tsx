@@ -4,43 +4,30 @@ import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, getDoc } from "firebase/firestore"; 
 import { db } from "../../lib/firebase";
-import { Loader2, Image as ImageIcon, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Loader2, Image as ImageIcon, ChevronRight, CheckCircle2, XCircle } from "lucide-react";
 
 // ==========================================
-// 1. KOMPONEN KHAS: GAMBAR SOALAN
+// 1. KOMPONEN GAMBAR SOALAN
 // ==========================================
 const GambarSoalan = ({ src }: { src: string }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
-
   if (!src) return null;
-
   return (
     <div className="relative flex justify-center w-full my-6">
-      {!isLoaded && !hasError && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Loader2 className="animate-spin text-sky-500 w-6 h-6" />
-        </div>
-      )}
+      {!isLoaded && !hasError && <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="animate-spin text-sky-500 w-6 h-6" /></div>}
       <img
-        src={src}
-        alt="Rujukan Soalan"
-        // Ditukar dari max-h-75 (tidak rasmi) kepada max-h-72 (kelas rasmi Tailwind) untuk elak amaran
+        src={src} alt="Rujukan Soalan"
         className={`max-w-full max-h-72 object-contain rounded-xl shadow-sm border border-slate-200 transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
-        onLoad={() => setIsLoaded(true)}
-        onError={() => { setHasError(true); setIsLoaded(true); }}
+        onLoad={() => setIsLoaded(true)} onError={() => { setHasError(true); setIsLoaded(true); }}
       />
-      {hasError && (
-        <div className="p-4 bg-red-50 text-red-500 border border-red-100 rounded-xl text-sm flex items-center gap-2">
-          <ImageIcon size={18} /> Gagal memuatkan gambar rajah. Sila semak sambungan internet.
-        </div>
-      )}
+      {hasError && <div className="p-4 bg-red-50 text-red-500 border border-red-100 rounded-xl text-sm flex items-center gap-2"><ImageIcon size={18} /> Gagal memuatkan gambar rajah.</div>}
     </div>
   );
 };
 
 // ==========================================
-// 2. KOMPONEN UTAMA: KANDUNGAN UJIAN
+// 2. KOMPONEN UTAMA: KUIZ INTERAKTIF
 // ==========================================
 function KandunganUjian() {
   const [isClient, setIsClient] = useState(false);
@@ -62,17 +49,26 @@ function KandunganUjian() {
   const [jawapanStruktur, setJawapanStruktur] = useState<Record<string, string>>({});
   const [jawapanObjektif, setJawapanObjektif] = useState<Record<string, string>>({});
   
+  // 🔥 STATE BARU: Untuk kawal mod interaktif "Semak Serta-Merta"
+  const [soalanSelesai, setSoalanSelesai] = useState(false);
+  const [jawapanTepatSemasa, setJawapanTepatSemasa] = useState(false);
+
   const [telahDisimpan, setTelahDisimpan] = useState(false);
   const [menganalisisAI, setMenganalisisAI] = useState(false);
-
   const [peratusAkhir, setPeratusAkhir] = useState<number | null>(null);
   const [tahapMurid, setTahapMurid] = useState("Sederhana");
   const [markahLulus, setMarkahLulus] = useState(50); 
-  
   const [percubaanTerkini, setPercubaanTerkini] = useState(0);
 
-  // Reference untuk Kotak Teks (Auto-Resize)
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 🔥 FUNGSI BUNYI (GAMIFIKASI)
+  const playSound = (jenis: 'betul' | 'salah' | 'info') => {
+    try {
+      const audio = new Audio(jenis === 'betul' ? '/ting.mp3' : jenis === 'salah' ? '/buzzer.mp3' : '/ting.mp3');
+      audio.play().catch(e => console.log("Pelayar menyekat bunyi auto:", e));
+    } catch (error) { console.log("Audio ralat"); }
+  };
 
   const shuffleArray = (array: any[]) => {
     let shuffled = [...array];
@@ -95,12 +91,10 @@ function KandunganUjian() {
             const data = userSnap.data();
             const tahapData = data.tahapInkuiri || "Sederhana";
             setTahapMurid(tahapData);
-
             if (tahapData === "Tinggi") setMarkahLulus(70);
             else if (tahapData === "Sederhana") setMarkahLulus(70); 
             else if (tahapData === "Rendah") setMarkahLulus(50); 
           }
-
           if (jenisUjian === "post_test") {
              const docIdUjian = `${user.id}_t${tingkatan}_${bab}_${jenisUjian}`;
              const skorSnap = await getDoc(doc(db, "skor_murid", docIdUjian));
@@ -112,14 +106,6 @@ function KandunganUjian() {
       };
       fetchTahapMurid();
     }
-  }, [isClient, tingkatan, bab, jenisUjian]);
-
-  useEffect(() => {
-    if (!isClient) return;
-    const simpananObjektif = localStorage.getItem(`auto_obj_${tingkatan}_${bab}_${jenisUjian}`);
-    const simpananStruktur = localStorage.getItem(`auto_str_${tingkatan}_${bab}_${jenisUjian}`);
-    if (simpananObjektif) setJawapanObjektif(JSON.parse(simpananObjektif));
-    if (simpananStruktur) setJawapanStruktur(JSON.parse(simpananStruktur));
   }, [isClient, tingkatan, bab, jenisUjian]);
 
   useEffect(() => {
@@ -155,22 +141,12 @@ function KandunganUjian() {
         const finalSoalan = [...objektifDahShuffle, ...strukturDisaring];
         setSoalanSenarai(finalSoalan);
 
-        setTimeout(() => {
-          if (typeof window !== 'undefined') {
-            finalSoalan.forEach((q) => {
-              if (q.imageUrl && q.imageUrl.trim() !== "") {
-                const imgPreload = new window.Image();
-                imgPreload.src = q.imageUrl;
-              }
-            });
-          }
-        }, 1000);
-
       } catch (error) { console.error("Ralat tarik soalan:", error); } finally { setLoading(false); }
     };
     tarikSoalan();
   }, [tingkatan, bab, jenisUjian, isClient]);
 
+  // LOGIK HANTAR MARKAH AKHIR
   useEffect(() => {
     if (!isClient) return;
     const simpanMarkahFirebase = async () => {
@@ -183,13 +159,20 @@ function KandunganUjian() {
           const user = JSON.parse(rawUser);
           try {
             let skorObjektifAkhir = 0; let markahPenuhUjian = 0;
+            let jawapanObjektifBersih: Record<string, string> = {};
+            let jawapanStrukturBersih: Record<string, string> = {};
+
             soalanSenarai.forEach(s => {
               if (s.jenis === "objektif") {
                 markahPenuhUjian += 1; 
+                if (jawapanObjektif[s.id]) jawapanObjektifBersih[s.id] = jawapanObjektif[s.id];
                 const jawapanMurid = String(jawapanObjektif[s.id] || "").trim().toLowerCase();
                 const skemaBersih = String(s.jawapan || "").trim().toLowerCase();
                 if (jawapanMurid === skemaBersih && skemaBersih !== "") skorObjektifAkhir += 1;
-              } else { markahPenuhUjian += Number(s.markah) || 0; }
+              } else { 
+                markahPenuhUjian += Number(s.markah) || 0; 
+                if (jawapanStruktur[s.id]) jawapanStrukturBersih[s.id] = jawapanStruktur[s.id];
+              }
             });
 
             setSkor(skorObjektifAkhir); 
@@ -198,7 +181,7 @@ function KandunganUjian() {
 
             await new Promise(resolve => setTimeout(resolve, 1500));
 
-            for (const [soalanId, jawapanMurid] of Object.entries(jawapanStruktur)) {
+            for (const [soalanId, jawapanMurid] of Object.entries(jawapanStrukturBersih)) {
               const detailSoalan = soalanSenarai.find(s => s.id === soalanId);
               if (detailSoalan) {
                 try {
@@ -211,12 +194,11 @@ function KandunganUjian() {
                   ulasanAIPenuh[soalanId] = { markahAI: Number(aiData.markahDicadangkan) || 0, komenAI: aiData.komen || "Tiada ulasan." };
                   jumlahMarkahStrukturAI += (Number(aiData.markahDicadangkan) || 0);
                 } catch (err) { ulasanAIPenuh[soalanId] = { markahAI: 0, komenAI: "SISTEM AI GAGAL. Sila semak secara manual." }; }
-                await new Promise(resolve => setTimeout(resolve, 1000));
               }
             }
 
             const docId = `${user.id}_t${tingkatan}_${bab}_${jenisUjian}`;
-            const adaSoalanStruktur = Object.keys(jawapanStruktur).length > 0;
+            const adaSoalanStruktur = Object.keys(jawapanStrukturBersih).length > 0;
             const skorKeseluruhan = skorObjektifAkhir + jumlahMarkahStrukturAI;
             const peratus = markahPenuhUjian > 0 ? Math.round((skorKeseluruhan / markahPenuhUjian) * 100) : 0;
             const percubaanBaru = jenisUjian === "post_test" ? percubaanTerkini + 1 : 1;
@@ -225,8 +207,8 @@ function KandunganUjian() {
 
             await setDoc(doc(db, "skor_murid", docId), {
               idMurid: user.id, namaMurid: user.name || user.nama, tingkatan, bab,
-              skorObjektif: skorObjektifAkhir, jawapanObjektif, skor: peratus, markahPenuhUjian,
-              jawapanStruktur, ulasanAI: ulasanAIPenuh, markahStruktur: jumlahMarkahStrukturAI, skorAkhir: skorKeseluruhan,
+              skorObjektif: skorObjektifAkhir, jawapanObjektif: jawapanObjektifBersih, skor: peratus, markahPenuhUjian,
+              jawapanStruktur: jawapanStrukturBersih, ulasanAI: ulasanAIPenuh, markahStruktur: jumlahMarkahStrukturAI, skorAkhir: skorKeseluruhan,
               statusPermarkahanEsei: adaSoalanStruktur ? "disemak_oleh_AI" : "tiada_esei",
               tarikh: new Date().toISOString(), jenisUjian, percubaan: percubaanBaru
             });
@@ -265,48 +247,61 @@ function KandunganUjian() {
     simpanMarkahFirebase();
   }, [tamat, soalanSenarai, tingkatan, bab, isClient, jawapanStruktur, telahDisimpan, jawapanObjektif, jenisUjian, markahLulus, percubaanTerkini]); 
 
-  // LOGIK AUTO-BESAR KOTAK ESEI
+  // 🔥 LOGIK MENJAWAB & KUIZ
   const handleInputStruktur = (e: React.ChangeEvent<HTMLTextAreaElement>, soalanId: string) => {
-    // 1. Simpan nilai ke dalam state
+    if(soalanSelesai) return; // Kunci jika dah semak
     setJawapanStruktur(prev => { 
       const stateBaru = { ...prev, [soalanId]: e.target.value }; 
       localStorage.setItem(`auto_str_${tingkatan}_${bab}_${jenisUjian}`, JSON.stringify(stateBaru)); 
       return stateBaru; 
     });
-
-    // 2. Auto Resize Kotak Teks
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'; // Reset
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`; // Ikut kandungan
-    }
-  };
-
-  // Pastikan saiz kotak betul bila murid tekan "Sebelum" atau "Seterusnya"
-  useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
-  }, [indexSemasa, soalanSenarai]);
-
-  const pilihJawapanObjektif = (soalanId: string, jawapanDipilih: string) => {
-    setJawapanObjektif(prev => { const stateBaru = { ...prev, [soalanId]: jawapanDipilih }; localStorage.setItem(`auto_obj_${tingkatan}_${bab}_${jenisUjian}`, JSON.stringify(stateBaru)); return stateBaru; });
   };
 
-  const pergiSoalanSebelum = () => { if (indexSemasa > 0) setIndexSemasa(indexSemasa - 1); };
+  const sahkanJawapanStruktur = () => {
+    const semasaId = soalanSenarai[indexSemasa].id;
+    if(!jawapanStruktur[semasaId] || jawapanStruktur[semasaId].trim() === '') return;
+    playSound('info');
+    setSoalanSelesai(true);
+  };
+
+  const pilihJawapanObjektif = (soalanId: string, jawapanDipilih: string) => {
+    if(soalanSelesai) return; // Kunci jika dah jawab
+    
+    setJawapanObjektif(prev => { 
+        const stateBaru = { ...prev, [soalanId]: jawapanDipilih }; 
+        localStorage.setItem(`auto_obj_${tingkatan}_${bab}_${jenisUjian}`, JSON.stringify(stateBaru)); 
+        return stateBaru; 
+    });
+
+    // Semak serta-merta
+    const semasa = soalanSenarai[indexSemasa];
+    const skemaBersih = String(semasa.jawapan || "").trim().toLowerCase();
+    const isCorrect = jawapanDipilih.toLowerCase() === skemaBersih;
+    
+    setJawapanTepatSemasa(isCorrect);
+    setSoalanSelesai(true);
+
+    if(isCorrect) playSound('betul');
+    else playSound('salah');
+  };
+
   const pergiSoalanSeterusnyaAtauTamat = () => {
+    setSoalanSelesai(false); // Reset mod untuk soalan baru
+    setJawapanTepatSemasa(false);
+
     if (indexSemasa + 1 < soalanSenarai.length) setIndexSemasa(indexSemasa + 1);
-    else if (confirm("Pasti mahu hantar ujian ini? Sila pastikan semua jawapan telah disemak.")) setTamat(true);
+    else if (confirm("Pasti mahu hantar ujian ini? Sistem akan menganalisis markah penuh anda sekarang.")) setTamat(true);
+    
     window.scrollTo({ top: 0, behavior: "smooth" }); 
   };
 
-  const paparanTajukUjian = jenisUjian === "post_test" ? "Pasca-Ujian (Post)" : "Pra-Ujian (Pre)";
-
   if (!isClient) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-sky-600">Memulakan Ujian...</div>;
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-sky-700 font-semibold"><Loader2 className="animate-spin mr-3"/> Memuat turun soalan...</div>;
-  if (soalanSenarai.length === 0) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4"><div className="p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center max-w-md w-full"><h2 className="text-xl font-bold mb-4 text-slate-800">Soalan Belum Tersedia</h2><p className="text-sm text-slate-500 mb-6">Sistem mendapati tiada soalan untuk bab ini lagi.</p><button onClick={() => router.push('/murid')} className="w-full bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-lg font-bold transition-colors">Kembali ke Dashboard</button></div></div>
-  );
+  if (soalanSenarai.length === 0) return <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4"><div className="p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center"><h2 className="text-xl font-bold">Soalan Belum Tersedia</h2><button onClick={() => router.push('/murid')} className="mt-4 w-full bg-sky-600 text-white px-6 py-3 rounded-lg font-bold">Kembali ke Dashboard</button></div></div>;
 
   if (tamat) {
     if (menganalisisAI || peratusAkhir === null) return (
@@ -316,22 +311,12 @@ function KandunganUjian() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
         <div className="max-w-lg w-full p-8 bg-white rounded-2xl shadow-sm border border-slate-200 border-t-8 border-t-sky-500 text-center">
-          <h2 className="text-2xl md:text-3xl font-extrabold mb-2 text-slate-800">{paparanTajukUjian} Tamat</h2>
-          <p className="text-sm font-semibold text-slate-500 mb-6 uppercase tracking-wider">{bab} | Tingkatan {tingkatan}</p>
-          {jenisUjian === "pre_test" ? (
-             <div className="bg-indigo-50 border border-indigo-100 text-indigo-800 p-6 rounded-xl mb-8">✅ <span className="font-bold text-lg">Skor: {peratusAkhir}%</span><br/><span className="text-sm mt-2 block">Sistem telah menganalisis tahap anda. Teruskan ke Modul Bimbingan.</span></div>
-          ) : (
-             isLulus ? (
-               <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 p-6 rounded-xl mb-8">🎉 <span className="font-bold text-lg">TAHNIAH! Lulus dengan {peratusAkhir}%</span><br/><span className="text-sm mt-2 block">Anda berjaya melepasi sasaran {markahLulus}%.</span></div>
-             ) : (
-               percubaanTerkini >= 2 ? (
-                 <div className="bg-red-50 border border-red-100 text-red-800 p-6 rounded-xl mb-8">⚠️ <span className="font-bold text-lg">Markah: {peratusAkhir}%</span><br/><span className="text-sm mt-2 block">Sasaran: {markahLulus}%. Anda telah mencuba 2 kali. Sistem akan merujuk kepada Guru.</span></div>
-               ) : (
-                 <div className="bg-amber-50 border border-amber-100 text-amber-800 p-6 rounded-xl mb-8">⚠️ <span className="font-bold text-lg">Markah: {peratusAkhir}%</span><br/><span className="text-sm mt-2 block">Sasaran: {markahLulus}%. Sila ikuti Modul Permainan Interaktif di Dashboard kemudian cuba lagi.</span></div>
-               )
-             )
-          )}
-          <button onClick={() => router.push('/murid')} className="w-full bg-slate-800 hover:bg-slate-700 text-white px-8 py-3 rounded-xl font-bold transition-colors shadow-md">Kembali ke Dashboard</button>
+          <h2 className="text-2xl font-extrabold mb-2">{jenisUjian === "post_test" ? "Pasca-Ujian" : "Pra-Ujian"} Tamat</h2>
+          <p className="text-sm text-slate-500 mb-6 font-semibold uppercase">{bab}</p>
+          <div className={`p-6 rounded-xl mb-8 ${isLulus || jenisUjian === "pre_test" ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-amber-50 text-amber-800 border border-amber-100'}`}>
+            {isLulus || jenisUjian === "pre_test" ? "🎉" : "⚠️"} <span className="font-bold text-lg">Skor: {peratusAkhir}%</span>
+          </div>
+          <button onClick={() => router.push('/murid')} className="w-full bg-slate-800 text-white px-8 py-3 rounded-xl font-bold">Kembali ke Dashboard</button>
         </div>
       </div>
     );
@@ -340,14 +325,11 @@ function KandunganUjian() {
   const semasa = soalanSenarai[indexSemasa];
   const jenisSoalan = semasa.jenis?.toLowerCase() || "objektif";
   const senaraiPilihan = semasa.shuffledPilihan || (semasa.pilihan ? Object.entries(semasa.pilihan) : []);
-  const labelBahagian = jenisSoalan === "objektif" ? "Bahagian A: Objektif" : "Bahagian B: Struktur/Esei";
   const isSoalanTerakhir = indexSemasa + 1 === soalanSenarai.length;
-
-  let soalanSudahDijawab = false;
-  if (jenisSoalan === "objektif") soalanSudahDijawab = !!jawapanObjektif[semasa.id];
-  else soalanSudahDijawab = (jawapanStruktur[semasa.id] || "").trim().length > 0;
-
   const progressPercentage = ((indexSemasa + 1) / soalanSenarai.length) * 100;
+
+  // Dapatkan teks jawapan betul untuk ditunjuk jika salah
+  const jawapanBetulTeks = jenisSoalan === "objektif" ? (senaraiPilihan.find(p => p[0] === semasa.jawapan)?.[1] || semasa.jawapan) : "";
 
   return (
     <div className="min-h-screen bg-slate-50 pb-28 pt-20"> 
@@ -355,18 +337,14 @@ function KandunganUjian() {
          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
            <div>
              <h1 className="text-sm md:text-base font-extrabold text-slate-800">{bab}</h1>
-             <p className="text-[10px] md:text-xs font-bold text-sky-600 uppercase mt-0.5">{labelBahagian}</p>
+             <p className="text-[10px] md:text-xs font-bold text-sky-600 uppercase mt-0.5">Soalan Kuiz Interaktif</p>
            </div>
-           <div className="text-right flex flex-col items-end">
-             <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Soalan</span>
-             <span className="text-xs md:text-sm font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-md">
-               {indexSemasa + 1} / {soalanSenarai.length}
-             </span>
+           <div className="text-right">
+             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Kemajuan</span>
+             <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-md">{indexSemasa + 1} / {soalanSenarai.length}</span>
            </div>
          </div>
-         <div className="w-full bg-slate-100 h-1.5">
-           <div className="bg-sky-500 h-full transition-all duration-300" style={{ width: `${progressPercentage}%` }}></div>
-         </div>
+         <div className="w-full bg-slate-100 h-1.5"><div className="bg-sky-500 h-full transition-all duration-300" style={{ width: `${progressPercentage}%` }}></div></div>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 w-full">
@@ -374,7 +352,7 @@ function KandunganUjian() {
            
            <div className="flex justify-between items-start gap-4 mb-6">
              <h2 className="text-base md:text-lg font-semibold text-slate-800 leading-relaxed whitespace-pre-wrap">{semasa.soalan}</h2>
-             {semasa.markah && <span className="shrink-0 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border border-amber-200">{semasa.markah} Markah</span>}
+             {semasa.markah && <span className="shrink-0 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-amber-200">{semasa.markah} Markah</span>}
            </div>
 
            <GambarSoalan src={semasa.imageUrl} />
@@ -384,32 +362,69 @@ function KandunganUjian() {
                <div className="grid gap-3">
                  {senaraiPilihan.map((item: any, i: number) => {
                    const isSelected = jawapanObjektif[semasa.id] === item[0];
+                   const isCorrectOption = soalanSelesai && item[0] === semasa.jawapan;
+                   const isWrongSelected = soalanSelesai && isSelected && !jawapanTepatSemasa;
+                   
+                   // Logik Warna Gamifikasi
+                   let butangWarna = 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50'; // Default
+                   let hurufWarna = 'bg-slate-100 text-slate-500';
+
+                   if (soalanSelesai) {
+                     if (isCorrectOption) { butangWarna = 'border-emerald-500 bg-emerald-50 shadow-md'; hurufWarna = 'bg-emerald-500 text-white'; }
+                     else if (isWrongSelected) { butangWarna = 'border-red-500 bg-red-50 opacity-90'; hurufWarna = 'bg-red-500 text-white'; }
+                     else { butangWarna = 'border-slate-200 bg-slate-50 opacity-40'; } // Kelabukan yang lain
+                   } else if (isSelected) {
+                     butangWarna = 'border-sky-500 bg-sky-50 shadow-sm'; hurufWarna = 'bg-sky-500 text-white';
+                   }
+
                    return (
-                     <button key={item[0]} onClick={() => pilihJawapanObjektif(semasa.id, item[0])}
-                       className={`w-full text-left p-4 rounded-xl border-2 transition-all font-medium flex gap-4 items-center group ${isSelected ? 'border-sky-500 bg-sky-50 shadow-sm' : 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/50'}`}>
-                       <span className={`shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-bold text-sm md:text-base transition-colors ${isSelected ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-sky-100 group-hover:text-sky-600'}`}>{String.fromCharCode(65 + i)}</span>
-                       <span className={`text-sm md:text-base ${isSelected ? 'text-sky-900' : 'text-slate-700'}`}>{item[1] as string}</span>
+                     <button key={item[0]} onClick={() => pilihJawapanObjektif(semasa.id, item[0])} disabled={soalanSelesai}
+                       className={`w-full text-left p-4 rounded-xl border-2 transition-all font-medium flex gap-4 items-center ${butangWarna}`}>
+                       <span className={`shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-bold text-sm md:text-base transition-colors ${hurufWarna}`}>
+                         {isCorrectOption ? '✓' : isWrongSelected ? '✗' : String.fromCharCode(65 + i)}
+                       </span>
+                       <span className={`text-sm md:text-base ${isCorrectOption ? 'text-emerald-900 font-bold' : isWrongSelected ? 'text-red-900' : 'text-slate-700'}`}>{item[1] as string}</span>
                      </button>
                    );
                  })}
+
+                 {/* Mesej Maklum Balas Emoji Objektif */}
+                 {soalanSelesai && (
+                   <div className={`mt-4 p-4 rounded-xl flex items-start gap-3 border ${jawapanTepatSemasa ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                     <span className="text-2xl mt-0.5">{jawapanTepatSemasa ? '🎯' : '😢'}</span>
+                     <div>
+                       <h4 className="font-bold text-base">{jawapanTepatSemasa ? 'Tepat Sekali!' : 'Oops, Kurang Tepat!'}</h4>
+                       {!jawapanTepatSemasa && <p className="text-sm mt-1 opacity-90">Jawapan sebenar ialah: <strong>{jawapanBetulTeks}</strong></p>}
+                     </div>
+                   </div>
+                 )}
                </div>
              ) : (
                <div className="relative">
-                 {/* KOTAK ESEI AUTO-BESAR (Telah ditambahbaik) */}
                  <textarea
                    ref={textareaRef}
                    value={jawapanStruktur[semasa.id] || ""} 
                    onChange={(e) => handleInputStruktur(e, semasa.id)}
-                   onPaste={(e) => { e.preventDefault(); alert("Sila taip sendiri. Kemahiran mengingati fakta amat penting!"); }} 
-                   onCopy={(e) => e.preventDefault()} 
-                   onCut={(e) => e.preventDefault()}
-                   autoComplete="off" spellCheck="false"
+                   disabled={soalanSelesai}
                    placeholder="Sila taip jawapan esei/struktur di sini..."
-                   // resize-none matikan drag manual, min-h-40 (standard tailwind), overflow-y-auto untuk skrol bila dah cecah max-h-96
-                   className="w-full p-4 md:p-5 bg-slate-50 text-slate-900 placeholder-slate-400 border-2 border-slate-300 rounded-xl focus:bg-white focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 resize-none min-h-40 max-h-96 overflow-y-auto text-sm md:text-base transition-all outline-none leading-relaxed"
+                   className={`w-full p-4 md:p-5 text-slate-900 border-2 rounded-xl focus:ring-4 focus:ring-sky-500/10 resize-none min-h-40 max-h-96 overflow-y-auto text-sm md:text-base transition-all outline-none leading-relaxed ${soalanSelesai ? 'bg-slate-100 border-slate-300 opacity-80' : 'bg-slate-50 border-slate-300 focus:bg-white focus:border-sky-500'}`}
                  />
-                 {jawapanStruktur[semasa.id]?.trim().length > 0 && (
-                    <div className="absolute top-4 right-4 text-emerald-500 bg-white rounded-full"><CheckCircle2 size={20}/></div>
+                 
+                 {/* Papar Skema selepas Hantar */}
+                 {soalanSelesai ? (
+                   <div className="mt-4 p-5 bg-sky-50 border border-sky-200 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+                     <h4 className="font-bold text-sky-800 flex items-center gap-2 mb-2">💡 Rujukan Skema Jawapan AI:</h4>
+                     <p className="text-sky-900 text-sm md:text-base whitespace-pre-wrap leading-relaxed">{semasa.skemaJawapan || semasa.jawapan || "Tiada skema khusus disediakan."}</p>
+                     <p className="text-xs text-sky-600 mt-3 font-semibold italic">*Jawapan anda akan dinilai oleh AI di akhir ujian nanti.</p>
+                   </div>
+                 ) : (
+                   <button 
+                     onClick={sahkanJawapanStruktur} 
+                     disabled={!jawapanStruktur[semasa.id]?.trim()}
+                     className="mt-4 w-full md:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                   >
+                     ✅ Sahkan & Semak Jawapan
+                   </button>
                  )}
                </div>
              )}
@@ -417,17 +432,16 @@ function KandunganUjian() {
          </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 z-40 shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
-         <div className="max-w-3xl mx-auto flex justify-between items-center gap-4">
-           <button onClick={pergiSoalanSebelum} disabled={indexSemasa === 0} className="flex items-center justify-center gap-2 px-4 md:px-6 py-3 rounded-xl font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm md:text-base w-1/3">
-             <ChevronLeft size={20}/> <span className="hidden md:inline">Sebelumnya</span>
-           </button>
-           
-           <button onClick={pergiSoalanSeterusnyaAtauTamat} disabled={!soalanSudahDijawab} className={`flex items-center justify-center gap-2 px-6 md:px-8 py-3 rounded-xl font-bold transition-all text-sm md:text-base w-2/3 shadow-sm ${!soalanSudahDijawab ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : isSoalanTerakhir ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20' : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/20'}`}>
-             {isSoalanTerakhir ? 'Hantar Ujian Sekarang' : 'Seterusnya'} {isSoalanTerakhir ? <CheckCircle2 size={20}/> : <ChevronRight size={20}/>}
-           </button>
-         </div>
-      </div>
+      {/* FOOTER - Butang Seterusnya Sahaja */}
+      {soalanSelesai && (
+        <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] animate-in slide-in-from-bottom-full duration-300">
+           <div className="max-w-3xl mx-auto flex justify-end">
+             <button onClick={pergiSoalanSeterusnyaAtauTamat} className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-bold transition-all text-sm md:text-base w-full shadow-lg ${isSoalanTerakhir ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/30' : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/30'}`}>
+               {isSoalanTerakhir ? 'Tamat & Analisis Markah' : 'Teruskan ke Soalan Seterusnya'} <ChevronRight size={20}/>
+             </button>
+           </div>
+        </div>
+      )}
     </div>
   );
 }
