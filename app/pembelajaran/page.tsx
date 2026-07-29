@@ -190,12 +190,45 @@ function KomponenPembelajaran() {
     return () => unsubscribe();
   }, [sessionId, chapterId, studentId, chapterData, maxFasa, currentSub, namaBabSebenar, namaSubtopikSebenar]); 
 
+  // ==========================================
+  // TAMBAHAN FUNGSI BARU (Auto-Resize & TTS)
+  // ==========================================
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'; // Reset dulu
+      inputRef.current.style.height = `${inputRef.current.scrollHeight}px`; // Set ikut kandungan
+    }
+  };
+
+  const bacaTeks = (teksRaw: string) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      // Bersihkan teks dari simbol markdown atau tag html supaya AI baca sedap didengar
+      const teksBersih = teksRaw.replace(/\*\*/g, '').replace(/<[^>]*>?/gm, '');
+      const sebutan = new SpeechSynthesisUtterance(teksBersih);
+      sebutan.lang = 'ms-MY';
+      sebutan.rate = 1.0;
+      window.speechSynthesis.speak(sebutan);
+    } else {
+      alert("Maaf, peranti anda tidak menyokong fungsi suara.");
+    }
+  };
+
+  const hentiBaca = () => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  };
+  // ==========================================
+
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim()) return;
 
     const teksMurid = input;
     setInput(""); setIsLoading(true);
+    
+    // Kembalikan saiz input kepada asal lepas hantar
+    if (inputRef.current) inputRef.current.style.height = 'auto';
 
     const sessionDocRef = doc(db, "chat_sessions", sessionId);
     const messagesCollectionRef = collection(sessionDocRef, "messages");
@@ -248,7 +281,11 @@ function KomponenPembelajaran() {
     } catch (error) { console.error("Ralat:", error); } finally { setIsLoading(false); }
   };
 
-  const sendQuickPrompt = (text: string) => { setInput(text); setTimeout(() => { inputRef.current?.focus(); }, 50); };
+  const sendQuickPrompt = (text: string) => { 
+    setInput(text); 
+    if (inputRef.current) inputRef.current.style.height = 'auto'; // reset saiz 
+    setTimeout(() => { inputRef.current?.focus(); }, 50); 
+  };
 
   // ===============================================
   // REKA BENTUK UI KEMASKINI
@@ -268,7 +305,7 @@ function KomponenPembelajaran() {
             {showVideoModal ? <><Video size={16} className="text-red-400"/> Video Bimbingan</> : <><BookOpen size={16} className="text-sky-400"/> Nota: {chapterData ? chapterData.title : formatTajuk(chapterId)}</>}
           </h2>
           
-          <button onClick={() => setShowPdfMobile(false)} className="lg:hidden bg-slate-700 hover:bg-slate-600 text-slate-300 p-1.5 rounded-full transition-colors"><X size={18}/></button>
+          <button onClick={() => {setShowPdfMobile(false); setShowVideoModal(false);}} className="lg:hidden bg-slate-700 hover:bg-slate-600 text-slate-300 p-1.5 rounded-full transition-colors"><X size={18}/></button>
         </div>
         
         <div className="flex-1 w-full h-full bg-slate-100 relative flex flex-col">
@@ -348,6 +385,18 @@ function KomponenPembelajaran() {
               )}
               <div className={`px-3 py-2.5 lg:px-4 lg:py-3 rounded-2xl max-w-[90%] md:max-w-[80%] text-[13px] lg:text-[15px] leading-relaxed shadow-sm ${msg.role === "user" ? "bg-blue-600 text-white rounded-br-sm" : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"}`}>
                 <div className="prose prose-sm md:prose-base prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
+                
+                {/* Butang Dengar AI (Baru ditambah) */}
+                {msg.role === "assistant" && (
+                  <div className="mt-2 flex gap-2 border-t border-slate-100 pt-2">
+                    <button onClick={() => bacaTeks(msg.content)} className="text-[10px] md:text-[11px] font-semibold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-2 py-1 rounded-md border border-emerald-100 flex items-center gap-1 transition-colors">
+                      🔊 Dengar
+                    </button>
+                    <button onClick={hentiBaca} className="text-[10px] md:text-[11px] font-semibold bg-rose-50 text-rose-500 hover:bg-rose-100 px-2 py-1 rounded-md border border-rose-100 flex items-center gap-1 transition-colors">
+                      ⏹️ Henti
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -371,7 +420,7 @@ function KomponenPembelajaran() {
                 {/* BAHAGIAN KIRI: RUJUKAN */}
                 <div className="flex items-center gap-2">
                   <button 
-                    onClick={() => setShowPdfMobile(true)} 
+                    onClick={() => { setShowPdfMobile(true); setShowVideoModal(false); }} 
                     className="lg:hidden bg-amber-400 text-amber-950 text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-amber-500 transition-colors flex items-center gap-1.5 shadow-sm"
                   >
                     <BookOpen size={14}/> Nota
@@ -379,7 +428,7 @@ function KomponenPembelajaran() {
 
                   {arasDariURL === "rendah" && (
                     <button 
-                      onClick={() => setShowVideoModal(true)} 
+                      onClick={() => { setShowPdfMobile(true); setShowVideoModal(true); }} 
                       className="bg-red-600 text-white text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-red-700 transition-all flex items-center gap-1.5 shadow-md shadow-red-500/30 animate-pulse hover:animate-none"
                     >
                       <PlayCircle size={16}/> Video
@@ -413,14 +462,14 @@ function KomponenPembelajaran() {
                 <textarea 
                   ref={inputRef}
                   value={input} 
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={handleInput}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                   placeholder="Taip di sini..." 
-                  className="flex-1 bg-slate-100 text-slate-900 placeholder-slate-400 border border-slate-300 rounded-xl px-3 py-2.5 text-[13px] md:text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 resize-none min-w-11.25 max-height: 100px;" 
+                  className="flex-1 bg-slate-100 text-slate-900 placeholder-slate-400 border border-slate-300 rounded-xl px-3 py-2.5 text-[13px] md:text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 resize-none min-w-[11.25rem] max-h-[120px] overflow-y-auto" 
                   disabled={isLoading}
                   rows={1}
                 />
-                <button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-600 text-white rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors">
+                <button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-600 text-white rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors mb-0.5">
                   <Send size={16} className={input.trim() && !isLoading ? "translate-x-0.5" : ""} />
                 </button>
               </form>

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, getDoc } from "firebase/firestore"; 
 import { db } from "../../lib/firebase";
 import { Loader2, Image as ImageIcon, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
 
 // ==========================================
-// 1. KOMPONEN KHAS: GAMBAR SOALAN (LEBIH KEMAS)
+// 1. KOMPONEN KHAS: GAMBAR SOALAN
 // ==========================================
 const GambarSoalan = ({ src }: { src: string }) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -25,7 +25,8 @@ const GambarSoalan = ({ src }: { src: string }) => {
       <img
         src={src}
         alt="Rujukan Soalan"
-        className={`max-w-full max-h-75 object-contain rounded-xl shadow-sm border border-slate-200 transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+        // Ditukar dari max-h-75 (tidak rasmi) kepada max-h-72 (kelas rasmi Tailwind) untuk elak amaran
+        className={`max-w-full max-h-72 object-contain rounded-xl shadow-sm border border-slate-200 transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
         onLoad={() => setIsLoaded(true)}
         onError={() => { setHasError(true); setIsLoaded(true); }}
       />
@@ -69,6 +70,9 @@ function KandunganUjian() {
   const [markahLulus, setMarkahLulus] = useState(50); 
   
   const [percubaanTerkini, setPercubaanTerkini] = useState(0);
+
+  // Reference untuk Kotak Teks (Auto-Resize)
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const shuffleArray = (array: any[]) => {
     let shuffled = [...array];
@@ -151,7 +155,6 @@ function KandunganUjian() {
         const finalSoalan = [...objektifDahShuffle, ...strukturDisaring];
         setSoalanSenarai(finalSoalan);
 
-        // Preload Gambar
         setTimeout(() => {
           if (typeof window !== 'undefined') {
             finalSoalan.forEach((q) => {
@@ -262,18 +265,39 @@ function KandunganUjian() {
     simpanMarkahFirebase();
   }, [tamat, soalanSenarai, tingkatan, bab, isClient, jawapanStruktur, telahDisimpan, jawapanObjektif, jenisUjian, markahLulus, percubaanTerkini]); 
 
+  // LOGIK AUTO-BESAR KOTAK ESEI
+  const handleInputStruktur = (e: React.ChangeEvent<HTMLTextAreaElement>, soalanId: string) => {
+    // 1. Simpan nilai ke dalam state
+    setJawapanStruktur(prev => { 
+      const stateBaru = { ...prev, [soalanId]: e.target.value }; 
+      localStorage.setItem(`auto_str_${tingkatan}_${bab}_${jenisUjian}`, JSON.stringify(stateBaru)); 
+      return stateBaru; 
+    });
+
+    // 2. Auto Resize Kotak Teks
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'; // Reset
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`; // Ikut kandungan
+    }
+  };
+
+  // Pastikan saiz kotak betul bila murid tekan "Sebelum" atau "Seterusnya"
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [indexSemasa, soalanSenarai]);
+
   const pilihJawapanObjektif = (soalanId: string, jawapanDipilih: string) => {
     setJawapanObjektif(prev => { const stateBaru = { ...prev, [soalanId]: jawapanDipilih }; localStorage.setItem(`auto_obj_${tingkatan}_${bab}_${jenisUjian}`, JSON.stringify(stateBaru)); return stateBaru; });
-  };
-  const tukarJawapanStruktur = (soalanId: string, teks: string) => {
-    setJawapanStruktur(prev => { const stateBaru = { ...prev, [soalanId]: teks }; localStorage.setItem(`auto_str_${tingkatan}_${bab}_${jenisUjian}`, JSON.stringify(stateBaru)); return stateBaru; });
   };
 
   const pergiSoalanSebelum = () => { if (indexSemasa > 0) setIndexSemasa(indexSemasa - 1); };
   const pergiSoalanSeterusnyaAtauTamat = () => {
     if (indexSemasa + 1 < soalanSenarai.length) setIndexSemasa(indexSemasa + 1);
     else if (confirm("Pasti mahu hantar ujian ini? Sila pastikan semua jawapan telah disemak.")) setTamat(true);
-    window.scrollTo({ top: 0, behavior: "smooth" }); // Auto scroll ke atas bila tukar soalan
+    window.scrollTo({ top: 0, behavior: "smooth" }); 
   };
 
   const paparanTajukUjian = jenisUjian === "post_test" ? "Pasca-Ujian (Post)" : "Pra-Ujian (Pre)";
@@ -284,7 +308,6 @@ function KandunganUjian() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4"><div className="p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center max-w-md w-full"><h2 className="text-xl font-bold mb-4 text-slate-800">Soalan Belum Tersedia</h2><p className="text-sm text-slate-500 mb-6">Sistem mendapati tiada soalan untuk bab ini lagi.</p><button onClick={() => router.push('/murid')} className="w-full bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-lg font-bold transition-colors">Kembali ke Dashboard</button></div></div>
   );
 
-  // KETIKA TAMAT UJIAN (TIADA HEADER/FOOTER)
   if (tamat) {
     if (menganalisisAI || peratusAkhir === null) return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center"><Loader2 className="animate-spin w-12 h-12 text-sky-600 mb-4" /><h2 className="text-2xl font-bold text-sky-700">AI Sedang Menyemak...</h2><p className="text-slate-500 text-sm mt-2">Sila tunggu sebentar. Esei anda sedang dinilai.</p></div>
@@ -328,7 +351,6 @@ function KandunganUjian() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-28 pt-20"> 
-      {/* 🟢 HEADER TERLEKAT DI ATAS SKRIN */}
       <div className="fixed top-0 left-0 w-full bg-white shadow-sm border-b border-slate-200 z-40">
          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
            <div>
@@ -342,13 +364,11 @@ function KandunganUjian() {
              </span>
            </div>
          </div>
-         {/* Progress Bar Visual */}
          <div className="w-full bg-slate-100 h-1.5">
            <div className="bg-sky-500 h-full transition-all duration-300" style={{ width: `${progressPercentage}%` }}></div>
          </div>
       </div>
 
-      {/* 🟢 KAWASAN SOALAN (SCROLL SEMULA JADI) */}
       <div className="max-w-3xl mx-auto px-4 w-full">
          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
            
@@ -375,13 +395,19 @@ function KandunganUjian() {
                </div>
              ) : (
                <div className="relative">
+                 {/* KOTAK ESEI AUTO-BESAR (Telah ditambahbaik) */}
                  <textarea
-                   value={jawapanStruktur[semasa.id] || ""} onChange={(e) => tukarJawapanStruktur(semasa.id, e.target.value)}
-                   onPaste={(e) => { e.preventDefault(); alert("Sila taip sendiri. Kemahiran mengingati fakta amat penting!"); }} onCopy={(e) => e.preventDefault()} onCut={(e) => e.preventDefault()}
+                   ref={textareaRef}
+                   value={jawapanStruktur[semasa.id] || ""} 
+                   onChange={(e) => handleInputStruktur(e, semasa.id)}
+                   onPaste={(e) => { e.preventDefault(); alert("Sila taip sendiri. Kemahiran mengingati fakta amat penting!"); }} 
+                   onCopy={(e) => e.preventDefault()} 
+                   onCut={(e) => e.preventDefault()}
                    autoComplete="off" spellCheck="false"
-                   placeholder="Sila taip jawapan di sini..."
-                   className="w-full p-4 md:p-5 bg-white text-slate-900 placeholder-slate-400 border-2 border-slate-300 rounded-xl focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 resize-y min-h-40 text-sm md:text-base transition-all outline-none"
-                 ></textarea>
+                   placeholder="Sila taip jawapan esei/struktur di sini..."
+                   // resize-none matikan drag manual, min-h-40 (standard tailwind), overflow-y-auto untuk skrol bila dah cecah max-h-96
+                   className="w-full p-4 md:p-5 bg-slate-50 text-slate-900 placeholder-slate-400 border-2 border-slate-300 rounded-xl focus:bg-white focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 resize-none min-h-40 max-h-96 overflow-y-auto text-sm md:text-base transition-all outline-none leading-relaxed"
+                 />
                  {jawapanStruktur[semasa.id]?.trim().length > 0 && (
                     <div className="absolute top-4 right-4 text-emerald-500 bg-white rounded-full"><CheckCircle2 size={20}/></div>
                  )}
@@ -391,7 +417,6 @@ function KandunganUjian() {
          </div>
       </div>
 
-      {/* 🟢 FOOTER TERLEKAT DI BAWAH SKRIN */}
       <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 z-40 shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
          <div className="max-w-3xl mx-auto flex justify-between items-center gap-4">
            <button onClick={pergiSoalanSebelum} disabled={indexSemasa === 0} className="flex items-center justify-center gap-2 px-4 md:px-6 py-3 rounded-xl font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm md:text-base w-1/3">
@@ -403,7 +428,6 @@ function KandunganUjian() {
            </button>
          </div>
       </div>
-
     </div>
   );
 }
