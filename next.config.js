@@ -8,11 +8,10 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // 🌟 INI KOD RAHSIA UNTUK ELAK VERCEL ERROR (Jimat RAM)
   productionBrowserSourceMaps: false,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  
+  // 🌟 INI KUNCI PENYELESAIANNYA: Senyapkan ralat pertembungan Turbopack & Webpack
+  turbopack: {},
 };
 
 module.exports = withPWA(nextConfig);
