@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link"; 
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase"; 
 
-// 1. Interface Database
 interface UlasanDetail {
   komenAI: string;
   markahAI?: number;
@@ -41,52 +39,65 @@ export default function SemakanUjianMurid() {
   const [soalanBank, setSoalanBank] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
 
-   // 2. Fungsi untuk tarik data dari Firestore
   useEffect(() => {
     const fetchData = async () => {
       try {
         const decodedId = decodeURIComponent(documentId); 
-        
-        // A) Tarik markah murid
         const docRef = doc(db, "skor_murid", decodedId);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
           const resultData = docSnap.data() as SkorMuridData;
-          setData(resultData);
+          
+          // 🌟 NAMA MURID FIX: Tarik nama terkini dari pangkalan data Users
+          let namaTerkini = resultData.namaMurid;
+          try {
+             const userRef = doc(db, "users", resultData.idMurid);
+             const userSnap = await getDoc(userRef);
+             if (userSnap.exists()) {
+                 const uData = userSnap.data();
+                 if (uData.nama || uData.name) {
+                     namaTerkini = (uData.nama || uData.name).toUpperCase();
+                 }
+             }
+          } catch(e) { console.error("Gagal tarik nama terkini"); }
 
-          const jenisUjianMurid = resultData.jenisUjian || "pre_test"; // Fallback jika tiada jenis
+          setData({ ...resultData, namaMurid: namaTerkini });
 
-          // B) Tarik teks soalan sebenar dari questionBank
+          const jenisUjianMurid = resultData.jenisUjian || "pre_test"; 
+
           const q = query(
             collection(db, "questionBank"), 
             where("tingkatan", "==", resultData.tingkatan),
             where("bab", "==", resultData.bab)
           );
           const qSnap = await getDocs(q);
-          const qList: any[] = [];
+          
+          const qListObj: any[] = [];
+          const qListStr: any[] = [];
           
           qSnap.forEach((d) => {
             const soalanData = d.data();
             const kegunaan = soalanData.kegunaan || "semua";
 
-            // 🌟 PENAPISAN KETAT: Membuang Soalan Draf & Soalan Ujian Lain
-            // a) Buang soalan Simpanan (Draf)
             if (kegunaan === "simpanan") return;
-            
-            // b) Pastikan ia sesuai dengan ujian (Pre/Post) yang diambil murid
             if (kegunaan !== "semua" && kegunaan !== jenisUjianMurid) return;
 
-            // c) Pastikan soalan ada No. Susunan (urutan yang sah)
-            const urutan = Number(soalanData.urutan);
-            if (!isNaN(urutan) && urutan > 0 && urutan !== 999) {
-               qList.push({ id: d.id, ...soalanData });
+            // 🌟 FIX SOALAN OBJEKTIF: Asingkan logik tarik soalan supaya Objektif tak hilang
+            if (soalanData.jenis === "objektif") {
+                qListObj.push({ id: d.id, ...soalanData });
+            } else {
+                const urutan = Number(soalanData.urutan);
+                if (!isNaN(urutan) && urutan > 0 && urutan !== 999) {
+                   qListStr.push({ id: d.id, ...soalanData });
+                }
             }
           });
           
-          // Susun soalan sama seperti urutan yang murid jawab masa ujian (bukan ikut ID abjad)
-          qList.sort((a, b) => Number(a.urutan) - Number(b.urutan));
-          setSoalanBank(qList);
+          // Susun soalan struktur ikut urutan
+          qListStr.sort((a, b) => Number(a.urutan) - Number(b.urutan));
+          // Gabungkan Objektif (Atas) dan Struktur (Bawah)
+          setSoalanBank([...qListObj, ...qListStr]);
 
         } else {
           console.log("Tiada dokumen dijumpai untuk ID:", decodedId);
@@ -103,7 +114,6 @@ export default function SemakanUjianMurid() {
     }
   }, [documentId]);
 
-  // 3. Paparan ketika loading
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -112,7 +122,6 @@ export default function SemakanUjianMurid() {
     );
   }
 
-  // 4. Paparan jika tiada data
   if (!data) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -124,21 +133,11 @@ export default function SemakanUjianMurid() {
   }
 
   const jawapanObjektifMurid = data.jawapanObjektif || {};
-
-  // ==========================================
-  // 🌟 LOGIK SYARAT BUTANG SIJIL
-  // ==========================================
-  const markahPeratus = data.skor || 0;
   const jenisUjian = data.jenisUjian ? data.jenisUjian.toLowerCase() : 'pre_test'; 
-  
-  const layakSijilPreTest = jenisUjian === 'pre_test' && markahPeratus >= 80;
-  const layakSijilPostTest = jenisUjian === 'post_test';
-  const paparButangSijil = layakSijilPreTest || layakSijilPostTest;
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6 bg-gray-50 min-h-screen">
       
-      {/* BUTANG KEMBALI */}
       <div className="mb-6">
         <button 
           onClick={() => window.location.href = '/murid'} 
@@ -149,13 +148,11 @@ export default function SemakanUjianMurid() {
         </button>
       </div>
 
-      {/* KAD MAKLUMAT PELAJAR */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Laporan Diagnostik: {data.bab}</h1>
             <p className="text-gray-500">Tingkatan {data.tingkatan} • {data.namaMurid} ({data.idMurid})</p>
-            {/* Label Jenis Ujian */}
             <span className="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-md uppercase tracking-wider">
                Ujian: {jenisUjian.replace('_', ' ')}
             </span>
@@ -171,7 +168,6 @@ export default function SemakanUjianMurid() {
           </span>
         </div>
 
-        {/* BAHAGIAN MARKAH */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
           <div className="bg-blue-50 p-4 rounded-lg text-center border border-blue-100">
             <p className="text-xs text-blue-600 font-bold uppercase">Skor Objektif</p>
@@ -189,30 +185,8 @@ export default function SemakanUjianMurid() {
             </p>
           </div>
         </div>
-
-        {/* BAHAGIAN BUTANG SIJIL BERSYARAT */}
-        <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col items-center">
-          {paparButangSijil ? (
-            <Link 
-               href={`/semakan?id=${documentId}`} 
-              target="_blank"
-              className="bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:-translate-y-1 hover:scale-105 flex items-center gap-2"
-            >
-              <span className="text-xl">🎓</span> 
-              <span>Dapatkan Sijil Pengesahan I-RAGS</span>
-            </Link>
-          ) : (
-            <div className="w-full p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-              <p className="text-yellow-700">
-                Pautan Sijil Pengesahan hanya akan dibuka selepas anda melengkapkan <strong>Post Test</strong> (Ujian Pasca) atau jika anda melepasi tahap Cemerlang. Teruskan usaha! 💪
-              </p>
-            </div>
-          )}
-        </div>
-        
       </div>
 
-      {/* BAHAGIAN 2: SENARAI JAWAPAN & ULASAN AI */}
       <div className="mt-8 space-y-6">
         <h2 className="text-xl font-bold text-gray-800 px-1 border-b pb-2">Semakan Terperinci & Refleksi</h2>
         
@@ -220,9 +194,6 @@ export default function SemakanUjianMurid() {
           soalanBank.map((soalan, index) => {
             const jenisSoalan = soalan.jenis?.toLowerCase() || "objektif";
             
-            // ==========================================
-            // LOGIK PAPARAN SOALAN OBJEKTIF
-            // ==========================================
             if (jenisSoalan === "objektif") {
               const jawapanPilihanMurid = jawapanObjektifMurid[soalan.id];
               const isBetul = jawapanPilihanMurid === soalan.jawapan;
@@ -230,7 +201,7 @@ export default function SemakanUjianMurid() {
               return (
                 <div key={soalan.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
                   <div className="mb-4">
-                    <span className="font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-md text-sm border border-gray-200">Soalan {index + 1}</span>
+                    <span className="font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-md text-sm border border-gray-200">Soalan {index + 1} (Objektif)</span>
                     <p className="mt-3 font-medium text-gray-800">{soalan.soalan}</p>
                   </div>
 
@@ -254,14 +225,10 @@ export default function SemakanUjianMurid() {
                 </div>
               );
             } 
-            // ==========================================
-            // LOGIK PAPARAN SOALAN STRUKTUR
-            // ==========================================
             else {
               const jawapanEseiMurid = data.jawapanStruktur?.[soalan.id];
               const ulasan = data.ulasanAI?.[soalan.id];
               
-              // Kira Markah Akhir
               const markahAkhir = data.markahGuru?.[soalan.id] !== undefined 
                                     ? data.markahGuru[soalan.id] 
                                     : (ulasan?.markahAI || 0);
@@ -270,7 +237,7 @@ export default function SemakanUjianMurid() {
                 <div key={soalan.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
                   <div className="mb-4 flex justify-between items-start gap-4">
                     <div>
-                      <span className="font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-md text-sm border border-gray-200">Soalan {index + 1}</span>
+                      <span className="font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-md text-sm border border-gray-200">Soalan {index + 1} (Struktur/Esei)</span>
                       <p className="mt-3 font-medium text-gray-800">{soalan.soalan}</p>
                     </div>
                     
