@@ -49,7 +49,6 @@ export default function SemakanUjianMurid() {
         if (docSnap.exists()) {
           const resultData = docSnap.data() as SkorMuridData;
           
-          // 🌟 NAMA MURID FIX: Tarik nama terkini dari pangkalan data Users
           let namaTerkini = resultData.namaMurid;
           try {
              const userRef = doc(db, "users", resultData.idMurid);
@@ -83,7 +82,6 @@ export default function SemakanUjianMurid() {
             if (kegunaan === "simpanan") return;
             if (kegunaan !== "semua" && kegunaan !== jenisUjianMurid) return;
 
-            // 🌟 FIX SOALAN OBJEKTIF: Asingkan logik tarik soalan supaya Objektif tak hilang
             if (soalanData.jenis === "objektif") {
                 qListObj.push({ id: d.id, ...soalanData });
             } else {
@@ -94,9 +92,7 @@ export default function SemakanUjianMurid() {
             }
           });
           
-          // Susun soalan struktur ikut urutan
           qListStr.sort((a, b) => Number(a.urutan) - Number(b.urutan));
-          // Gabungkan Objektif (Atas) dan Struktur (Bawah)
           setSoalanBank([...qListObj, ...qListStr]);
 
         } else {
@@ -228,7 +224,6 @@ export default function SemakanUjianMurid() {
             else {
               const jawapanEseiMurid = data.jawapanStruktur?.[soalan.id];
               const ulasan = data.ulasanAI?.[soalan.id];
-              
               const markahAkhir = data.markahGuru?.[soalan.id] !== undefined 
                                     ? data.markahGuru[soalan.id] 
                                     : (ulasan?.markahAI || 0);
@@ -264,11 +259,11 @@ export default function SemakanUjianMurid() {
                   </div>
 
                   {ulasan && jawapanEseiMurid && (
-                    <div className="bg-indigo-50 p-4 rounded-md border border-indigo-100 flex gap-4 items-start">
+                    <div className="bg-indigo-50 p-4 rounded-md border border-indigo-100 flex gap-4 items-start mb-4">
                       <div className="text-2xl mt-1">🤖</div>
                       <div className="flex-1">
                         <span className="text-xs font-semibold uppercase block mb-1 text-indigo-600">
-                          Ulasan AI (Asal):
+                          Ulasan AI (Kelemahan/Kekuatan):
                         </span>
                         <p className="text-sm text-indigo-900 leading-relaxed whitespace-pre-wrap">
                           {ulasan.komenAI}
@@ -276,6 +271,22 @@ export default function SemakanUjianMurid() {
                       </div>
                     </div>
                   )}
+
+                  {/* 🌟 KOTAK BARU: SKEMA JAWAPAN STRUKTUR */}
+                  {(soalan.skemaJawapan || soalan.jawapan) && (
+                    <div className="bg-emerald-50 p-4 rounded-md border border-emerald-100 flex gap-4 items-start">
+                      <div className="text-2xl mt-1">💡</div>
+                      <div className="flex-1">
+                        <span className="text-xs font-semibold uppercase block mb-1 text-emerald-600">
+                          Rujukan Skema Jawapan (Sebenar):
+                        </span>
+                        <p className="text-sm text-emerald-900 leading-relaxed whitespace-pre-wrap">
+                          {soalan.skemaJawapan || soalan.jawapan}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               );
             }

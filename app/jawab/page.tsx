@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, getDoc } from "firebase/firestore"; 
 import { db } from "../../lib/firebase";
-import { Loader2, Image as ImageIcon, ChevronRight, Volume2, VolumeX, Music } from "lucide-react";
+import { Loader2, Image as ImageIcon, ChevronRight, Volume2, VolumeX, Music, Palette } from "lucide-react";
 
 // ==========================================
 // 1. KOMPONEN GAMBAR SOALAN
@@ -65,11 +65,20 @@ function KandunganUjian() {
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   
   const senaraiLagu = [
-    { id: '1', nama: '🎵 Lofi Santai', src: '/santai.mp3' },
-    { id: '2', nama: '🚀 Rentak Fokus', src: '/fokus.mp3' },
-    { id: '3', nama: '⚔️ Epik Sejarah', src: '/epik.mp3' },
+    { id: '1', nama: '📖 Selawat Tafrijiyah ', src: '/selawat.mp3' },
+    { id: '2', nama: '🎵 Lofi Santai', src: '/santai.mp3' },
+    { id: '3', nama: '🚀 Rentak Fokus', src: '/fokus.mp3' },
+    { id: '4', nama: '⚔️ Epik Sejarah', src: '/epik.mp3' },
   ];
   const [selectedTrack, setSelectedTrack] = useState(senaraiLagu[0].src);
+
+  const senaraiTheme = [
+    { id: 'default', nama: '🌞 Cerah (Asal)', class: 'bg-slate-50' },
+    { id: 'gelap', nama: '🌙 Mod Gelap', class: 'bg-slate-900' },
+    { id: 'angkasa', nama: '🌌 Angkasa', class: 'bg-gradient-to-br from-indigo-950 via-purple-900 to-black' },
+    { id: 'senja', nama: '🌅 Senja', class: 'bg-gradient-to-br from-orange-50 to-rose-200' },
+  ];
+  const [selectedTheme, setSelectedTheme] = useState(senaraiTheme[0].class);
 
   const playSound = (jenis: 'betul' | 'salah' | 'info') => {
     try {
@@ -325,14 +334,13 @@ function KandunganUjian() {
 
     const isSoalanTerakhir = indexSemasa + 1 === soalanSenarai.length;
 
-    // 🔥 LOGIK BARU: Auto-Seterusnya selepas 2.5 saat jika soalan objektif (dan bukan soalan terakhir)
     if (!isSoalanTerakhir) {
       setTimeout(() => {
         setSoalanSelesai(false);
         setJawapanTepatSemasa(false);
         setIndexSemasa(prev => prev + 1);
         window.scrollTo({ top: 0, behavior: "smooth" }); 
-      }, 2500); // 2.5 saat
+      }, 2500); 
     }
   };
 
@@ -377,19 +385,35 @@ function KandunganUjian() {
   const jawapanBetulTeks = jenisSoalan === "objektif" ? (senaraiPilihan.find((p: any[]) => p[0] === semasa.jawapan)?.[1] || semasa.jawapan) : "";
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28 pt-20"> 
+    <div className={`min-h-screen pb-28 pt-20 transition-colors duration-700 ${selectedTheme}`}> 
       
       <audio ref={bgmRef} src={selectedTrack} loop />
 
-      <div className="fixed top-0 left-0 w-full bg-white shadow-sm border-b border-slate-200 z-40">
+      <div className="fixed top-0 left-0 w-full bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-200 z-40">
          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
            <div>
              <h1 className="text-sm md:text-base font-extrabold text-slate-800">{bab}</h1>
              <p className="text-[10px] md:text-xs font-bold text-sky-600 uppercase mt-0.5">Soalan Kuiz Interaktif</p>
            </div>
            
-           <div className="flex items-center gap-3 md:gap-4">
-             <div className="flex items-center gap-1 md:gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
+           <div className="flex items-center gap-2 md:gap-4">
+             
+             {/* 🌟 KAWALAN TEMA - Dibaiki Conflict Class */}
+             <div className="hidden sm:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
+                <Palette size={14} className="text-slate-500 ml-2" />
+                <select 
+                  value={selectedTheme}
+                  onChange={(e) => setSelectedTheme(e.target.value)}
+                  className="bg-transparent text-[10px] md:text-xs font-bold text-slate-700 outline-none cursor-pointer py-1.5 pl-1 pr-2 hover:text-sky-600 transition-colors appearance-none"
+                  title="Tukar Latar Belakang"
+                >
+                  {senaraiTheme.map(theme => (
+                    <option key={theme.id} value={theme.class}>{theme.nama}</option>
+                  ))}
+                </select>
+             </div>
+
+             <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
                 <button 
                   onClick={toggleMusic} 
                   className={`p-1.5 rounded-lg transition-colors ${isMusicPlaying ? 'bg-white text-emerald-500 shadow-sm' : 'bg-transparent text-slate-400 hover:bg-slate-200'}`}
@@ -397,13 +421,13 @@ function KandunganUjian() {
                 >
                   {isMusicPlaying ? <Volume2 size={16} /> : <VolumeX size={16} />}
                 </button>
-                
                 <div className="flex items-center border-l border-slate-300 pl-1 md:pl-2">
                   <Music size={12} className="text-slate-400 mr-1 hidden md:block" />
+                  {/* 🌟 KAWALAN MUZIK - Dibaiki Canonical Class */}
                   <select 
                     value={selectedTrack}
                     onChange={handleTrackChange}
-                    className="bg-transparent text-[10px] md:text-xs font-bold text-slate-700 outline-none cursor-pointer py-1 pr-2 hover:text-sky-600 transition-colors appearance-none"
+                    className="bg-transparent text-[10px] md:text-xs font-bold text-slate-700 outline-none cursor-pointer py-1 pr-2 hover:text-sky-600 transition-colors appearance-none max-w-25 md:max-w-none truncate"
                   >
                     {senaraiLagu.map(lagu => (
                       <option key={lagu.id} value={lagu.src}>{lagu.nama}</option>
@@ -422,11 +446,11 @@ function KandunganUjian() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 w-full mt-2">
-         <div className="md:hidden text-center mb-4 text-xs font-bold text-slate-500">
+         <div className="md:hidden text-center mb-4 text-xs font-bold text-slate-400 drop-shadow-md">
            Soalan {indexSemasa + 1} daripada {soalanSenarai.length}
          </div>
 
-         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+         <div className="bg-white/95 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-xl border border-white/40">
            
            <div className="flex justify-between items-start gap-4 mb-6">
              <h2 className="text-base md:text-lg font-semibold text-slate-800 leading-relaxed whitespace-pre-wrap">{semasa.soalan}</h2>
@@ -507,9 +531,8 @@ function KandunganUjian() {
          </div>
       </div>
 
-      {/* 🔥 HANYA PAPARKAN FOOTER JIKA: Soalan Struktur ATAU Ia adalah Soalan Terakhir */}
       {soalanSelesai && (jenisSoalan !== "objektif" || isSoalanTerakhir) && (
-        <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] animate-in slide-in-from-bottom-full duration-300">
+        <div className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-sm border-t border-slate-200 p-4 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] animate-in slide-in-from-bottom-full duration-300">
            <div className="max-w-3xl mx-auto flex justify-end">
              <button onClick={pergiSoalanSeterusnyaAtauTamat} className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-bold transition-all text-sm md:text-base w-full shadow-lg ${isSoalanTerakhir ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/30' : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/30'}`}>
                {isSoalanTerakhir ? 'Tamat & Analisis Markah' : 'Teruskan ke Soalan Seterusnya'} <ChevronRight size={20}/>
