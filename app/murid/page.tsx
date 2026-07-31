@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, RefreshCw, AlertTriangle, Clock, FileSearch, Award, MessageSquare, Send, X, Loader2, Palette
+  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, Gamepad2, AlertTriangle, Clock, FileSearch, Award, MessageSquare, Send, X, Loader2, Palette, Brain, Compass, UsersRound, RefreshCw
 } from "lucide-react";
 import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase"; 
@@ -41,7 +41,7 @@ const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
 interface BabProgress { 
   preSkor?: number; preObjektif?: number; preStruktur?: number; prePenuh?: number; adaRalatSemakanPre?: boolean; docIdPre?: string;
   postSkor?: number; postObjektif?: number; postStruktur?: number; postPenuh?: number; adaRalatSemakanPost?: boolean; docIdPost?: string;
-  jumlahCubaanPost: number; aiSelesai: boolean; 
+  jumlahCubaanPost: number; aiSelesai: boolean; gameSelesai: boolean; 
 }
 
 export default function MuridDashboard() {
@@ -112,7 +112,7 @@ export default function MuridDashboard() {
         snapSkor.forEach((docSnap) => {
           const data = docSnap.data();
           const babNum = parseInt(data.bab.replace("Bab ", ""));
-          if (!tempProgress[babNum]) tempProgress[babNum] = { jumlahCubaanPost: 0, aiSelesai: false };
+          if (!tempProgress[babNum]) tempProgress[babNum] = { jumlahCubaanPost: 0, aiSelesai: false, gameSelesai: false };
           
           let adaRalat = false;
           if (data.ulasanAI && data.statusPermarkahanEsei !== "disemak_oleh_guru") {
@@ -136,7 +136,7 @@ export default function MuridDashboard() {
 
         const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
         currentChapters.forEach(ch => {
-            if(!tempProgress[ch.id]) tempProgress[ch.id] = { jumlahCubaanPost: 0, aiSelesai: false };
+            if(!tempProgress[ch.id]) tempProgress[ch.id] = { jumlahCubaanPost: 0, aiSelesai: false, gameSelesai: false };
             if (ch.subtopics && ch.subtopics.length > 0) {
               let siapCount = 0;
               ch.subtopics.forEach(sub => { if (chatSelesaiArray.includes(`tingkatan${tSemasa}_bab${ch.id}_sub${sub.id}`)) siapCount++; });
@@ -188,13 +188,11 @@ export default function MuridDashboard() {
     }
   };
 
-  // 🌟 FUNGSI BARU: Mula Ulangan (Reset Chat AI)
   const mulaUlanganBimbingan = async (chapterId: number, aras: string, subSemasa: string) => {
     const t = activeLevel === "t4" ? "4" : "5";
     const fullSubId = `tingkatan${t}_bab${chapterId}_${subSemasa}`;
     const sessId = `${userData?.idPengguna || userData?.id}_${fullSubId}`;
     
-    // Tukar status chat kepada in_progress supaya AI terbuka semula untuk mengajar
     try {
       const docRef = doc(db, "chat_sessions", sessId);
       const dSnap = await getDoc(docRef);
@@ -239,9 +237,7 @@ export default function MuridDashboard() {
     if (logic.pre === undefined) return { label: "Sedia Mula", color: "bg-slate-100 border-slate-200 text-slate-500", bar: "w-0", icon: "🚀" };
     if (logic.adaRalatSemakanPre || logic.adaRalatSemakanPost) return { label: "Semakan Guru", color: "bg-rose-50 border-rose-200 text-rose-700", bar: "w-1/4 bg-rose-500 animate-pulse", icon: "⏳" };
     if (logic.isLulus) return { label: "Dikuasai", color: "bg-emerald-50 border-emerald-200 text-emerald-700", bar: "w-full bg-emerald-500", icon: "🏆" };
-    // 🌟 Jika limit reached (gagal 2 kali), keluar status Rujukan Guru
     if (logic.limitReached) return { label: "Rujukan Guru", color: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700", bar: "w-full bg-fuchsia-500 animate-pulse", icon: "💌" };
-    // 🌟 Jika gagal kali pertama, keluar status Ulangan
     if (logic.attempt === 1) return { label: "Ulang Bimbingan", color: "bg-orange-50 border-orange-200 text-orange-700", bar: "w-2/3 bg-orange-500 animate-pulse", icon: "🔄" };
     return { label: "Bimbingan", color: "bg-amber-50 border-amber-200 text-amber-700", bar: "w-1/2 bg-amber-400 animate-pulse", icon: "⏳" };
   };
@@ -253,7 +249,8 @@ export default function MuridDashboard() {
     <div className={`min-h-screen px-4 py-8 md:px-6 font-sans text-slate-900 relative transition-colors duration-700 ${selectedTheme}`}>
       <div className="mx-auto max-w-6xl">
         
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-linear-to-r from-sky-600 to-indigo-700 p-6 md:p-8 shadow-lg text-white mb-8 relative overflow-hidden">
+        {/* HEADER TOP (Welcome Banner) */}
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-linear-to-r from-sky-600 to-indigo-700 p-6 md:p-8 shadow-lg text-white mb-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between relative z-10">
             <div className="flex items-center gap-5">
@@ -289,7 +286,43 @@ export default function MuridDashboard() {
           </div>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 shadow-md border border-white/40 mb-8">
+        {/* 🌟 KAD 3 TUNJANG UTAMA I-RAGS (DITAMBAH DI SINI) */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          
+          <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-blue-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+              <Brain className="w-6 h-6" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">Belajar Ikut Keupayaan</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Sistem disesuaikan dengan rentak anda.</p>
+            </div>
+          </div>
+
+          <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-amber-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <Compass className="w-6 h-6" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">Bimbingan Ikut Keperluan</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Bantuan AI tepat pada sasaran.</p>
+            </div>
+          </div>
+
+          <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-emerald-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <UsersRound className="w-6 h-6" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">Kejayaan Untuk Semua</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Mencapai potensi tanpa ada yang tertinggal.</p>
+            </div>
+          </div>
+
+        </motion.div>
+
+        {/* ANALISIS PENGUASAAN BAB (TOP BAR) */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 shadow-md border border-white/40 mb-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><BarChart3 className="w-6 h-6" /></div>
             <div>
@@ -388,7 +421,7 @@ export default function MuridDashboard() {
                         </div>
                       )}
 
-                      {/* 🌟 KAD KELAS KHAS: SURAT RUJUKAN GURU (JIKA GAGAL 2 KALI) */}
+                      {/* SURAT RUJUKAN GURU */}
                       {logic.limitReached && !isKawalan && (
                         <div className="col-span-full mb-6 bg-fuchsia-50/90 backdrop-blur-md rounded-2xl border border-fuchsia-200 p-6 md:p-8 shadow-md relative overflow-hidden">
                           <div className="absolute top-0 right-0 p-6 opacity-10"><Award className="w-32 h-32 text-fuchsia-600" /></div>
@@ -453,7 +486,7 @@ export default function MuridDashboard() {
                           </div>
                         </div>
 
-                        {/* 🌟 KAD 2: BIMBINGAN AI (TERMASUK ULANGAN BIMBINGAN) */}
+                        {/* KAD 2: BIMBINGAN AI */}
                         {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && (
                           <div className={`p-5 rounded-2xl border backdrop-blur-sm ${
                               (logic.attempt === 0 && logic.aiSelesai) ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-amber-200 shadow-sm'
@@ -548,6 +581,7 @@ export default function MuridDashboard() {
         </div>
       </div>
 
+      {/* 🌟 BUTANG TERAPUNG FEEDBACK */}
       <button 
         onClick={() => setShowFeedback(true)}
         className="fixed bottom-6 right-6 bg-slate-800 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform z-50 flex items-center justify-center border-2 border-white/20 group"
@@ -559,6 +593,7 @@ export default function MuridDashboard() {
         </span>
       </button>
 
+      {/* 🌟 MODAL FEEDBACK */}
       <AnimatePresence>
         {showFeedback && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
