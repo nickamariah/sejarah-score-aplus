@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, Gamepad2, AlertTriangle, Clock, FileSearch, Award, MessageSquare, Send, X, Loader2
+  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, Gamepad2, AlertTriangle, Clock, FileSearch, Award, MessageSquare, Send, X, Loader2, Palette
 } from "lucide-react";
 import { collection, query, where, getDocs, doc, getDoc, addDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase"; 
@@ -57,6 +57,38 @@ export default function MuridDashboard() {
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 🌟 STATE UNTUK TEMA (GLOBAL)
+  const senaraiTheme = [
+    { id: 'default', nama: '🌞 Cerah (Asal)', class: 'bg-slate-50' },
+    { id: 'gelap', nama: '🌙 Mod Gelap', class: 'bg-slate-900' },
+    { id: 'angkasa', nama: '🌌 Angkasa', class: 'bg-gradient-to-br from-indigo-950 via-purple-900 to-black' },
+    { id: 'senja', nama: '🌅 Senja', class: 'bg-gradient-to-br from-orange-50 to-rose-200' },
+  ];
+  const [selectedTheme, setSelectedTheme] = useState(senaraiTheme[0].class);
+
+  // Load tema dari localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('userTheme');
+    if (savedTheme) setSelectedTheme(savedTheme);
+  }, []);
+
+  const handleThemeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newVal = e.target.value;
+    setSelectedTheme(newVal);
+    localStorage.setItem('userTheme', newVal);
+  };
+
+  // 🌟 FIX ISU TINGKATAN 5 (Hanya set T5 pada awal login, bukan setiap kali refresh)
+  useEffect(() => {
+    const rawUser = localStorage.getItem("currentUser");
+    if (rawUser) {
+      const userLokal = JSON.parse(rawUser);
+      if (userLokal.tingkatan?.toString() === "5") {
+        setActiveLevel("t5");
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const tarikDataFirebase = async () => {
       const rawUser = localStorage.getItem("currentUser");
@@ -68,7 +100,6 @@ export default function MuridDashboard() {
         const docSnap = await getDoc(docRef);
         const userPenuh = docSnap.exists() ? { ...userLokal, ...docSnap.data() } : userLokal;
         setUserData(userPenuh);
-        if (userPenuh.tingkatan?.toString() === "5") setActiveLevel("t5");
         
         const tSemasa = activeLevel === "t4" ? "4" : "5";
         const qSkor = query(collection(db, "skor_murid"), where("idMurid", "==", userPenuh.id), where("tingkatan", "==", tSemasa));
@@ -204,29 +235,50 @@ export default function MuridDashboard() {
   const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 md:px-6 font-sans text-slate-900 relative">
+    // 🌟 APLIKASI TEMA DI MAIN WRAPPER
+    <div className={`min-h-screen px-4 py-8 md:px-6 font-sans text-slate-900 relative transition-colors duration-700 ${selectedTheme}`}>
       <div className="mx-auto max-w-6xl">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-linear-to-r from-sky-600 to-indigo-700 p-8 shadow-lg text-white mb-8 relative overflow-hidden">
+        
+        {/* HEADER TOP */}
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-linear-to-r from-sky-600 to-indigo-700 p-6 md:p-8 shadow-lg text-white mb-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between relative z-10">
             <div className="flex items-center gap-5">
-             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-3xl font-extrabold text-sky-600 shadow-md border-4 border-sky-100">
+             <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-full bg-white text-2xl md:text-3xl font-extrabold text-sky-600 shadow-md border-4 border-sky-100 shrink-0">
                 {(userData?.nama || userData?.name) ? (userData.nama || userData.name).charAt(0).toUpperCase() : "P"}
               </div>
               <div>
-                <p className="text-sky-100 text-sm mb-1">Selamat datang kembali,</p>
-                <h1 className="text-3xl font-extrabold uppercase">{userData?.nama || userData?.name}</h1>
-                <p className="text-sky-50 flex items-center gap-3 mt-2 font-medium opacity-90">
-                  ID Pengguna: <span className="font-bold tracking-wider">{userData?.idPengguna || userData?.id}</span>
+                <p className="text-sky-100 text-xs md:text-sm mb-1">Selamat datang kembali,</p>
+                <h1 className="text-xl md:text-3xl font-extrabold uppercase line-clamp-2">{userData?.nama || userData?.name}</h1>
+                <p className="text-sky-50 flex items-center gap-2 mt-1 md:mt-2 text-xs md:text-sm font-medium opacity-90">
+                  ID: <span className="font-bold tracking-wider">{userData?.idPengguna || userData?.id}</span>
                 </p>
               </div>
             </div>
-            <button onClick={handleLogout} className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold border border-white/20 flex gap-2"><LogOut className="w-5 h-5"/> Log Keluar</button>
+            
+            <div className="flex items-center gap-3">
+              {/* 🌟 SELECTOR TEMA DI HEADER */}
+              <div className="flex items-center bg-white/10 p-1.5 rounded-xl border border-white/20 shadow-sm backdrop-blur-md">
+                <Palette size={16} className="text-white ml-2" />
+                <select 
+                  value={selectedTheme}
+                  onChange={handleThemeChange}
+                  className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer py-1.5 pl-1 pr-2 hover:text-sky-200 transition-colors appearance-none"
+                >
+                  {senaraiTheme.map(theme => (
+                    <option key={theme.id} value={theme.class} className="text-slate-800">{theme.nama}</option>
+                  ))}
+                </select>
+              </div>
+              <button onClick={handleLogout} className="px-4 md:px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold border border-white/20 flex items-center gap-2 text-sm md:text-base">
+                <LogOut className="w-4 h-4 md:w-5 md:h-5"/> <span className="hidden md:inline">Log Keluar</span>
+              </button>
+            </div>
           </div>
         </motion.div>
 
-        {/* ANALISIS PENGUASAAN BAB (TOP BAR) */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200 mb-8">
+        {/* ANALISIS PENGUASAAN BAB (TOP BAR) - Ditukar ke bg-white/95 backdrop-blur-sm */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 shadow-md border border-white/40 mb-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><BarChart3 className="w-6 h-6" /></div>
             <div>
@@ -238,7 +290,7 @@ export default function MuridDashboard() {
             {currentChapters.map((ch) => {
               const statusUI = getChapterStatusUI(ch.id);
               return (
-                <div key={ch.id} className={`p-4 rounded-2xl border ${statusUI.color} flex flex-col gap-3 shadow-sm transition-all hover:shadow-md`}>
+                <div key={ch.id} className={`p-4 rounded-2xl border ${statusUI.color} flex flex-col gap-3 shadow-sm transition-all hover:shadow-md bg-white/50 backdrop-blur-md`}>
                   <div className="flex justify-between items-start">
                     <span className="font-bold text-lg opacity-80">B{ch.id}</span>
                     <span className="text-xl">{statusUI.icon}</span>
@@ -256,14 +308,14 @@ export default function MuridDashboard() {
         <div className="mb-6 flex gap-3">
           {(userData?.tingkatan?.toString() === "5" ? ["t4", "t5"] : ["t4"]).map((level) => (
             <button key={level} onClick={() => { setActiveLevel(level as "t4" | "t5"); setExpandedChapter(null); }}
-              className={`px-8 py-3 rounded-full font-bold shadow-sm transition-all ${activeLevel === level ? "bg-sky-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"}`}>
+              className={`px-8 py-3 rounded-full font-bold shadow-sm transition-all ${activeLevel === level ? "bg-sky-600 text-white" : "bg-white/90 backdrop-blur-sm text-slate-600 hover:bg-slate-50 border border-slate-200"}`}>
               Tingkatan {level === "t4" ? "4" : "5"}
             </button>
           ))}
         </div>
 
         {userData?.kumpulan === "Kawalan" && (
-           <div className="mb-6 bg-slate-100 border border-slate-300 p-4 rounded-xl flex gap-3 items-center text-slate-600 shadow-sm">
+           <div className="mb-6 bg-slate-100/90 backdrop-blur-sm border border-slate-300 p-4 rounded-xl flex gap-3 items-center text-slate-600 shadow-sm">
              <Info className="shrink-0 text-slate-500" />
              <p className="text-sm font-medium">Anda adalah murid kumpulan Konvensional. Sila lengkapkan Ujian Diagnostik dan Ujian Pasca mengikut arahan guru.</p>
            </div>
@@ -278,13 +330,11 @@ export default function MuridDashboard() {
             
             const ralatMenghalangBimbingan = logic.attempt === 0 ? logic.adaRalatSemakanPre : logic.adaRalatSemakanPost;
             const skorTertinggi = logic.post !== undefined && logic.post > (logic.pre || 0) ? logic.post : logic.pre;
-
-            // 🌟 SYARAT KETAT: Adakah Pre-Test sudah siap disemak sepenuhnya?
             const preTelahDinilai = logic.pre !== undefined && !logic.adaRalatSemakanPre;
 
             return (
-              <div key={chapter.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <button onClick={() => setExpandedChapter(expandedChapter === chapter.id ? null : chapter.id)} className="w-full px-6 py-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+              <div key={chapter.id} className="bg-white/95 backdrop-blur-md rounded-2xl border border-white/40 shadow-sm overflow-hidden">
+                <button onClick={() => setExpandedChapter(expandedChapter === chapter.id ? null : chapter.id)} className="w-full px-6 py-5 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${statusUI.color}`}>{statusUI.icon}</div>
                     <div className="text-left"><h3 className="font-bold text-lg text-slate-900">{chapter.title}</h3></div>
@@ -307,11 +357,11 @@ export default function MuridDashboard() {
 
                 <AnimatePresence>
                   {expandedChapter === chapter.id && (
-                    <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="border-t bg-slate-50/50 p-6 overflow-hidden">
-                      {logic.limitReached && !isKawalan && <div className="mb-6 bg-red-50 p-4 rounded-xl text-red-700 shadow-sm border border-red-200 flex items-start gap-3"><AlertTriangle className="w-6 h-6 shrink-0"/><div><h4 className="font-bold">Lulus Bersyarat</h4><p className="text-sm">Anda telah cuba 2 kali. Sila rujuk Guru untuk bimbingan bersemuka.</p></div></div>}
+                    <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="border-t border-slate-200/50 bg-slate-50/50 p-6 overflow-hidden">
+                      {logic.limitReached && !isKawalan && <div className="mb-6 bg-red-50/80 backdrop-blur-sm p-4 rounded-xl text-red-700 shadow-sm border border-red-200 flex items-start gap-3"><AlertTriangle className="w-6 h-6 shrink-0"/><div><h4 className="font-bold">Lulus Bersyarat</h4><p className="text-sm">Anda telah cuba 2 kali. Sila rujuk Guru untuk bimbingan bersemuka.</p></div></div>}
                       
                       {logic.isLulus && !isKawalan && (
-                        <div className="mb-6 bg-emerald-50 p-5 rounded-xl text-emerald-800 shadow-sm border border-emerald-200 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="mb-6 bg-emerald-50/80 backdrop-blur-sm p-5 rounded-xl text-emerald-800 shadow-sm border border-emerald-200 flex flex-col md:flex-row items-center justify-between gap-4">
                           <div className="flex items-center gap-3">
                             <Trophy className="w-8 h-8 text-emerald-600 shrink-0" />
                             <div>
@@ -331,7 +381,7 @@ export default function MuridDashboard() {
                       <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                         
                         {/* KAD 1: UJIAN DIAGNOSTIK */}
-                        <div className={`p-5 rounded-2xl border ${logic.pre !== undefined ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-sky-200 shadow-sm'} flex flex-col justify-between gap-4`}>
+                        <div className={`p-5 rounded-2xl border ${logic.pre !== undefined ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-sky-200 shadow-sm'} flex flex-col justify-between gap-4 backdrop-blur-sm`}>
                           <div>
                             <div className="flex items-center gap-3 mb-2">
                               <div className={`p-2 rounded-lg ${logic.pre !== undefined ? 'bg-emerald-100 text-emerald-600' : 'bg-sky-100 text-sky-600'}`}><Zap className="w-5 h-5" /></div>
@@ -366,10 +416,10 @@ export default function MuridDashboard() {
 
                         {/* KAD 2: BIMBINGAN AI / PERMAINAN */}
                         {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && (
-                          <div className={`p-5 rounded-2xl border ${
+                          <div className={`p-5 rounded-2xl border backdrop-blur-sm ${
                               (logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.gameSelesai) 
-                                ? 'bg-emerald-50 border-emerald-200' 
-                                : 'bg-white border-amber-200 shadow-sm'
+                                ? 'bg-emerald-50/80 border-emerald-200' 
+                                : 'bg-white/80 border-amber-200 shadow-sm'
                             } flex flex-col justify-between gap-4`}>
                             
                             <div>
@@ -401,10 +451,10 @@ export default function MuridDashboard() {
                           </div>
                         )}
 
-                        {/* 🌟 KAD 3: UJIAN PASCA (HANYA MUNCUL JIKA BIMBINGAN/GAME SELESAI) */}
+                        {/* KAD 3: UJIAN PASCA */}
                         {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && ((logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.gameSelesai)) && (
-                          <div className={`p-5 rounded-2xl border ${
-                              logic.isLulus ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-blue-200 shadow-sm'
+                          <div className={`p-5 rounded-2xl border backdrop-blur-sm ${
+                              logic.isLulus ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-blue-200 shadow-sm'
                             } flex flex-col justify-between gap-4 animate-in zoom-in duration-300`}>
                             
                             <div>
