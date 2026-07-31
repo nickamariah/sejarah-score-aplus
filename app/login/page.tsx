@@ -105,7 +105,7 @@ export default function LogMasuk() {
         
         {/* Logo / Tajuk Sistem */}
         <div className="text-center mb-8 relative z-10">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
+          <div className="w-16 h-16 bg-linear-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
             <span className="text-white text-3xl font-black">H</span>
           </div>
           <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">HUB I-RAGS</h1>
@@ -163,7 +163,7 @@ export default function LogMasuk() {
             type="submit"
             disabled={loading}
             className={`w-full text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition-all active:scale-95 mt-2 ${
-              loading ? "bg-blue-400 cursor-not-allowed shadow-none" : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/30 hover:shadow-blue-600/40"
+              loading ? "bg-blue-400 cursor-not-allowed shadow-none" : "bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/30 hover:shadow-blue-600/40"
             }`}
           >
             {loading ? "Mengesahkan..." : "Log Masuk"}

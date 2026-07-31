@@ -4,7 +4,8 @@ import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, getDoc } from "firebase/firestore"; 
 import { db } from "../../lib/firebase";
-import { Loader2, Image as ImageIcon, ChevronRight, Volume2, VolumeX, Music, Palette } from "lucide-react";
+// 🌟 TAMBAH ICON ArrowLeft
+import { Loader2, Image as ImageIcon, ChevronRight, Volume2, VolumeX, Music, Palette, ArrowLeft } from "lucide-react";
 
 // ==========================================
 // 1. KOMPONEN GAMBAR SOALAN
@@ -79,6 +80,14 @@ function KandunganUjian() {
     { id: 'senja', nama: '🌅 Senja', class: 'bg-gradient-to-br from-orange-50 to-rose-200' },
   ];
   const [selectedTheme, setSelectedTheme] = useState(senaraiTheme[0].class);
+
+  // 🌟 FUNGSI BARU: Butang Keluar Kuiz dengan Amaran
+  const keluarKuiz = () => {
+    const sahkan = window.confirm("Anda pasti mahu keluar?\nJawapan ujian ini TIDAK akan disimpan jika anda keluar sebelum tamat.");
+    if (sahkan) {
+      router.push('/murid');
+    }
+  };
 
   const playSound = (jenis: 'betul' | 'salah' | 'info') => {
     try {
@@ -391,14 +400,26 @@ function KandunganUjian() {
 
       <div className="fixed top-0 left-0 w-full bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-200 z-40">
          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-           <div>
-             <h1 className="text-sm md:text-base font-extrabold text-slate-800">{bab}</h1>
-             <p className="text-[10px] md:text-xs font-bold text-sky-600 uppercase mt-0.5">Soalan Kuiz Interaktif</p>
+           
+           {/* 🌟 KEMAS KINI: Butang Keluar & Tajuk digabungkan */}
+           <div className="flex items-center gap-3 md:gap-4">
+             <button
+               onClick={keluarKuiz}
+               className="p-1.5 md:px-3 md:py-1.5 bg-slate-200/50 hover:bg-rose-100 text-slate-600 hover:text-rose-600 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+               title="Kembali ke Dashboard"
+             >
+               <ArrowLeft size={16} />
+               <span className="hidden md:inline text-xs font-bold">Kembali</span>
+             </button>
+             
+             <div>
+               <h1 className="text-sm md:text-base font-extrabold text-slate-800">{bab}</h1>
+               <p className="text-[10px] md:text-xs font-bold text-sky-600 uppercase mt-0.5">Soalan Kuiz Interaktif</p>
+             </div>
            </div>
            
            <div className="flex items-center gap-2 md:gap-4">
              
-             {/* 🌟 KAWALAN TEMA - Dibaiki Conflict Class */}
              <div className="hidden sm:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
                 <Palette size={14} className="text-slate-500 ml-2" />
                 <select 
@@ -423,7 +444,6 @@ function KandunganUjian() {
                 </button>
                 <div className="flex items-center border-l border-slate-300 pl-1 md:pl-2">
                   <Music size={12} className="text-slate-400 mr-1 hidden md:block" />
-                  {/* 🌟 KAWALAN MUZIK - Dibaiki Canonical Class */}
                   <select 
                     value={selectedTrack}
                     onChange={handleTrackChange}
