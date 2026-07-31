@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "../../lib/firebase"; // Pastikan laluan import betul
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+// 🌟 TAMBAH ICON MATA
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LogMasuk() {
   const router = useRouter();
@@ -13,6 +15,9 @@ export default function LogMasuk() {
   const [kataLaluan, setKataLaluan] = useState("");
   const [ralat, setRalat] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // 🌟 STATE BARU UNTUK PAPAR KATA LALUAN
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,14 +114,26 @@ export default function LogMasuk() {
             <label className="block text-sm font-bold text-slate-700 mb-1.5">
               Kata Laluan
             </label>
-            <input
-              type="password"
-              value={kataLaluan}
-              onChange={(e) => setKataLaluan(e.target.value)}
-              required
-              placeholder="••••••••"
-              className="w-full border-2 border-slate-200 rounded-xl p-3 focus:ring-0 focus:border-blue-500 outline-none transition font-medium bg-slate-50 focus:bg-white"
-            />
+            <div className="relative">
+              <input
+                // 🌟 TUKAR TYPE BERDASARKAN STATE showPassword
+                type={showPassword ? "text" : "password"}
+                value={kataLaluan}
+                onChange={(e) => setKataLaluan(e.target.value)}
+                required
+                placeholder="••••••••"
+                // pr-10 ditambah supaya teks tak bertindih dengan butang mata
+                className="w-full border-2 border-slate-200 rounded-xl p-3 pr-10 focus:ring-0 focus:border-blue-500 outline-none transition font-medium bg-slate-50 focus:bg-white"
+              />
+              {/* 🌟 BUTANG TOGGLE MATA */}
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
 
           <button
