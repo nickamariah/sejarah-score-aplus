@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation"; 
 import { db } from "@/lib/firebase"; 
 import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, getDocs } from "firebase/firestore";
-import { Bot, Send, ArrowLeft, BookOpen, Video, Lightbulb, HelpCircle, CheckCircle2, Loader2, PlayCircle, X, Mic } from "lucide-react";
+// 🌟 TAMBAH ICON PALETTE
+import { Bot, Send, ArrowLeft, BookOpen, Video, Lightbulb, HelpCircle, CheckCircle2, Loader2, PlayCircle, X, Mic, Palette } from "lucide-react";
 
 function KomponenPembelajaran() {
   const searchParams = useSearchParams();
@@ -31,6 +32,27 @@ function KomponenPembelajaran() {
 
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  // 🌟 STATE UNTUK TEMA (GLOBAL)
+  const senaraiTheme = [
+    { id: 'default', nama: '🌞 Cerah (Asal)', class: 'bg-slate-50' },
+    { id: 'gelap', nama: '🌙 Mod Gelap', class: 'bg-slate-900' },
+    { id: 'angkasa', nama: '🌌 Angkasa', class: 'bg-gradient-to-br from-indigo-950 via-purple-900 to-black' },
+    { id: 'senja', nama: '🌅 Senja', class: 'bg-gradient-to-br from-orange-50 to-rose-200' },
+  ];
+  const [selectedTheme, setSelectedTheme] = useState(senaraiTheme[0].class);
+
+  // Load tema dari localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('userTheme');
+    if (savedTheme) setSelectedTheme(savedTheme);
+  }, []);
+
+  const handleThemeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newVal = e.target.value;
+    setSelectedTheme(newVal);
+    localStorage.setItem('userTheme', newVal);
+  };
 
   useEffect(() => {
     const rawUser = localStorage.getItem("currentUser");
@@ -144,7 +166,7 @@ function KomponenPembelajaran() {
     const handleMouseUp = () => { if (isDragging) setIsDragging(false); };
     if (isDragging) { document.addEventListener("mousemove", handleMouseMove); document.addEventListener("mouseup", handleMouseUp); document.body.style.userSelect = "none"; } 
     else { document.body.style.userSelect = ""; }
-    return () => { document.removeEventListener("mousemove", handleMouseMove); document.removeEventListener("mousemove", handleMouseUp); document.body.style.userSelect = ""; };
+    return () => { document.removeEventListener("mousemove", handleMouseMove); document.removeEventListener("mouseup", handleMouseUp); document.body.style.userSelect = ""; };
   }, [isDragging]);
 
   const formatTajuk = (id: string) => id.replace('tingkatan', 'Tg. ').replace('_bab', ' Bab ').replace('_sub', ' - Subtopik ');
@@ -317,49 +339,50 @@ function KomponenPembelajaran() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen bg-slate-100 overflow-hidden font-sans relative">
+    // 🌟 APLIKASI TEMA DI MAIN WRAPPER
+    <div className={`flex flex-col lg:flex-row h-screen overflow-hidden font-sans relative transition-colors duration-700 ${selectedTheme}`}>
       
-      {/* 🟢 PANEL KIRI: PDF & VIDEO */}
+      {/* 🟢 PANEL KIRI: PDF & VIDEO (Dihiasi Glassmorphism) */}
       <div className={`${showPdfMobile ? 'fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-sm' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-2xl lg:shadow-none h-full lg:w-(--left-width)`} style={{ "--left-width": `${leftWidth}%` } as React.CSSProperties}>
         
-        <div className="bg-slate-900 text-white p-3 lg:p-4 shadow-md flex items-center gap-3 z-30 shrink-0 border-b border-slate-700 overflow-x-auto no-scrollbar">
+        <div className="bg-slate-900/95 backdrop-blur-md text-white p-3 lg:p-4 shadow-md flex items-center gap-3 z-30 shrink-0 border-b border-white/10 overflow-x-auto no-scrollbar">
           
-          <button onClick={() => window.location.href = '/murid'} className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300 transition shrink-0 border border-slate-600">
+          <button onClick={() => window.location.href = '/murid'} className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold text-slate-100 transition shrink-0 border border-white/10">
             <ArrowLeft size={14}/> Kembali
           </button>
           
-          <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700 shrink-0">
+          <div className="flex bg-black/40 p-1 rounded-lg border border-white/10 shrink-0">
             <button
               onClick={() => setShowVideoModal(false)}
-              className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${!showVideoModal ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'}`}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${!showVideoModal ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`}
             >
               <BookOpen size={14}/> Nota
             </button>
             <button
               onClick={() => setShowVideoModal(true)}
-              className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${showVideoModal ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'}`}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${showVideoModal ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`}
             >
               <PlayCircle size={14}/> Video
             </button>
           </div>
 
-          <h2 className="text-xs font-bold truncate flex-1 text-right text-slate-400 hidden lg:block">
+          <h2 className="text-xs font-bold truncate flex-1 text-right text-slate-300 hidden lg:block">
             {chapterData ? chapterData.title : formatTajuk(chapterId)}
           </h2>
           
-          <button onClick={() => {setShowPdfMobile(false); setShowVideoModal(false);}} className="lg:hidden ml-auto bg-slate-700 hover:bg-slate-600 text-slate-300 p-1.5 rounded-full transition-colors"><X size={18}/></button>
+          <button onClick={() => {setShowPdfMobile(false); setShowVideoModal(false);}} className="lg:hidden ml-auto bg-white/10 hover:bg-white/20 text-slate-300 p-1.5 rounded-full transition-colors"><X size={18}/></button>
         </div>
         
-        <div className="flex-1 w-full h-full bg-slate-100 relative flex flex-col">
+        <div className="flex-1 w-full h-full bg-white/50 backdrop-blur-sm relative flex flex-col">
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
           
-          <div className={`absolute inset-0 z-40 flex flex-col bg-slate-900 transition-all duration-300 ${showVideoModal ? "opacity-100 visible pointer-events-auto" : "opacity-0 invisible pointer-events-none"}`}>
-               <div className="flex-1 w-full h-full flex items-center justify-center p-4 relative bg-black">
+          <div className={`absolute inset-0 z-40 flex flex-col bg-slate-900/95 backdrop-blur-md transition-all duration-300 ${showVideoModal ? "opacity-100 visible pointer-events-auto" : "opacity-0 invisible pointer-events-none"}`}>
+               <div className="flex-1 w-full h-full flex items-center justify-center p-4 relative bg-black/50">
                   {videoKhas ? (
-                    <iframe className="w-full h-full aspect-video rounded-xl shadow-2xl border border-slate-700" src={showVideoModal ? videoKhas : ""} title="Video Bimbingan" frameBorder="0" allowFullScreen></iframe>
+                    <iframe className="w-full h-full aspect-video rounded-xl shadow-2xl border border-white/10" src={showVideoModal ? videoKhas : ""} title="Video Bimbingan" frameBorder="0" allowFullScreen></iframe>
                   ) : (
-                    <div className="text-center text-slate-400">
-                      <Video size={48} className="mx-auto mb-3 opacity-30"/>
+                    <div className="text-center text-slate-300">
+                      <Video size={48} className="mx-auto mb-3 opacity-50"/>
                       <p className="text-sm font-bold">Tiada video YouTube disertakan.</p>
                       <button onClick={() => setShowVideoModal(false)} className="mt-4 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md">Kembali ke Nota</button>
                     </div>
@@ -371,58 +394,77 @@ function KomponenPembelajaran() {
         </div>
       </div>
 
-      <div className="hidden lg:flex flex-col justify-center items-center w-1.5 bg-slate-300 hover:bg-sky-500 active:bg-sky-600 cursor-col-resize z-30 transition-colors" onMouseDown={() => setIsDragging(true)}><div className="h-8 w-1 bg-slate-400 rounded-full"></div></div>
+      <div className="hidden lg:flex flex-col justify-center items-center w-1.5 bg-black/20 hover:bg-sky-500 active:bg-sky-600 cursor-col-resize z-30 transition-colors backdrop-blur-sm" onMouseDown={() => setIsDragging(true)}><div className="h-8 w-1 bg-white/50 rounded-full"></div></div>
 
-      {/* 🟢 PANEL KANAN: CHATBOT AI */}
-      <div className="w-full lg:flex-1 h-full bg-slate-50 flex flex-col z-10 relative">
+      {/* 🟢 PANEL KANAN: CHATBOT AI (Dihiasi Glassmorphism) */}
+      <div className="w-full lg:flex-1 h-full bg-white/20 backdrop-blur-lg flex flex-col z-10 relative">
         
-        <div className="bg-linear-to-r from-blue-600 to-indigo-700 text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative">
+        {/* HEADER CHAT */}
+        <div className="bg-linear-to-r from-blue-600/90 to-indigo-700/90 backdrop-blur-md text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative border-b border-white/10">
           <div className="flex justify-between items-center gap-2 mb-1.5">
             
             <div className="flex items-center gap-2">
               <button onClick={() => window.location.href = '/murid'} className="lg:hidden p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors border border-white/10 text-white"><ArrowLeft size={16}/></button>
-              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm p-1 border border-sky-200 shrink-0"><Bot size={18} className="text-blue-600"/></div>
+              <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm p-1 border border-white/30 shrink-0"><Bot size={18} className="text-white"/></div>
               <div className="leading-tight">
                 <h2 className="font-bold text-[13px] lg:text-sm tracking-wide">Cikgu AI I-RAGs</h2>
-                <p className="text-blue-200 text-[9px] lg:text-[10px] font-medium flex items-center gap-1">Aras {arasDariURL.charAt(0).toUpperCase() + arasDariURL.slice(1)} <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block animate-pulse"></span></p>
+                <p className="text-blue-100 text-[9px] lg:text-[10px] font-medium flex items-center gap-1">Aras {arasDariURL.charAt(0).toUpperCase() + arasDariURL.slice(1)} <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block animate-pulse"></span></p>
               </div>
             </div>
 
-            <div className="flex flex-col items-end w-32.5 lg:w-45">
-               <div className="text-[8px] lg:text-[9px] font-bold text-blue-100 uppercase tracking-wider mb-1 flex justify-between w-full">
-                  <span>Fasa Inkuiri</span> <span className="text-amber-300">{currentPhase}/{maxFasa}</span>
-               </div>
-               <div className="flex gap-0.5 w-full">
-                  {phaseNames.map((name, index) => {
-                    const step = index + 1;
-                    return <div key={step} className={`h-1.5 w-full rounded-full ${step === currentPhase ? 'bg-amber-400 shadow-[0_0_5px_rgba(251,191,36,0.8)]' : step < currentPhase ? 'bg-emerald-400' : 'bg-slate-500/50'} transition-all`} title={name}></div>;
-                  })}
-               </div>
+            <div className="flex items-center gap-3">
+              {/* 🌟 SELECTOR TEMA (Di Header AI Chat) */}
+              <div className="hidden sm:flex items-center bg-white/10 p-1 rounded-xl border border-white/20 shadow-sm backdrop-blur-sm">
+                <Palette size={14} className="text-white ml-2" />
+                <select 
+                  value={selectedTheme}
+                  onChange={handleThemeChange}
+                  className="bg-transparent text-[10px] md:text-xs font-bold text-white outline-none cursor-pointer py-1 pl-1 pr-2 hover:text-sky-200 transition-colors appearance-none"
+                  title="Tukar Latar Belakang"
+                >
+                  {senaraiTheme.map(theme => (
+                    <option key={theme.id} value={theme.class} className="text-slate-800">{theme.nama}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col items-end w-28 lg:w-40">
+                 <div className="text-[8px] lg:text-[9px] font-bold text-blue-100 uppercase tracking-wider mb-1 flex justify-between w-full">
+                    <span>Fasa Inkuiri</span> <span className="text-amber-300">{currentPhase}/{maxFasa}</span>
+                 </div>
+                 <div className="flex gap-0.5 w-full">
+                    {phaseNames.map((name, index) => {
+                      const step = index + 1;
+                      return <div key={step} className={`h-1.5 w-full rounded-full ${step === currentPhase ? 'bg-amber-400 shadow-[0_0_5px_rgba(251,191,36,0.8)]' : step < currentPhase ? 'bg-emerald-400' : 'bg-white/30'} transition-all`} title={name}></div>;
+                    })}
+                 </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-1 overflow-x-auto bg-black/20 p-1 rounded-lg no-scrollbar items-center">
+          <div className="flex gap-1 overflow-x-auto bg-black/20 p-1 rounded-lg no-scrollbar items-center border border-white/10">
             {subtopicsList.length > 0 ? subtopicsList.map((sub: any, index: number) => {
               const isPast = index < currentIndex;
               const isActive = index === currentIndex;
               let style = "bg-white/10 text-white/50 border border-white/5"; 
               if (isPast) style = "bg-emerald-500 text-white border-emerald-400 font-bold shadow-sm"; 
-              if (isActive) style = "bg-sky-100 text-sky-900 font-bold border-white shadow-sm ring-1 ring-sky-300"; 
+              if (isActive) style = "bg-white/30 text-white font-bold border-white/50 shadow-sm ring-1 ring-white/30"; 
               return <div key={sub.id} className={`flex-1 text-center py-1 rounded-sm text-[9px] lg:text-[10px] truncate px-1.5 transition-all min-w-11.25 ${style}`} title={sub.title}>{sub.id}</div>;
             }) : <div className="text-[10px] text-white/70 italic text-center w-full">Memuatkan...</div>}
           </div>
         </div>
 
-        <div className="flex-1 p-3 lg:p-4 overflow-y-auto bg-[url('/bg-chat-pattern.png')] bg-blue-50/50 relative custom-scrollbar">
+        {/* KAWASAN KANDUNGAN CHAT */}
+        <div className="flex-1 p-3 lg:p-4 overflow-y-auto bg-[url('/bg-chat-pattern.png')] bg-white/30 relative custom-scrollbar">
           
-          <div className="text-center mb-4 mt-1"><span className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-200 px-3 py-1 rounded-full">Sesi Bermula</span></div>
+          <div className="text-center mb-4 mt-1"><span className="text-[9px] lg:text-[10px] font-bold text-slate-100 uppercase tracking-widest bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">Sesi Bermula</span></div>
 
           {messages.map((msg) => (
             <div key={msg.id} className={`mb-3 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               {msg.role === "assistant" && (
-                <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-white hidden md:flex items-center justify-center shrink-0 mr-2 mt-auto border border-slate-200"><Bot size={14} className="text-blue-600"/></div>
+                <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-white/90 backdrop-blur-sm hidden md:flex items-center justify-center shrink-0 mr-2 mt-auto border border-white/50 shadow-sm"><Bot size={14} className="text-blue-600"/></div>
               )}
-              <div className={`px-3 py-2.5 lg:px-4 lg:py-3 rounded-2xl max-w-[90%] md:max-w-[80%] text-[13px] lg:text-[15px] leading-relaxed shadow-sm ${msg.role === "user" ? "bg-blue-600 text-white rounded-br-sm" : "bg-white text-slate-800 border border-slate-200 rounded-bl-sm"}`}>
+              <div className={`px-3 py-2.5 lg:px-4 lg:py-3 rounded-2xl max-w-[90%] md:max-w-[80%] text-[13px] lg:text-[15px] leading-relaxed shadow-md backdrop-blur-md ${msg.role === "user" ? "bg-blue-600/95 text-white rounded-br-sm border border-blue-500/50" : "bg-white/95 text-slate-800 border border-white/50 rounded-bl-sm"}`}>
                 <div className="prose prose-sm md:prose-base prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
               </div>
             </div>
@@ -430,19 +472,20 @@ function KomponenPembelajaran() {
 
           {isLoading && (
             <div className="flex justify-start mb-4">
-              <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-white hidden md:flex items-center justify-center shrink-0 mr-2 mt-auto border border-slate-200"><Bot size={14} className="text-blue-600"/></div>
-              <div className="px-3 py-2 bg-white border border-slate-200 rounded-2xl rounded-bl-sm shadow-sm flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" /><span className="text-slate-500 text-[11px] lg:text-xs font-medium">I-RAGs sedang menaip...</span></div>
+              <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-white/90 backdrop-blur-sm hidden md:flex items-center justify-center shrink-0 mr-2 mt-auto border border-white/50 shadow-sm"><Bot size={14} className="text-blue-600"/></div>
+              <div className="px-3 py-2 bg-white/95 backdrop-blur-md border border-white/50 rounded-2xl rounded-bl-sm shadow-md flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" /><span className="text-slate-600 text-[11px] lg:text-xs font-medium">I-RAGs sedang menaip...</span></div>
             </div>
           )}
           <div ref={messagesEndRef} className="h-1" />
         </div>
 
-        <div className="bg-white border-t border-slate-200 shadow-[0_-4px_10px_-10px_rgba(0,0,0,0.1)] shrink-0 z-20">
+        {/* INPUT TERLEKAT DI BAWAH */}
+        <div className="bg-white/90 backdrop-blur-md border-t border-white/50 shadow-[0_-4px_10px_-10px_rgba(0,0,0,0.1)] shrink-0 z-20">
             
             {!isLoading && !isMastered && (
-              <div className="flex flex-wrap gap-2 px-3 py-2.5 bg-slate-50 border-b border-slate-100 items-center justify-between">
+              <div className="flex flex-wrap gap-2 px-3 py-2.5 bg-white/50 border-b border-white/50 items-center justify-between">
                 
-                {/* 🌟 KEMAS KINI: Butang Video untuk Rendah & Sederhana di Mobile */}
+                {/* BAHAGIAN KIRI: RUJUKAN (Khas Mobile Sahaja) */}
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => { setShowPdfMobile(true); setShowVideoModal(false); }} 
@@ -461,11 +504,12 @@ function KomponenPembelajaran() {
                   )}
                 </div>
 
+                {/* BAHAGIAN KANAN: BANTUAN AI */}
                 <div className="flex items-center gap-2 ml-auto">
-                  <button onClick={() => sendQuickPrompt("Boleh bagi hint atau klu sikit?")} className="bg-emerald-100 text-emerald-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1.5 rounded-md hover:bg-emerald-200 transition-colors flex items-center gap-1 shadow-sm border border-emerald-200/50">
+                  <button onClick={() => sendQuickPrompt("Boleh bagi hint atau klu sikit?")} className="bg-emerald-100/80 text-emerald-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1.5 rounded-md hover:bg-emerald-200 transition-colors flex items-center gap-1 shadow-sm border border-emerald-200/50">
                     <Lightbulb size={12}/> Hint
                   </button>
-                  <button onClick={() => sendQuickPrompt("Saya kurang faham, boleh cikgu terangkan?")} className="bg-rose-100 text-rose-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1.5 rounded-md hover:bg-rose-200 transition-colors flex items-center gap-1 shadow-sm border border-rose-200/50">
+                  <button onClick={() => sendQuickPrompt("Saya kurang faham, boleh cikgu terangkan?")} className="bg-rose-100/80 text-rose-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1.5 rounded-md hover:bg-rose-200 transition-colors flex items-center gap-1 shadow-sm border border-rose-200/50">
                     <HelpCircle size={12}/> Tak Faham
                   </button>
                 </div>
@@ -474,14 +518,14 @@ function KomponenPembelajaran() {
             )}
 
             {isMastered ? (
-              <div className="p-3 lg:p-4 bg-emerald-50 text-center flex flex-col md:flex-row items-center justify-center gap-3">
+              <div className="p-3 lg:p-4 bg-emerald-50/90 backdrop-blur-sm text-center flex flex-col md:flex-row items-center justify-center gap-3">
                 <div className="flex items-center gap-2"><CheckCircle2 className="w-6 h-6 text-emerald-500" /><div className="text-left"><h3 className="text-sm font-bold text-emerald-800 leading-tight">Dikuasai!</h3><p className="text-emerald-700 font-medium text-[10px]">Syabas, selesai bimbingan.</p></div></div>
-                <button onClick={gotoNextSubtopic} className="w-full md:w-auto bg-emerald-600 text-white text-[11px] lg:text-xs font-bold px-6 py-2 rounded-lg shadow-sm hover:bg-emerald-700 transition-all flex items-center justify-center gap-1.5 ml-auto">
+                <button onClick={gotoNextSubtopic} className="w-full md:w-auto bg-emerald-600 text-white text-[11px] lg:text-xs font-bold px-6 py-2 rounded-lg shadow-md hover:bg-emerald-700 transition-all flex items-center justify-center gap-1.5 ml-auto">
                   {currentIndex !== -1 && currentIndex + 1 < subtopicsList.length ? <>Seterusnya <ArrowLeft className="w-4 h-4 rotate-180"/></> : "Tamat & Kembali"}
                 </button>
               </div>
             ) : (
-              <form onSubmit={sendMessage} className="p-2 lg:p-3 flex gap-2 items-end bg-white relative">
+              <form onSubmit={sendMessage} className="p-2 lg:p-3 flex gap-2 items-end relative">
                 
                 <textarea 
                   ref={inputRef}
@@ -489,7 +533,7 @@ function KomponenPembelajaran() {
                   onChange={handleInput}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                   placeholder={isListening ? "Sedang mendengar suara anda..." : "Taip di sini..."} 
-                  className={`flex-1 bg-slate-100 text-slate-900 placeholder-slate-400 border border-slate-300 rounded-xl px-3 py-2.5 text-[13px] md:text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 resize-none min-w-45 max-h-30 overflow-y-auto ${isListening ? 'border-red-400 ring-1 ring-red-400/50 bg-red-50' : ''}`} 
+                  className={`flex-1 bg-white/80 text-slate-900 placeholder-slate-500 border border-white/60 rounded-xl px-3 py-2.5 text-[13px] md:text-sm focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none min-w-45 max-h-30 overflow-y-auto shadow-inner ${isListening ? 'border-red-400 ring-2 ring-red-400/50 bg-red-50/90' : ''}`} 
                   disabled={isLoading}
                   rows={1}
                 />
@@ -501,14 +545,14 @@ function KomponenPembelajaran() {
                   title="Gunakan Suara"
                   className={`rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center transition-colors mb-0.5 shadow-sm border ${
                     isListening 
-                      ? 'bg-red-500 text-white border-red-600 animate-pulse' 
-                      : 'bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200 hover:text-slate-700'
+                      ? 'bg-red-500 text-white border-red-600 animate-pulse shadow-red-500/50' 
+                      : 'bg-white/80 text-slate-600 border-white/60 hover:bg-white hover:text-blue-600'
                   }`}
                 >
                   <Mic size={18} />
                 </button>
 
-                <button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-600 text-white rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors mb-0.5">
+                <button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-600 text-white rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-600/20 transition-all active:scale-95 mb-0.5 border border-blue-500">
                   <Send size={16} className={input.trim() && !isLoading ? "translate-x-0.5" : ""} />
                 </button>
               </form>
