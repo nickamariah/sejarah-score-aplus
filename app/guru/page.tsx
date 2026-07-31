@@ -203,7 +203,6 @@ export default function GuruDashboard() {
     tarikDataMaklumBalas();
   }, []);
 
-  // LOGIK SIMPAN PENGGUNA
   const handleSimpanPengguna = async (e: React.FormEvent) => {
     e.preventDefault();
     if (uKataLaluan.length < 6) return showToastMessage("Kata laluan sekurang-kurangnya 6 aksara!", "error");
@@ -391,10 +390,12 @@ export default function GuruDashboard() {
     return matchTingkatan && matchSearch;
   });
 
-  const filteredSemakan = senaraiSemakan.filter(s => 
-    s.namaMurid?.toLowerCase().includes(searchSemakan.toLowerCase()) || 
-    s.bab?.toLowerCase().includes(searchSemakan.toLowerCase())
-  );
+  const filteredSemakan = senaraiSemakan.filter(s => {
+    const realUser = senaraiPengguna.find(u => u.id === s.idMurid || u.idPengguna === s.idMurid);
+    const paparNama = realUser?.nama || realUser?.name || s.namaMurid || "Pelajar";
+    return paparNama.toLowerCase().includes(searchSemakan.toLowerCase()) || 
+           s.bab?.toLowerCase().includes(searchSemakan.toLowerCase());
+  });
 
   return (
     <div className="flex h-screen bg-[#0f172a] text-slate-200 font-sans overflow-hidden">
@@ -488,7 +489,12 @@ export default function GuruDashboard() {
                               <td className="p-4"><div className="font-bold text-slate-200">{u.nama}</div><div className="text-slate-500 text-xs mt-1">ID: <span className="text-amber-400">{u.idPengguna || u.id}</span></div></td>
                               <td className="p-4"><span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase ${u.role === 'admin' ? 'bg-purple-900/30 text-purple-400' : u.role === 'guru' ? 'bg-cyan-900/30 text-cyan-400' : 'bg-blue-900/30 text-blue-400'}`}>{u.role}</span></td>
                               <td className="p-4 text-slate-400 text-sm">{u.role === "murid" ? (<div className="flex flex-col items-start gap-1"><div className="font-medium text-slate-300">Tg. {u.tingkatan} {u.kelas}</div><span className="text-[10px] px-2 py-0.5 rounded border border-slate-600 bg-slate-800 text-slate-400">{u.kumpulan || "Eksperimen"}</span></div>) : <span>- N/A -</span>}</td>
-                              <td className="p-4 flex gap-3 justify-end mt-2"><button onClick={() => setEditPengguna(u)} className="text-slate-400 hover:text-amber-400 bg-slate-800 p-2 rounded-md"><Edit3 size={16} /></button><button onClick={() => handlePadamPengguna(u.id)} className="text-slate-400 hover:text-red-400 bg-slate-800 p-2 rounded-md"><Trash2 size={16} /></button></td>
+                              <td className="p-4 text-right align-middle">
+                                 <div className="flex items-center justify-end gap-2">
+                                   <button onClick={() => setEditPengguna(u)} className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-amber-400" title="Edit Pengguna"><Edit3 size={16} /></button>
+                                   <button onClick={() => handlePadamPengguna(u.id)} className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-red-400" title="Padam Pengguna"><Trash2 size={16} /></button>
+                                 </div>
+                              </td>
                             </tr>
                           )) : <tr><td colSpan={4} className="p-8 text-center text-slate-500">Tiada rekod padanan ditemui.</td></tr>}
                         </tbody>
@@ -586,9 +592,13 @@ export default function GuruDashboard() {
                           if (rekod.ulasanAI) Object.values(rekod.ulasanAI).forEach((u: any) => { if (u.komenAI && (u.komenAI.includes("GAGAL") || u.komenAI.includes("Sistem Gagal"))) aiGagal = true; });
                           if (aiGagal && status !== "disemak_oleh_guru") { statusColor = "bg-rose-900/30 text-rose-400 border border-rose-800/50 animate-pulse ring-1 ring-rose-500/50"; statusText = "⚠️ AI Gagal - Sila Semak"; }
 
+                          // CARIAN SILANG NAMA TERKINI
+                          const realUser = senaraiPengguna.find(u => u.id === rekod.idMurid || u.idPengguna === rekod.idMurid);
+                          const paparNama = realUser?.nama || realUser?.name || rekod.namaMurid || "Tanpa Nama";
+
                           return (
                             <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
-                              <td className="p-5"><div className="font-bold text-slate-200">{rekod.namaMurid}</div><div className="text-slate-500 text-[10px] mt-1 uppercase">ID: {rekod.id}</div></td>
+                              <td className="p-5"><div className="font-bold text-slate-200">{paparNama}</div><div className="text-slate-500 text-[10px] mt-1 uppercase">ID: {rekod.idMurid || rekod.id}</div></td>
                               <td className="p-5 text-slate-400 text-sm"><span className="text-blue-400 font-bold">Ting. {rekod.tingkatan}</span> | {rekod.bab}</td>
                               <td className="p-5 text-center"><span className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${statusColor}`}>{statusText}</span></td>
                               <td className="p-5 text-center text-sm"><div className="text-slate-400 mb-1">Objektif: <span className="font-bold text-blue-400 px-2 bg-blue-900/20 rounded">{rekod.skorObjektif || 0}</span></div><div className="text-slate-400">Esei: <span className="font-bold text-purple-400 px-2 bg-purple-900/20 rounded">{rekod.markahStruktur || 0}</span></div></td>
@@ -649,7 +659,12 @@ export default function GuruDashboard() {
                                 <td className="p-4"><span className={`text-[10px] px-2 py-1 rounded-md font-bold ${q.jenis === 'objektif' ? 'bg-amber-900/30 text-amber-400' : 'bg-purple-900/30 text-purple-400'}`}>{q.jenis?.toUpperCase()}</span></td>
                                 <td className="p-4 text-slate-300 text-sm font-bold text-center bg-slate-800/30 rounded-lg">{q.urutan === 999 || !q.urutan ? "-" : q.urutan}</td>
                                 <td className="p-4 text-slate-300 text-xs truncate max-w-xs" title={q.soalan}>{q.soalan}</td>
-                                <td className="p-4 flex gap-2 justify-end"><button onClick={() => handleEditSoalan(q)} className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-amber-400"><Edit3 size={16} /></button><button onClick={() => handlePadamSoalan(q.id)} className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-red-400"><Trash2 size={16} /></button></td>
+                                <td className="p-4 text-right align-middle">
+                                   <div className="flex items-center justify-end gap-2">
+                                     <button onClick={() => handleEditSoalan(q)} className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-amber-400" title="Edit Soalan"><Edit3 size={16} /></button>
+                                     <button onClick={() => handlePadamSoalan(q.id)} className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-red-400" title="Padam Soalan"><Trash2 size={16} /></button>
+                                   </div>
+                                </td>
                               </tr>
                             )) : <tr><td colSpan={7} className="p-8 text-center text-slate-500">Tiada soalan yang sepadan dengan tapisan ini.</td></tr>}
                           </tbody>
@@ -661,7 +676,6 @@ export default function GuruDashboard() {
               ) : (
                 <div className="bg-[#1e293b] p-6 md:p-8 rounded-2xl border border-cyan-800/50 shadow-lg max-w-4xl relative overflow-hidden">
                   <h3 className="text-xl md:text-2xl font-bold text-white mb-6 flex items-center gap-3"><HelpCircle className="text-cyan-400 w-6 h-6 md:w-8 md:h-8" /> {isEditingSoalan ? `Kemas Kini Soalan (${editSoalanId})` : "Cipta Soalan Baharu"}</h3>
-                  {/* ... FORM SOALAN KEKAL SAMA ... */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <div><label className="block text-sm text-slate-400 mb-2">Tingkatan</label><select value={qTingkatan} onChange={e => setQTingkatan(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white"><option value="4">Tingkatan 4</option><option value="5">Tingkatan 5</option></select></div>
                     <div><label className="block text-sm text-slate-400 mb-2">Bab</label><select value={qBab} onChange={e => setQBab(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 rounded-lg p-3 text-white">{[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}</select></div>
@@ -811,7 +825,7 @@ export default function GuruDashboard() {
              </div>
           )}
 
-          {/* TAB 7: MAKLUM BALAS MURID (NEW FEATURE) */}
+          {/* TAB 7: MAKLUM BALAS MURID */}
           {activeTab === "maklumbalas" && (
             <div className="space-y-6 animate-in fade-in">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-[#1e293b] p-6 rounded-2xl border border-amber-800/50 gap-4 shadow-lg">
@@ -839,22 +853,31 @@ export default function GuruDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {senaraiMaklumBalas.length > 0 ? senaraiMaklumBalas.map((mb, i) => (
-                          <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30">
-                            <td className="p-5 text-slate-400 text-xs">
-                              {mb.tarikh ? new Date(mb.tarikh).toLocaleString('ms-MY') : "Tiada Rekod Tarikh"}
-                            </td>
-                            <td className="p-5 font-bold text-slate-200 text-sm">{mb.namaMurid || "Tanpa Nama"}</td>
-                            <td className="p-5">
-                              <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider ${
-                                mb.jenis === 'Pujian' ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-800/50' :
-                                mb.jenis === 'Masalah' ? 'bg-rose-900/30 text-rose-400 border border-rose-800/50' :
-                                'bg-amber-900/30 text-amber-400 border border-amber-800/50'
-                              }`}>{mb.jenis || "Umum"}</span>
-                            </td>
-                            <td className="p-5 text-slate-300 text-sm max-w-md whitespace-normal">{mb.mesej}</td>
-                          </tr>
-                        )) : (
+                        {senaraiMaklumBalas.length > 0 ? senaraiMaklumBalas.map((mb, i) => {
+                          const realUser = senaraiPengguna.find(u => u.id === mb.muridId || u.idPengguna === mb.muridId);
+                          const paparNama = realUser?.nama || realUser?.name || mb.namaMurid || "Tanpa Nama";
+
+                          return (
+                            <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                              <td className="p-5 text-slate-400 text-xs">
+                                {mb.tarikh ? new Date(mb.tarikh).toLocaleString('ms-MY') : "Tiada Rekod Tarikh"}
+                              </td>
+                              <td className="p-5 font-bold text-slate-200 text-sm">
+                                {paparNama}
+                                <br/>
+                                <span className="text-[10px] text-slate-500 font-normal">ID: {mb.muridId}</span>
+                              </td>
+                              <td className="p-5">
+                                <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider ${
+                                  mb.jenis === 'Pujian' ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-800/50' :
+                                  mb.jenis === 'Masalah' ? 'bg-rose-900/30 text-rose-400 border border-rose-800/50' :
+                                  'bg-amber-900/30 text-amber-400 border border-amber-800/50'
+                                }`}>{mb.jenis || "Umum"}</span>
+                              </td>
+                              <td className="p-5 text-slate-300 text-sm max-w-md whitespace-normal">{mb.mesej}</td>
+                            </tr>
+                          )
+                        }) : (
                           <tr><td colSpan={4} className="p-8 text-center text-slate-500">Tiada maklum balas direkodkan lagi.</td></tr>
                         )}
                       </tbody>
@@ -892,8 +915,8 @@ export default function GuruDashboard() {
                      <table className="w-full text-left border-collapse">
                         <thead><tr className="border-b border-slate-800 bg-slate-800/50"><th className="p-4 font-semibold text-xs text-slate-300">Topik / Bab Ujian</th><th className="p-4 font-semibold text-xs text-slate-300 text-center">Objektif</th><th className="p-4 font-semibold text-xs text-slate-300 text-center">Struktur</th><th className="p-4 font-semibold text-xs text-slate-300 text-center">Status</th></tr></thead>
                         <tbody>
-                          {senaraiSemakan.filter(s => s.muridId === selectedStudentDetail.id || s.namaMurid === selectedStudentDetail.nama).length > 0 ? (
-                            senaraiSemakan.filter(s => s.muridId === selectedStudentDetail.id || s.namaMurid === selectedStudentDetail.nama).map((rekod, i) => (
+                          {senaraiSemakan.filter(s => s.idMurid === selectedStudentDetail.id || s.idMurid === selectedStudentDetail.idPengguna).length > 0 ? (
+                            senaraiSemakan.filter(s => s.idMurid === selectedStudentDetail.id || s.idMurid === selectedStudentDetail.idPengguna).map((rekod, i) => (
                               <tr key={i} className="border-b border-slate-800/30 hover:bg-slate-800/50">
                                 <td className="p-4 text-sm text-slate-200 font-medium">{rekod.bab}</td>
                                 <td className="p-4 text-sm text-center text-blue-400 font-bold">{rekod.skorObjektif || 0}</td>
