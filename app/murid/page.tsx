@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, Gamepad2, AlertTriangle, Clock, FileSearch, Award, MessageSquare, Send, X, Loader2, Palette, Brain, Compass, UsersRound, RefreshCw
+  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, Gamepad2, AlertTriangle, Clock, FileSearch, Award, MessageSquare, Send, X, Loader2, Palette, Brain, Compass, UsersRound, RefreshCw, Rocket
 } from "lucide-react";
 import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase"; 
@@ -188,20 +188,27 @@ export default function MuridDashboard() {
     }
   };
 
+  // ==========================================
+  // 🌟 KEMAS KINI: FUNGSI PEMULIHAN (TAMBAH URL & RESET SESSION)
+  // ==========================================
   const mulaUlanganBimbingan = async (chapterId: number, aras: string, subSemasa: string) => {
     const t = activeLevel === "t4" ? "4" : "5";
     const fullSubId = `tingkatan${t}_bab${chapterId}_${subSemasa}`;
-    const sessId = `${userData?.idPengguna || userData?.id}_${fullSubId}`;
+    
+    // Kita target ID Sesi dengan akhiran _pemulihan supaya tak kacau chat lama
+    const sessId = `${userData?.idPengguna || userData?.id}_${fullSubId}_pemulihan`; 
     
     try {
       const docRef = doc(db, "chat_sessions", sessId);
       const dSnap = await getDoc(docRef);
       if(dSnap.exists()){
-         await updateDoc(docRef, { status: "in_progress", currentPhase: 1 });
+         // Reset sesi pemulihan jika ia dah ada
+         await updateDoc(docRef, { status: "in_progress", currentPhase: 1, mode: "pemulihan" });
       }
     } catch(e) { console.log(e); }
     
-    window.location.href = `/pembelajaran?bab=${fullSubId}&aras=${aras}`;
+    // Tembak URL berserta parameter pemulihan
+    window.location.href = `/pembelajaran?bab=${fullSubId}&aras=${aras}&mode=pemulihan`;
   };
 
   const openModule = (chapterId: number, type: string, aras: string, subSemasa: string) => {
@@ -238,7 +245,10 @@ export default function MuridDashboard() {
     if (logic.adaRalatSemakanPre || logic.adaRalatSemakanPost) return { label: "Semakan Guru", color: "bg-rose-50 border-rose-200 text-rose-700", bar: "w-1/4 bg-rose-500 animate-pulse", icon: "⏳" };
     if (logic.isLulus) return { label: "Dikuasai", color: "bg-emerald-50 border-emerald-200 text-emerald-700", bar: "w-full bg-emerald-500", icon: "🏆" };
     if (logic.limitReached) return { label: "Rujukan Guru", color: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700", bar: "w-full bg-fuchsia-500 animate-pulse", icon: "💌" };
-    if (logic.attempt === 1) return { label: "Ulang Bimbingan", color: "bg-orange-50 border-orange-200 text-orange-700", bar: "w-2/3 bg-orange-500 animate-pulse", icon: "🔄" };
+    
+    // 🌟 KEMAS KINI UI STATUS (PEMULIHAN)
+    if (logic.attempt === 1) return { label: "Mod Pemulihan", color: "bg-orange-50 border-orange-300 text-orange-700 shadow-[0_0_15px_rgba(251,146,60,0.3)]", bar: "w-2/3 bg-linear-to-r from-orange-400 to-amber-500 animate-pulse", icon: "🚀" };
+    
     return { label: "Bimbingan", color: "bg-amber-50 border-amber-200 text-amber-700", bar: "w-1/2 bg-amber-400 animate-pulse", icon: "⏳" };
   };
 
@@ -286,39 +296,20 @@ export default function MuridDashboard() {
           </div>
         </motion.div>
 
-        {/* 🌟 KAD 3 TUNJANG UTAMA I-RAGS (DITAMBAH DI SINI) */}
+        {/* 🌟 KAD 3 TUNJANG UTAMA I-RAGS */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          
           <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-blue-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl shrink-0">
-              <Brain className="w-6 h-6" strokeWidth={2.5} />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-800 text-sm">Belajar Ikut Keupayaan</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Sistem disesuaikan dengan rentak anda.</p>
-            </div>
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl shrink-0"><Brain className="w-6 h-6" strokeWidth={2.5} /></div>
+            <div><h3 className="font-bold text-slate-800 text-sm">Belajar Ikut Keupayaan</h3><p className="text-xs text-slate-500 mt-0.5">Sistem disesuaikan dengan rentak anda.</p></div>
           </div>
-
           <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-amber-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl shrink-0">
-              <Compass className="w-6 h-6" strokeWidth={2.5} />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-800 text-sm">Bimbingan Ikut Keperluan</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Bantuan AI tepat pada sasaran.</p>
-            </div>
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl shrink-0"><Compass className="w-6 h-6" strokeWidth={2.5} /></div>
+            <div><h3 className="font-bold text-slate-800 text-sm">Bimbingan Ikut Keperluan</h3><p className="text-xs text-slate-500 mt-0.5">Bantuan AI tepat pada sasaran.</p></div>
           </div>
-
           <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-emerald-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
-              <UsersRound className="w-6 h-6" strokeWidth={2.5} />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-800 text-sm">Kejayaan Untuk Semua</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Mencapai potensi tanpa ada yang tertinggal.</p>
-            </div>
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl shrink-0"><UsersRound className="w-6 h-6" strokeWidth={2.5} /></div>
+            <div><h3 className="font-bold text-slate-800 text-sm">Kejayaan Untuk Semua</h3><p className="text-xs text-slate-500 mt-0.5">Mencapai potensi tanpa ada yang tertinggal.</p></div>
           </div>
-
         </motion.div>
 
         {/* ANALISIS PENGUASAAN BAB (TOP BAR) */}
@@ -396,7 +387,6 @@ export default function MuridDashboard() {
                     )}
                     <ChevronDown className={`w-6 h-6 text-slate-400 transition-transform ${expandedChapter === chapter.id ? "rotate-180" : ""}`} />
                   </div>
-                  
                 </button>
 
                 <AnimatePresence>
@@ -486,22 +476,27 @@ export default function MuridDashboard() {
                           </div>
                         </div>
 
-                        {/* KAD 2: BIMBINGAN AI */}
+                        {/* 🌟 KAD 2: BIMBINGAN AI / MOD PEMULIHAN */}
                         {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && (
-                          <div className={`p-5 rounded-2xl border backdrop-blur-sm ${
-                              (logic.attempt === 0 && logic.aiSelesai) ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-amber-200 shadow-sm'
+                          <div className={`p-5 rounded-2xl border backdrop-blur-sm transition-all duration-300 ${
+                              (logic.attempt === 0 && logic.aiSelesai) ? 'bg-emerald-50/80 border-emerald-200' : 
+                              logic.attempt === 1 ? 'bg-orange-50/90 border-orange-300 shadow-[0_5px_20px_-5px_rgba(251,146,60,0.3)]' : 
+                              'bg-white/80 border-amber-200 shadow-sm'
                             } flex flex-col justify-between gap-4`}>
                             
                             <div>
                               <div className="flex items-center gap-3 mb-2">
-                                <div className={`p-2 rounded-lg ${ralatMenghalangBimbingan ? 'bg-rose-100 text-rose-600' : logic.attempt === 1 ? 'bg-orange-100 text-orange-600' : 'bg-amber-100 text-amber-600'}`}>
-                                  {ralatMenghalangBimbingan ? <AlertTriangle className="w-5 h-5" /> : logic.attempt === 1 ? <RefreshCw className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+                                <div className={`p-2 rounded-lg ${ralatMenghalangBimbingan ? 'bg-rose-100 text-rose-600' : logic.attempt === 1 ? 'bg-linear-to-r from-orange-400 to-amber-500 text-white shadow-md animate-pulse' : 'bg-amber-100 text-amber-600'}`}>
+                                  {ralatMenghalangBimbingan ? <AlertTriangle className="w-5 h-5" /> : logic.attempt === 1 ? <Rocket className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
                                 </div>
-                                <h4 className="font-bold">{ralatMenghalangBimbingan ? "Menunggu Semakan" : logic.attempt === 1 ? `Ulangan Bimbingan (${logic.aras})` : `Bimbingan AI (${logic.aras})`}</h4>
+                                <h4 className="font-bold">
+                                  {ralatMenghalangBimbingan ? "Menunggu Semakan" : 
+                                   logic.attempt === 1 ? `Mod Pemulihan AI 🚀` : `Bimbingan AI (${logic.aras})`}
+                                </h4>
                               </div>
-                              <p className="text-xs text-slate-500 leading-relaxed">
+                              <p className={`text-xs leading-relaxed ${logic.attempt === 1 ? 'text-orange-700 font-medium' : 'text-slate-500'}`}>
                                 {ralatMenghalangBimbingan ? "Status tahap penguasaan anda sedang dikemas kini oleh guru." :
-                                 logic.attempt === 1 ? "Disyorkan: Sila ulang kaji semula nota, video & AI Tutor sebelum mencuba Ujian Pasca sekali lagi." : "Bimbingan Inkuiri bersama Tutor AI, Nota & Video."}
+                                 logic.attempt === 1 ? "Khas untuk anda! Sesi santai, penerangan mudah & nota ringkas untuk bantu capai kelulusan." : "Bimbingan Inkuiri bersama Tutor AI, Nota & Video."}
                               </p>
                             </div>
                             
@@ -516,8 +511,12 @@ export default function MuridDashboard() {
                                           if (logic.attempt === 1) mulaUlanganBimbingan(chapter.id, logic.aras, subSemasa);
                                           else openModule(chapter.id, "ai", logic.aras, subSemasa);
                                         }} 
-                                        className={`w-full px-5 py-2 text-white text-sm font-bold rounded-xl shadow-sm ${logic.attempt === 1 ? 'bg-orange-500 hover:bg-orange-600' : 'bg-amber-500 hover:bg-amber-600'}`}>
-                                  {logic.attempt === 1 ? "Mula Ulangan" : "Mula Bimbingan"}
+                                        className={`w-full px-5 py-2.5 text-white text-sm font-bold rounded-xl shadow-md transition-all ${
+                                          logic.attempt === 1 
+                                          ? 'bg-linear-to-r from-orange-500 to-amber-500 hover:scale-[1.02] hover:shadow-orange-500/30' 
+                                          : 'bg-amber-500 hover:bg-amber-600'
+                                        }`}>
+                                  {logic.attempt === 1 ? "Mula Pemulihan Santai 🌟" : "Mula Bimbingan"}
                                 </button>
                               )}
                             </div>

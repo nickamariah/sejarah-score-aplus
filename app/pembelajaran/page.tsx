@@ -4,13 +4,16 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation"; 
 import { db } from "@/lib/firebase"; 
 import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, getDocs } from "firebase/firestore";
-// 🌟 TAMBAH ICON PALETTE
 import { Bot, Send, ArrowLeft, BookOpen, Video, Lightbulb, HelpCircle, CheckCircle2, Loader2, PlayCircle, X, Mic, Palette } from "lucide-react";
 
 function KomponenPembelajaran() {
   const searchParams = useSearchParams();
   const babDariURL = searchParams.get("bab") || "tingkatan4_bab1_sub1.1"; 
   const arasDariURL = (searchParams.get("aras") || "rendah").toLowerCase();
+  
+  // 🌟 TAMBAHAN: Baca parameter "mode" dari URL
+  const modeDariURL = (searchParams.get("mode") || "normal").toLowerCase();
+  const isPemulihan = modeDariURL === "pemulihan";
 
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -33,7 +36,6 @@ function KomponenPembelajaran() {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  // 🌟 STATE UNTUK TEMA (GLOBAL)
   const senaraiTheme = [
     { id: 'default', nama: '🌞 Cerah (Asal)', class: 'bg-slate-50' },
     { id: 'gelap', nama: '🌙 Mod Gelap', class: 'bg-slate-900' },
@@ -42,7 +44,6 @@ function KomponenPembelajaran() {
   ];
   const [selectedTheme, setSelectedTheme] = useState(senaraiTheme[0].class);
 
-  // Load tema dari localStorage
   useEffect(() => {
     const savedTheme = localStorage.getItem('userTheme');
     if (savedTheme) setSelectedTheme(savedTheme);
@@ -60,16 +61,22 @@ function KomponenPembelajaran() {
   }, []);
 
   const chapterId = babDariURL; 
-  const sessionId = `${studentId}_${chapterId}`;
+  
+  // 🌟 TAMBAHAN: Asingkan ID Sesi Jika Mod Pemulihan supaya chat lama (gagal) tak kacau
+  const sessionId = isPemulihan ? `${studentId}_${chapterId}_pemulihan` : `${studentId}_${chapterId}`;
   const pdfFileName = chapterId.split('_sub')[0]; 
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isInitializing = useRef(false);
   
-  const maxFasa = arasDariURL === "rendah" ? 2 : arasDariURL === "sederhana" ? 3 : 6;
+  // 🌟 TAMBAHAN: Jika pemulihan, fasa maksimum dihadkan kepada 3 sahaja
+  let maxFasa = arasDariURL === "rendah" ? 2 : arasDariURL === "sederhana" ? 3 : 6;
+  if (isPemulihan) maxFasa = 3; 
   
-  const phaseNames = arasDariURL === "rendah" 
+  const phaseNames = isPemulihan 
+    ? ["Nota Ringkas", "Kefahaman Mudah", "Aplikasi Santai"] // Nama fasa santai untuk pemulihan
+    : arasDariURL === "rendah" 
     ? ["Mengingat", "Memahami"] 
     : arasDariURL === "sederhana" 
     ? ["Mengingat", "Memahami", "Mengaplikasi"] 
@@ -222,8 +229,17 @@ function KomponenPembelajaran() {
 
       const docSnap = await getDoc(sessionDocRef);
       if (!docSnap.exists()) {
-        await setDoc(sessionDocRef, { studentId, chapterId, currentPhase: 1, status: "in_progress", startedAt: serverTimestamp() });
-        await addDoc(messagesCollectionRef, { role: "assistant", content: `Hai! Saya Cikgu AI I-RAGs 👋. Kita akan mulakan sesi untuk **${namaBabSebenar} (${currentSub} ${namaSubtopikSebenar})**.\n\nBerdasarkan nota di sebelah, apa yang awak paling ingat atau faham tentang tajuk ini? Cuba kongsikan.`, timestamp: serverTimestamp() });
+        
+        // 🌟 TAMBAHAN: Ayat pertama AI berbeza ikut mode normal vs pemulihan
+        let ayatPertamaAI = `Hai! Saya Cikgu AI I-RAGs 👋. Kita akan mulakan sesi untuk **${namaBabSebenar} (${currentSub} ${namaSubtopikSebenar})**.\n\nBerdasarkan nota di sebelah, apa yang awak paling ingat atau faham tentang tajuk ini? Cuba kongsikan.`;
+        
+        if (isPemulihan) {
+          ayatPertamaAI = `Hai awak! 🌟 Jangan risau kalau tak lulus ujian tadi, cikgu ada di sini untuk bantu. Kita buat santai-santai je untuk topik **${namaBabSebenar} (${currentSub} ${namaSubtopikSebenar})**.\n\nCuba awak tengok nota di sebelah sekejap, lepas tu beritahu cikgu kalau awak dah sedia! 😊`;
+        }
+
+        await setDoc(sessionDocRef, { studentId, chapterId, currentPhase: 1, status: "in_progress", startedAt: serverTimestamp(), mode: modeDariURL });
+        await addDoc(messagesCollectionRef, { role: "assistant", content: ayatPertamaAI, timestamp: serverTimestamp() });
+      
       } else {
         const dataSesi = docSnap.data();
         let fasaTerkini = dataSesi.currentPhase || 1;
@@ -242,7 +258,7 @@ function KomponenPembelajaran() {
     });
 
     return () => unsubscribe();
-  }, [sessionId, chapterId, studentId, chapterData, maxFasa, currentSub, namaBabSebenar, namaSubtopikSebenar]); 
+  }, [sessionId, chapterId, studentId, chapterData, maxFasa, currentSub, namaBabSebenar, namaSubtopikSebenar, isPemulihan, modeDariURL]); 
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
@@ -293,6 +309,8 @@ function KomponenPembelajaran() {
         body: JSON.stringify({ 
           studentId, chapterId, text: teksMurid, currentPhase, aras: arasDariURL, soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema,
           tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, 
+          // 🌟 TAMBAHAN: Hantar parameter 'mode' ke API
+          mode: modeDariURL,
           previousMessages: messages.slice(-4).map(m => ({ role: m.role, content: m.content })) 
         })
       });
@@ -314,6 +332,8 @@ function KomponenPembelajaran() {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 studentId, chapterId, aras: arasDariURL, currentPhase: nextPhase, 
+                // 🌟 TAMBAHAN: Auto-trigger juga dihantar mode pemulihan
+                mode: modeDariURL,
                 text: `[SISTEM AUTO]: Murid lulus fasa tadi. Berikan SOALAN PERTAMA untuk menguji FASA ${nextPhase}. Tanya 1 soalan sahaja.`, 
                 soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema, tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, previousMessages: [] 
               })
@@ -339,10 +359,9 @@ function KomponenPembelajaran() {
   };
 
   return (
-    // 🌟 APLIKASI TEMA DI MAIN WRAPPER
     <div className={`flex flex-col lg:flex-row h-screen overflow-hidden font-sans relative transition-colors duration-700 ${selectedTheme}`}>
       
-      {/* 🟢 PANEL KIRI: PDF & VIDEO (Dihiasi Glassmorphism) */}
+      {/* 🟢 PANEL KIRI: PDF & VIDEO */}
       <div className={`${showPdfMobile ? 'fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-sm' : 'hidden'} lg:flex lg:relative flex-col z-20 shadow-2xl lg:shadow-none h-full lg:w-(--left-width)`} style={{ "--left-width": `${leftWidth}%` } as React.CSSProperties}>
         
         <div className="bg-slate-900/95 backdrop-blur-md text-white p-3 lg:p-4 shadow-md flex items-center gap-3 z-30 shrink-0 border-b border-white/10 overflow-x-auto no-scrollbar">
@@ -396,7 +415,7 @@ function KomponenPembelajaran() {
 
       <div className="hidden lg:flex flex-col justify-center items-center w-1.5 bg-black/20 hover:bg-sky-500 active:bg-sky-600 cursor-col-resize z-30 transition-colors backdrop-blur-sm" onMouseDown={() => setIsDragging(true)}><div className="h-8 w-1 bg-white/50 rounded-full"></div></div>
 
-      {/* 🟢 PANEL KANAN: CHATBOT AI (Dihiasi Glassmorphism) */}
+      {/* 🟢 PANEL KANAN: CHATBOT AI */}
       <div className="w-full lg:flex-1 h-full bg-white/20 backdrop-blur-lg flex flex-col z-10 relative">
         
         {/* HEADER CHAT */}
@@ -407,13 +426,20 @@ function KomponenPembelajaran() {
               <button onClick={() => window.location.href = '/murid'} className="lg:hidden p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors border border-white/10 text-white"><ArrowLeft size={16}/></button>
               <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm p-1 border border-white/30 shrink-0"><Bot size={18} className="text-white"/></div>
               <div className="leading-tight">
-                <h2 className="font-bold text-[13px] lg:text-sm tracking-wide">Cikgu AI I-RAGs</h2>
-                <p className="text-blue-100 text-[9px] lg:text-[10px] font-medium flex items-center gap-1">Aras {arasDariURL.charAt(0).toUpperCase() + arasDariURL.slice(1)} <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block animate-pulse"></span></p>
+                <h2 className="font-bold text-[13px] lg:text-sm tracking-wide flex items-center gap-2">
+                  Cikgu AI I-RAGs 
+                  {/* 🌟 TAMBAHAN: Lencana jika dalam mod pemulihan */}
+                  {isPemulihan && <span className="bg-amber-400 text-amber-950 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider hidden md:inline-block">Mod Pemulihan 🚀</span>}
+                </h2>
+                <p className="text-blue-100 text-[9px] lg:text-[10px] font-medium flex items-center gap-1">
+                  Aras {arasDariURL.charAt(0).toUpperCase() + arasDariURL.slice(1)} 
+                  {isPemulihan && <span className="bg-amber-400 text-amber-950 px-1 py-0.5 rounded text-[8px] font-bold md:hidden">PEMULIHAN</span>}
+                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block animate-pulse ml-0.5"></span>
+                </p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              {/* 🌟 SELECTOR TEMA (Di Header AI Chat) */}
               <div className="hidden sm:flex items-center bg-white/10 p-1 rounded-xl border border-white/20 shadow-sm backdrop-blur-sm">
                 <Palette size={14} className="text-white ml-2" />
                 <select 
@@ -430,7 +456,7 @@ function KomponenPembelajaran() {
 
               <div className="flex flex-col items-end w-28 lg:w-40">
                  <div className="text-[8px] lg:text-[9px] font-bold text-blue-100 uppercase tracking-wider mb-1 flex justify-between w-full">
-                    <span>Fasa Inkuiri</span> <span className="text-amber-300">{currentPhase}/{maxFasa}</span>
+                    <span>{isPemulihan ? "Fasa Santai" : "Fasa Inkuiri"}</span> <span className="text-amber-300">{currentPhase}/{maxFasa}</span>
                  </div>
                  <div className="flex gap-0.5 w-full">
                     {phaseNames.map((name, index) => {
@@ -457,7 +483,7 @@ function KomponenPembelajaran() {
         {/* KAWASAN KANDUNGAN CHAT */}
         <div className="flex-1 p-3 lg:p-4 overflow-y-auto bg-[url('/bg-chat-pattern.png')] bg-white/30 relative custom-scrollbar">
           
-          <div className="text-center mb-4 mt-1"><span className="text-[9px] lg:text-[10px] font-bold text-slate-100 uppercase tracking-widest bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">Sesi Bermula</span></div>
+          <div className="text-center mb-4 mt-1"><span className="text-[9px] lg:text-[10px] font-bold text-slate-100 uppercase tracking-widest bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">{isPemulihan ? "Sesi Pemulihan Bermula" : "Sesi Bermula"}</span></div>
 
           {messages.map((msg) => (
             <div key={msg.id} className={`mb-3 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -485,7 +511,7 @@ function KomponenPembelajaran() {
             {!isLoading && !isMastered && (
               <div className="flex flex-wrap gap-2 px-3 py-2.5 bg-white/50 border-b border-white/50 items-center justify-between">
                 
-                {/* BAHAGIAN KIRI: RUJUKAN (Khas Mobile Sahaja) */}
+                {/* BAHAGIAN KIRI: RUJUKAN (Khas Mobile) */}
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => { setShowPdfMobile(true); setShowVideoModal(false); }} 
