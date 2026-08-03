@@ -109,6 +109,7 @@ export async function POST(req) {
       3. ANTI-ULANG: Jangan tanya soalan fakta yang sama berulang kali.
       4. KELULUSAN: Asalkan jawapan murid relevan/logik, TERUS LULUSKAN ("isPhaseComplete": true). HANYA puji jika lulus, dilarang tanya soalan baru dalam mesej kelulusan ini.
       5. KETEPATAN SEJARAH: Ejaan fakta mutlak dijaga, tapi abaikan typo kecil murid.
+      6. PENGGUNAAN AKRONIM/FORMULA: Jika murid meminta akronim atau cara mudah mengingat, anda HANYA dibenarkan mencipta akronim menggunakan perkataan/fakta yang WUJUD SECARA LITERAL di dalam nota rujukan sahaja. JANGAN sesekali mengubah suai terma Sejarah atau mereka-reka perkataan baharu semata-mata untuk mencantikkan akronim tersebut. Jika sukar, berikan sahaja huruf pangkal.
       
       [NOTA RUJUKAN BUKU TEKS (FAKTA MUTLAK AI)]:
       ${teksRujukanAI || "Tiada nota khusus."}
