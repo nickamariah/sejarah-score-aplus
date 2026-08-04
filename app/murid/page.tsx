@@ -41,7 +41,7 @@ const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
 interface BabProgress { 
   preSkor?: number; preObjektif?: number; preStruktur?: number; prePenuh?: number; adaRalatSemakanPre?: boolean; docIdPre?: string;
   postSkor?: number; postObjektif?: number; postStruktur?: number; postPenuh?: number; adaRalatSemakanPost?: boolean; docIdPost?: string;
-  jumlahCubaanPost: number; aiSelesai: boolean; gameSelesai: boolean; 
+  jumlahCubaanPost: number; aiSelesai: boolean; pemulihanSelesai?: boolean; gameSelesai: boolean; 
 }
 
 export default function MuridDashboard() {
@@ -49,7 +49,10 @@ export default function MuridDashboard() {
   const [activeLevel, setActiveLevel] = useState<"t4" | "t5">("t4");
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
   const [progressBab, setProgressBab] = useState<Record<number, BabProgress>>({});
+  
   const [aiSelesaiList, setAiSelesaiList] = useState<string[]>([]);
+  const [aiPemulihanSelesaiList, setAiPemulihanSelesaiList] = useState<string[]>([]); // 🌟 STATE BARU PEMULIHAN
+  
   const [loading, setLoading] = useState(true);
   
   const [showFeedback, setShowFeedback] = useState(false);
@@ -57,7 +60,7 @@ export default function MuridDashboard() {
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🌟 STATE UNTUK TEMA (GLOBAL)
+  // STATE UNTUK TEMA 
   const senaraiTheme = [
     { id: 'default', nama: '🌞 Cerah (Asal)', class: 'bg-slate-50' },
     { id: 'gelap', nama: '🌙 Mod Gelap', class: 'bg-slate-900' },
@@ -102,17 +105,29 @@ export default function MuridDashboard() {
         const tSemasa = activeLevel === "t4" ? "4" : "5";
         const qSkor = query(collection(db, "skor_murid"), where("idMurid", "==", userPenuh.id), where("tingkatan", "==", tSemasa));
         const snapSkor = await getDocs(qSkor);
+        
         const qChat = query(collection(db, "chat_sessions"), where("studentId", "==", userPenuh.id), where("status", "==", "completed"));
         const snapChat = await getDocs(qChat);
-        const chatSelesaiArray = snapChat.docs.map(d => d.data().chapterId);
-        setAiSelesaiList(chatSelesaiArray);
+        
+        // 🌟 KEMAS KINI: ASINGKAN REKOD AI NORMAL DAN AI PEMULIHAN
+        const chatSelesaiArrayNormal: string[] = [];
+        const chatSelesaiArrayPemulihan: string[] = [];
+        
+        snapChat.forEach(d => {
+           const data = d.data();
+           if (data.mode === "pemulihan") chatSelesaiArrayPemulihan.push(data.chapterId);
+           else chatSelesaiArrayNormal.push(data.chapterId);
+        });
+
+        setAiSelesaiList(chatSelesaiArrayNormal);
+        setAiPemulihanSelesaiList(chatSelesaiArrayPemulihan);
 
         let tempProgress: Record<number, BabProgress> = {};
         
         snapSkor.forEach((docSnap) => {
           const data = docSnap.data();
           const babNum = parseInt(data.bab.replace("Bab ", ""));
-          if (!tempProgress[babNum]) tempProgress[babNum] = { jumlahCubaanPost: 0, aiSelesai: false, gameSelesai: false };
+          if (!tempProgress[babNum]) tempProgress[babNum] = { jumlahCubaanPost: 0, aiSelesai: false, pemulihanSelesai: false, gameSelesai: false };
           
           let adaRalat = false;
           if (data.ulasanAI && data.statusPermarkahanEsei !== "disemak_oleh_guru") {
@@ -136,13 +151,21 @@ export default function MuridDashboard() {
 
         const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
         currentChapters.forEach(ch => {
-            if(!tempProgress[ch.id]) tempProgress[ch.id] = { jumlahCubaanPost: 0, aiSelesai: false, gameSelesai: false };
+            if(!tempProgress[ch.id]) tempProgress[ch.id] = { jumlahCubaanPost: 0, aiSelesai: false, pemulihanSelesai: false, gameSelesai: false };
+            
             if (ch.subtopics && ch.subtopics.length > 0) {
-              let siapCount = 0;
-              ch.subtopics.forEach(sub => { if (chatSelesaiArray.includes(`tingkatan${tSemasa}_bab${ch.id}_sub${sub.id}`)) siapCount++; });
-              tempProgress[ch.id].aiSelesai = (siapCount === ch.subtopics.length);
+              let siapCountNormal = 0;
+              let siapCountPemulihan = 0;
+              ch.subtopics.forEach(sub => { 
+                 const targetId = `tingkatan${tSemasa}_bab${ch.id}_sub${sub.id}`;
+                 if (chatSelesaiArrayNormal.includes(targetId)) siapCountNormal++; 
+                 if (chatSelesaiArrayPemulihan.includes(targetId)) siapCountPemulihan++; 
+              });
+              tempProgress[ch.id].aiSelesai = (siapCountNormal === ch.subtopics.length);
+              tempProgress[ch.id].pemulihanSelesai = (siapCountPemulihan === ch.subtopics.length);
             } else { 
-              tempProgress[ch.id].aiSelesai = chatSelesaiArray.some(id => id && id.includes(`bab${ch.id}`)); 
+              tempProgress[ch.id].aiSelesai = chatSelesaiArrayNormal.some(id => id && id.includes(`bab${ch.id}`)); 
+              tempProgress[ch.id].pemulihanSelesai = chatSelesaiArrayPemulihan.some(id => id && id.includes(`bab${ch.id}`)); 
             }
         });
 
@@ -155,10 +178,12 @@ export default function MuridDashboard() {
 
   const handleLogout = () => { localStorage.removeItem("currentUser"); localStorage.removeItem("completedModules"); window.location.href = "/login"; };
   
-  const getCurrentSubtopic = (chapterId: number, chapterData: any) => {
+  // 🌟 KEMAS KINI: Tarik subtopik mengikut mode (Normal atau Pemulihan)
+  const getCurrentSubtopic = (chapterId: number, chapterData: any, isPemulihanMode: boolean) => {
     if (!chapterData.subtopics || chapterData.subtopics.length === 0) return "sub1.1";
+    const targetList = isPemulihanMode ? aiPemulihanSelesaiList : aiSelesaiList;
     for (const sub of chapterData.subtopics) {
-      if (!aiSelesaiList.includes(`tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapterId}_sub${sub.id}`)) return `sub${sub.id}`; 
+      if (!targetList.includes(`tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapterId}_sub${sub.id}`)) return `sub${sub.id}`; 
     }
     return `sub${chapterData.subtopics[chapterData.subtopics.length - 1].id}`;
   };
@@ -188,26 +213,19 @@ export default function MuridDashboard() {
     }
   };
 
-  // ==========================================
-  // 🌟 KEMAS KINI: FUNGSI PEMULIHAN (TAMBAH URL & RESET SESSION)
-  // ==========================================
   const mulaUlanganBimbingan = async (chapterId: number, aras: string, subSemasa: string) => {
     const t = activeLevel === "t4" ? "4" : "5";
     const fullSubId = `tingkatan${t}_bab${chapterId}_${subSemasa}`;
-    
-    // Kita target ID Sesi dengan akhiran _pemulihan supaya tak kacau chat lama
     const sessId = `${userData?.idPengguna || userData?.id}_${fullSubId}_pemulihan`; 
     
     try {
       const docRef = doc(db, "chat_sessions", sessId);
       const dSnap = await getDoc(docRef);
       if(dSnap.exists()){
-         // Reset sesi pemulihan jika ia dah ada
          await updateDoc(docRef, { status: "in_progress", currentPhase: 1, mode: "pemulihan" });
       }
     } catch(e) { console.log(e); }
     
-    // Tembak URL berserta parameter pemulihan
     window.location.href = `/pembelajaran?bab=${fullSubId}&aras=${aras}&mode=pemulihan`;
   };
 
@@ -219,7 +237,7 @@ export default function MuridDashboard() {
   };
 
   const getChapterLogic = (chapterId: number) => {
-    const prog = progressBab[chapterId] || { jumlahCubaanPost: 0, aiSelesai: false };
+    const prog = progressBab[chapterId] || { jumlahCubaanPost: 0, aiSelesai: false, pemulihanSelesai: false };
     const pre = prog.preSkor; const post = prog.postSkor; const attempt = prog.jumlahCubaanPost;
     
     let aras = "rendah"; let targetLulus = 50;
@@ -232,7 +250,7 @@ export default function MuridDashboard() {
 
     return { 
         aras, pre, post, attempt, targetLulus, isLulus, limitReached, preLulusTerus,
-        aiSelesai: prog.aiSelesai, docIdPre: prog.docIdPre, docIdPost: prog.docIdPost,
+        aiSelesai: prog.aiSelesai, pemulihanSelesai: prog.pemulihanSelesai, docIdPre: prog.docIdPre, docIdPost: prog.docIdPost,
         preObjektif: prog.preObjektif, preStruktur: prog.preStruktur, prePenuh: prog.prePenuh, adaRalatSemakanPre: prog.adaRalatSemakanPre,
         postObjektif: prog.postObjektif, postStruktur: prog.postStruktur, postPenuh: prog.postPenuh, adaRalatSemakanPost: prog.adaRalatSemakanPost
     };
@@ -246,7 +264,6 @@ export default function MuridDashboard() {
     if (logic.isLulus) return { label: "Dikuasai", color: "bg-emerald-50 border-emerald-200 text-emerald-700", bar: "w-full bg-emerald-500", icon: "🏆" };
     if (logic.limitReached) return { label: "Rujukan Guru", color: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700", bar: "w-full bg-fuchsia-500 animate-pulse", icon: "💌" };
     
-    // 🌟 KEMAS KINI UI STATUS (PEMULIHAN)
     if (logic.attempt === 1) return { label: "Mod Pemulihan", color: "bg-orange-50 border-orange-300 text-orange-700 shadow-[0_0_15px_rgba(251,146,60,0.3)]", bar: "w-2/3 bg-linear-to-r from-orange-400 to-amber-500 animate-pulse", icon: "🚀" };
     
     return { label: "Bimbingan", color: "bg-amber-50 border-amber-200 text-amber-700", bar: "w-1/2 bg-amber-400 animate-pulse", icon: "⏳" };
@@ -277,7 +294,7 @@ export default function MuridDashboard() {
             </div>
             
             <div className="flex items-center gap-3">
-              <div className="flex items-center bg-white/10 p-1.5 rounded-xl border border-white/20 shadow-sm backdrop-blur-md">
+              <div className="hidden sm:flex items-center bg-white/10 p-1.5 rounded-xl border border-white/20 shadow-sm backdrop-blur-md">
                 <Palette size={16} className="text-white ml-2" />
                 <select 
                   value={selectedTheme}
@@ -361,7 +378,9 @@ export default function MuridDashboard() {
             const logic = getChapterLogic(chapter.id);
             const statusUI = getChapterStatusUI(chapter.id);
             const isKawalan = userData?.kumpulan === "Kawalan";
-            const subSemasa = getCurrentSubtopic(chapter.id, chapter);
+            
+            // 🌟 DAPATKAN SUBTOPIK SEMASA BERDASARKAN MODE (NORMAL / PEMULIHAN)
+            const subSemasa = getCurrentSubtopic(chapter.id, chapter, logic.attempt === 1);
             
             const ralatMenghalangBimbingan = logic.attempt === 0 ? logic.adaRalatSemakanPre : logic.adaRalatSemakanPost;
             const skorTertinggi = logic.post !== undefined && logic.post > (logic.pre || 0) ? logic.post : logic.pre;
@@ -479,14 +498,14 @@ export default function MuridDashboard() {
                         {/* 🌟 KAD 2: BIMBINGAN AI / MOD PEMULIHAN */}
                         {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && (
                           <div className={`p-5 rounded-2xl border backdrop-blur-sm transition-all duration-300 ${
-                              (logic.attempt === 0 && logic.aiSelesai) ? 'bg-emerald-50/80 border-emerald-200' : 
+                              (logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.pemulihanSelesai) ? 'bg-emerald-50/80 border-emerald-200' : 
                               logic.attempt === 1 ? 'bg-orange-50/90 border-orange-300 shadow-[0_5px_20px_-5px_rgba(251,146,60,0.3)]' : 
                               'bg-white/80 border-amber-200 shadow-sm'
                             } flex flex-col justify-between gap-4`}>
                             
                             <div>
                               <div className="flex items-center gap-3 mb-2">
-                                <div className={`p-2 rounded-lg ${ralatMenghalangBimbingan ? 'bg-rose-100 text-rose-600' : logic.attempt === 1 ? 'bg-linear-to-r from-orange-400 to-amber-500 text-white shadow-md animate-pulse' : 'bg-amber-100 text-amber-600'}`}>
+                                <div className={`p-2 rounded-lg ${ralatMenghalangBimbingan ? 'bg-rose-100 text-rose-600' : logic.attempt === 1 ? 'bg-linear-to-r from-orange-400 to-amber-500 text-white shadow-md' : 'bg-amber-100 text-amber-600'}`}>
                                   {ralatMenghalangBimbingan ? <AlertTriangle className="w-5 h-5" /> : logic.attempt === 1 ? <Rocket className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
                                 </div>
                                 <h4 className="font-bold">
@@ -504,7 +523,7 @@ export default function MuridDashboard() {
                               {ralatMenghalangBimbingan ? (
                                   <button disabled className="w-full px-5 py-2 text-rose-400 bg-rose-100/50 text-sm font-bold rounded-xl cursor-not-allowed border border-rose-200">Menunggu Guru...</button>
                               ) :
-                              (logic.attempt === 0 && logic.aiSelesai) ? (
+                              (logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.pemulihanSelesai) ? (
                                 <span className="text-sm font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Selesai</span>
                               ) : (
                                 <button onClick={() => {
@@ -523,7 +542,7 @@ export default function MuridDashboard() {
                           </div>
                         )}
 
-                        {/* KAD 3: UJIAN PASCA */}
+                        {/* 🌟 KAD 3: UJIAN PASCA (DENGAN KUNCI PEMULIHAN) */}
                         {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && (logic.aiSelesai || logic.attempt === 1) && (
                           <div className={`p-5 rounded-2xl border backdrop-blur-sm ${
                               logic.isLulus ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-blue-200 shadow-sm'
@@ -552,12 +571,16 @@ export default function MuridDashboard() {
                                  <span className={`text-sm font-bold text-emerald-600`}>Selesai ({logic.post}%)</span>
                               ) : logic.adaRalatSemakanPost ? (
                                  <span className="text-sm font-bold text-rose-600 flex items-center gap-1"><Clock className="w-4 h-4"/> Semakan Guru</span>
+                              ) : logic.attempt === 1 && !logic.pemulihanSelesai ? (
+                                 <button disabled className="px-5 py-2.5 text-sm font-bold rounded-xl transition-all bg-slate-200 text-slate-400 border border-slate-300 shadow-inner w-full flex items-center justify-center gap-2 cursor-not-allowed">
+                                   <Lock className="w-4 h-4"/> Selesaikan Pemulihan
+                                 </button>
                               ) : (
                                 <button 
                                   onClick={() => openModule(chapter.id, "post", "", "")}
-                                  className="px-5 py-2 text-sm font-bold rounded-xl transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-sm w-full"
+                                  className="px-5 py-2.5 text-sm font-bold rounded-xl transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-sm w-full"
                                 >
-                                  Mula Ujian
+                                  {logic.attempt === 1 ? "Mula Ujian (Cubaan 2)" : "Mula Ujian"}
                                 </button>
                               )}
 
