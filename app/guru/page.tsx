@@ -696,23 +696,23 @@ export default function GuruDashboard() {
                   <div className="bg-slate-800/80 backdrop-blur-md p-4 rounded-xl border border-slate-700 flex flex-col md:flex-row flex-wrap items-center gap-3 shadow-md">
                      <div className="flex items-center gap-2 text-slate-200 font-bold text-sm shrink-0 w-full md:w-auto"><Filter size={18} className="text-cyan-400"/> Tapis & Cari:</div>
                      
-                     <div className="relative w-full md:flex-1 min-w-[200px]">
+                     <div className="relative w-full md:flex-1 min-w-50">
                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
                        <input type="text" placeholder="Cari teks soalan / topik..." value={searchSoalan} onChange={(e) => setSearchSoalan(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 text-white pl-10 pr-3 py-2.5 rounded-xl text-sm focus:border-cyan-500 outline-none shadow-inner" />
                      </div>
 
                      <div className="flex flex-wrap w-full md:w-auto gap-3">
-                       <select value={filterTingkatan} onChange={(e) => setFilterTingkatan(e.target.value)} className="flex-1 min-w-[120px] bg-[#0f172a] text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
+                       <select value={filterTingkatan} onChange={(e) => setFilterTingkatan(e.target.value)} className="flex-1 min-w-30 bg-[#0f172a] text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
                           <option value="Semua">Semua Tg.</option><option value="4">Tingkatan 4</option><option value="5">Tingkatan 5</option>
                        </select>
-                       <select value={filterBab} onChange={(e) => setFilterBab(e.target.value)} className="flex-1 min-w-[100px] bg-[#0f172a] text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
+                       <select value={filterBab} onChange={(e) => setFilterBab(e.target.value)} className="flex-1 min-w-25 bg-[#0f172a] text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
                           <option value="Semua">Semua Bab</option>{[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}
                        </select>
-                       <select value={filterJenis} onChange={(e) => setFilterJenis(e.target.value)} className="flex-1 min-w-[110px] bg-[#0f172a] text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
+                       <select value={filterJenis} onChange={(e) => setFilterJenis(e.target.value)} className="flex-1 min-w-27.5 bg-[#0f172a] text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
                           <option value="Semua">Semua Jenis</option><option value="objektif">Objektif</option><option value="struktur">Struktur</option>
                        </select>
                        
-                       <select value={filterKegunaan} onChange={(e) => setFilterKegunaan(e.target.value)} className="flex-1 min-w-[140px] bg-[#0f172a] text-sm text-cyan-400 font-bold border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
+                       <select value={filterKegunaan} onChange={(e) => setFilterKegunaan(e.target.value)} className="flex-1 min-w-35 bg-[#0f172a] text-sm text-cyan-400 font-bold border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
                           <option value="Semua">Semua Sasaran</option>
                           <option value="semua_ujian">Semua Ujian</option>
                           <option value="pre_post">Pre & Post</option>
@@ -962,7 +962,7 @@ export default function GuruDashboard() {
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50 flex-1 overflow-y-auto max-h-[300px] mt-4 shadow-inner custom-scrollbar">
+                        <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50 flex-1 overflow-y-auto max-h-75 mt-4 shadow-inner custom-scrollbar">
                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">Pemetaan Pautan Subtopik:</p>
                            <ul className="text-sm text-slate-300 space-y-3.5">
                              {bahan.subtopics?.map((sub: any, i: number) => (
@@ -1095,7 +1095,7 @@ export default function GuruDashboard() {
                 <div className="bg-slate-900/80 p-6 md:p-8 flex justify-between items-start border-b border-slate-700">
                   <div>
                     <h3 className="text-2xl md:text-3xl font-extrabold text-white mb-2 flex items-center gap-3">
-                      Profil Akademik: <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">{selectedStudentDetail.nama}</span>
+                      Profil Akademik: <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-cyan-400">{selectedStudentDetail.nama}</span>
                     </h3>
                     <div className="flex flex-wrap items-center gap-2 mt-3">
                       <span className="bg-slate-700/50 px-3 py-1 rounded-lg border border-slate-600 text-slate-300 text-xs font-bold uppercase tracking-widest shadow-sm">Tingkatan {selectedStudentDetail.tingkatan} {selectedStudentDetail.kelas}</span> 
@@ -1280,7 +1280,7 @@ export default function GuruDashboard() {
                                               </div>
 
                                               {/* KOTAK ANALITIK GURU */}
-                                              <div className="flex-1 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 p-5 rounded-xl border border-indigo-800/30 shadow-inner">
+                                              <div className="flex-1 bg-linear-to-br from-indigo-900/20 to-purple-900/20 p-5 rounded-xl border border-indigo-800/30 shadow-inner">
                                                  <h5 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-3 flex items-center gap-2"><BrainCircuit size={16}/> Laporan Analitik Pedagogi</h5>
                                                  
                                                  <div className="flex items-center gap-4 mb-4">

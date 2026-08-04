@@ -11,7 +11,7 @@ function KomponenPembelajaran() {
   const babDariURL = searchParams.get("bab") || "tingkatan4_bab1_sub1.1"; 
   const arasDariURL = (searchParams.get("aras") || "rendah").toLowerCase();
   
-  // 🌟 TAMBAHAN: Baca parameter "mode" dari URL
+  // Baca parameter "mode" dari URL
   const modeDariURL = (searchParams.get("mode") || "normal").toLowerCase();
   const isPemulihan = modeDariURL === "pemulihan";
 
@@ -62,7 +62,7 @@ function KomponenPembelajaran() {
 
   const chapterId = babDariURL; 
   
-  // 🌟 TAMBAHAN: Asingkan ID Sesi Jika Mod Pemulihan supaya chat lama (gagal) tak kacau
+  // Asingkan ID Sesi Jika Mod Pemulihan supaya chat lama (gagal) tak kacau
   const sessionId = isPemulihan ? `${studentId}_${chapterId}_pemulihan` : `${studentId}_${chapterId}`;
   const pdfFileName = chapterId.split('_sub')[0]; 
 
@@ -70,12 +70,12 @@ function KomponenPembelajaran() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isInitializing = useRef(false);
   
-  // 🌟 TAMBAHAN: Jika pemulihan, fasa maksimum dihadkan kepada 3 sahaja
+  // Jika pemulihan, fasa maksimum dihadkan kepada 3 sahaja
   let maxFasa = arasDariURL === "rendah" ? 2 : arasDariURL === "sederhana" ? 3 : 6;
   if (isPemulihan) maxFasa = 3; 
   
   const phaseNames = isPemulihan 
-    ? ["Nota Ringkas", "Kefahaman Mudah", "Aplikasi Santai"] // Nama fasa santai untuk pemulihan
+    ? ["Nota Ringkas", "Kefahaman Mudah", "Aplikasi Santai"] 
     : arasDariURL === "rendah" 
     ? ["Mengingat", "Memahami"] 
     : arasDariURL === "sederhana" 
@@ -131,6 +131,7 @@ function KomponenPembelajaran() {
     tarikSoalanPeperiksaan();
   }, [chapterId, currentSub]);
 
+  // 🌟 KEMAS KINI: PENANGKAP RALAT MIKROFON KHAS UNTUK TELEFON
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -152,7 +153,22 @@ function KomponenPembelajaran() {
         };
         
         recognition.onend = () => setIsListening(false);
-        recognition.onerror = () => setIsListening(false);
+        
+        // Error Catcher Baru
+        recognition.onerror = (event: any) => {
+          console.error("Ralat Suara:", event.error);
+          setIsListening(false);
+          
+          if (event.error === 'not-allowed') {
+            alert("Akses mikrofon disekat! Sila benarkan (Allow) akses mikrofon pada pelayar web (Chrome/Safari) telefon anda.");
+          } else if (event.error === 'network') {
+            alert("Ralat internet. Sila semak sambungan data/Wi-Fi anda.");
+          } else if (event.error === 'no-speech') {
+            // Biarkan kosong, maksudnya murid tak cakap apa-apa
+          } else {
+            alert("Mikrofon gagal dihidupkan. Sila pastikan anda membuka sistem ini menggunakan pelayar web (Chrome/Safari) utama, bukan dari dalam WhatsApp/Telegram. (Nota: Memerlukan sambungan HTTPS yang selamat)");
+          }
+        };
         
         recognitionRef.current = recognition;
       }
@@ -230,7 +246,7 @@ function KomponenPembelajaran() {
       const docSnap = await getDoc(sessionDocRef);
       if (!docSnap.exists()) {
         
-        // 🌟 TAMBAHAN: Ayat pertama AI berbeza ikut mode normal vs pemulihan
+        // Ayat pertama AI berbeza ikut mode normal vs pemulihan
         let ayatPertamaAI = `Hai! Saya Cikgu AI I-RAGs 👋. Kita akan mulakan sesi untuk **${namaBabSebenar} (${currentSub} ${namaSubtopikSebenar})**.\n\nBerdasarkan nota di sebelah, apa yang awak paling ingat atau faham tentang tajuk ini? Cuba kongsikan.`;
         
         if (isPemulihan) {
@@ -268,18 +284,26 @@ function KomponenPembelajaran() {
     }
   };
 
+  // 🌟 KEMAS KINI: FUNGSI TOGGLE LISTENING (TRY CATCH UNTUK ELAK CRASH DI PHONE)
   const toggleListening = (e: React.MouseEvent) => {
     e.preventDefault(); 
     if (!recognitionRef.current) {
-      alert("Maaf, pelayar web anda (browser) tidak menyokong fungsi suara-ke-teks. Sila guna Google Chrome.");
+      alert("Maaf, telefon / pelayar web anda tidak menyokong fungsi pengecaman suara. Sila gunakan Google Chrome versi terkini.");
       return;
     }
     
     if (isListening) {
       recognitionRef.current.stop();
+      setIsListening(false);
     } else {
-      recognitionRef.current.start();
-      setIsListening(true);
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (err) {
+        console.error("Mikrofon crash:", err);
+        setIsListening(false);
+        alert("Sistem suara sedang dimuat semula. Sila tekan butang sekali lagi.");
+      }
     }
   };
 
@@ -309,7 +333,6 @@ function KomponenPembelajaran() {
         body: JSON.stringify({ 
           studentId, chapterId, text: teksMurid, currentPhase, aras: arasDariURL, soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema,
           tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, 
-          // 🌟 TAMBAHAN: Hantar parameter 'mode' ke API
           mode: modeDariURL,
           previousMessages: messages.slice(-4).map(m => ({ role: m.role, content: m.content })) 
         })
@@ -332,7 +355,6 @@ function KomponenPembelajaran() {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 studentId, chapterId, aras: arasDariURL, currentPhase: nextPhase, 
-                // 🌟 TAMBAHAN: Auto-trigger juga dihantar mode pemulihan
                 mode: modeDariURL,
                 text: `[SISTEM AUTO]: Murid lulus fasa tadi. Berikan SOALAN PERTAMA untuk menguji FASA ${nextPhase}. Tanya 1 soalan sahaja.`, 
                 soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema, tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, previousMessages: [] 
@@ -428,7 +450,6 @@ function KomponenPembelajaran() {
               <div className="leading-tight">
                 <h2 className="font-bold text-[13px] lg:text-sm tracking-wide flex items-center gap-2">
                   Cikgu AI I-RAGs 
-                  {/* 🌟 TAMBAHAN: Lencana jika dalam mod pemulihan */}
                   {isPemulihan && <span className="bg-amber-400 text-amber-950 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider hidden md:inline-block">Mod Pemulihan 🚀</span>}
                 </h2>
                 <p className="text-blue-100 text-[9px] lg:text-[10px] font-medium flex items-center gap-1">
