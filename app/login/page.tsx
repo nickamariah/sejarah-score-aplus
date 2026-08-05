@@ -35,7 +35,11 @@ export default function LogMasuk() {
     setLoading(true);
     setRalat("");
 
-    const rawId = idPengguna.trim();
+    // 🌟 KOD PEMBERSIHAN DATA (SANITIZATION)
+    // Menggantikan trim() biasa. Ini akan membuang SEMUA jarak (space) 
+    // walaupun murid tersilap taip di tengah (Cth: "ME5 001" jadi "ME5001")
+    const rawId = idPengguna.replace(/\s+/g, '');
+
     if (!rawId || !kataLaluan.trim()) {
       setRalat("Sila masukkan ID Pengguna dan Kata Laluan yang sah.");
       setLoading(false);
