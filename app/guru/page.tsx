@@ -728,7 +728,7 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 4: BANK SOALAN UJIAN */}
+          {/* TAB 4: BANK SOALAN UJIAN (DIKEMAS KINI - FULL VIEW) */}
           {activeTab === "soalan" && (
             <div className="space-y-6 animate-in fade-in">
               {!isCreatingSoalan ? (
@@ -958,7 +958,7 @@ export default function GuruDashboard() {
                    <input type="text" placeholder="Cari tajuk bahan nota..." value={searchBahan} onChange={(e) => setSearchBahan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 text-white pl-10 pr-4 py-2.5 rounded-xl text-sm focus:border-blue-500 outline-none shadow-inner" />
                 </div>
                 <select value={filterTingkatanBahan} onChange={(e) => setFilterTingkatanBahan(e.target.value)} className="w-full md:w-auto bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-4 py-2.5 focus:border-blue-500 outline-none shadow-inner">
-                   <option className="bg-slate-900 text-white" value="Semua">Semua Tingkatan</option><option className="bg-slate-900 text-white" value="4">Tingkatan 4</option><option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
+                   <option value="Semua">Semua Tingkatan</option><option value="4">Tingkatan 4</option><option value="5">Tingkatan 5</option>
                 </select>
               </div>
 
@@ -1012,14 +1012,14 @@ export default function GuruDashboard() {
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Tingkatan</label>
                       <select value={bTingkatan} onChange={e => setBTingkatan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-blue-500 shadow-inner">
-                        <option className="bg-slate-900 text-white" value="4">Tingkatan 4</option>
-                        <option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
+                        <option value="4">Tingkatan 4</option>
+                        <option value="5">Tingkatan 5</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Pilih Bab Induk</label>
                       <select value={bBab} onChange={e => setBBab(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-blue-500 shadow-inner">
-                        {[1,2,3,4,5,6,7,8,9,10].map(num => (<option className="bg-slate-900 text-white" key={num} value={`Bab ${num}`}>Bab {num}</option>))}
+                        {[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}
                       </select>
                     </div>
                   </div>
