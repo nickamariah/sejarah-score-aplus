@@ -4,14 +4,14 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation"; 
 import { db } from "@/lib/firebase"; 
 import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, getDocs } from "firebase/firestore";
-import { Bot, Send, ArrowLeft, BookOpen, Video, Lightbulb, HelpCircle, CheckCircle2, Loader2, PlayCircle, X, Mic, Palette } from "lucide-react";
+// 🌟 KEMAS KINI: Tambah icon Printer
+import { Bot, Send, ArrowLeft, BookOpen, Video, Lightbulb, HelpCircle, CheckCircle2, Loader2, PlayCircle, X, Mic, Palette, Printer } from "lucide-react";
 
 function KomponenPembelajaran() {
   const searchParams = useSearchParams();
   const babDariURL = searchParams.get("bab") || "tingkatan4_bab1_sub1.1"; 
   const arasDariURL = (searchParams.get("aras") || "rendah").toLowerCase();
   
-  // Baca parameter "mode" dari URL
   const modeDariURL = (searchParams.get("mode") || "normal").toLowerCase();
   const isPemulihan = modeDariURL === "pemulihan";
 
@@ -61,8 +61,6 @@ function KomponenPembelajaran() {
   }, []);
 
   const chapterId = babDariURL; 
-  
-  // Asingkan ID Sesi Jika Mod Pemulihan supaya chat lama (gagal) tak kacau
   const sessionId = isPemulihan ? `${studentId}_${chapterId}_pemulihan` : `${studentId}_${chapterId}`;
   const pdfFileName = chapterId.split('_sub')[0]; 
 
@@ -70,7 +68,6 @@ function KomponenPembelajaran() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isInitializing = useRef(false);
   
-  // Jika pemulihan, fasa maksimum dihadkan kepada 3 sahaja
   let maxFasa = arasDariURL === "rendah" ? 2 : arasDariURL === "sederhana" ? 3 : 6;
   if (isPemulihan) maxFasa = 3; 
   
@@ -131,7 +128,6 @@ function KomponenPembelajaran() {
     tarikSoalanPeperiksaan();
   }, [chapterId, currentSub]);
 
-  // 🌟 KEMAS KINI: PENANGKAP RALAT MIKROFON KHAS UNTUK TELEFON
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -154,7 +150,6 @@ function KomponenPembelajaran() {
         
         recognition.onend = () => setIsListening(false);
         
-        // Error Catcher Baru
         recognition.onerror = (event: any) => {
           console.error("Ralat Suara:", event.error);
           setIsListening(false);
@@ -164,9 +159,9 @@ function KomponenPembelajaran() {
           } else if (event.error === 'network') {
             alert("Ralat internet. Sila semak sambungan data/Wi-Fi anda.");
           } else if (event.error === 'no-speech') {
-            // Biarkan kosong, maksudnya murid tak cakap apa-apa
+            // Biarkan kosong
           } else {
-            alert("Mikrofon gagal dihidupkan. Sila pastikan anda membuka sistem ini menggunakan pelayar web (Chrome/Safari) utama, bukan dari dalam WhatsApp/Telegram. (Nota: Memerlukan sambungan HTTPS yang selamat)");
+            alert("Mikrofon gagal dihidupkan. Sila pastikan anda membuka sistem ini menggunakan pelayar web (Chrome/Safari) utama. (Nota: Memerlukan sambungan HTTPS yang selamat)");
           }
         };
         
@@ -246,7 +241,6 @@ function KomponenPembelajaran() {
       const docSnap = await getDoc(sessionDocRef);
       if (!docSnap.exists()) {
         
-        // Ayat pertama AI berbeza ikut mode normal vs pemulihan
         let ayatPertamaAI = `Hai! Saya Cikgu AI I-RAGs 👋. Kita akan mulakan sesi untuk **${namaBabSebenar} (${currentSub} ${namaSubtopikSebenar})**.\n\nBerdasarkan nota di sebelah, apa yang awak paling ingat atau faham tentang tajuk ini? Cuba kongsikan.`;
         
         if (isPemulihan) {
@@ -284,7 +278,6 @@ function KomponenPembelajaran() {
     }
   };
 
-  // 🌟 KEMAS KINI: FUNGSI TOGGLE LISTENING (TRY CATCH UNTUK ELAK CRASH DI PHONE)
   const toggleListening = (e: React.MouseEvent) => {
     e.preventDefault(); 
     if (!recognitionRef.current) {
@@ -395,15 +388,25 @@ function KomponenPembelajaran() {
           <div className="flex bg-black/40 p-1 rounded-lg border border-white/10 shrink-0">
             <button
               onClick={() => setShowVideoModal(false)}
-              className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${!showVideoModal ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`}
+              className={`px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${!showVideoModal ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`}
             >
               <BookOpen size={14}/> Nota
             </button>
             <button
               onClick={() => setShowVideoModal(true)}
-              className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${showVideoModal ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`}
+              className={`px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${showVideoModal ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`}
             >
               <PlayCircle size={14}/> Video
+            </button>
+            
+            {/* 🌟 KEMAS KINI: BUTANG CETAK NOTA */}
+            <div className="w-px h-5 bg-white/20 mx-1 self-center"></div>
+            <button
+              onClick={() => window.open(getNotaUrl(), '_blank')}
+              className="px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200 hover:bg-white/10"
+              title="Buka tab baru untuk Cetak Nota"
+            >
+              <Printer size={14}/> Cetak
             </button>
           </div>
 
