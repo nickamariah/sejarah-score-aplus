@@ -32,7 +32,6 @@ export default function GuruDashboard() {
   const [uTahapInkuiri, setUTahapInkuiri] = useState("Rendah");
   const [uKumpulan, setUKumpulan] = useState("Eksperimen");
   const [uIsSubmitting, setUIsSubmitting] = useState(false);
-  const [statistik, setStatistik] = useState({ jumlah: 0, tinggi: 0, sederhana: 0, rendah: 0 });
 
   const [soalanList, setSoalanList] = useState<any[]>([]);
   const [loadingSoalan, setLoadingSoalan] = useState(true);
@@ -43,6 +42,11 @@ export default function GuruDashboard() {
   // STATE CARIAN & FILTER
   const [searchMurid, setSearchMurid] = useState("");
   const [searchPemantauan, setSearchPemantauan] = useState("");
+  
+  // 🌟 TAMBAHAN: Filter Baru Untuk Tab Pemantauan
+  const [filterTingkatanPemantauan, setFilterTingkatanPemantauan] = useState("Semua");
+  const [filterKelasPemantauan, setFilterKelasPemantauan] = useState("Semua");
+
   const [searchSoalan, setSearchSoalan] = useState("");
   const [searchBahan, setSearchBahan] = useState("");
   const [searchSemakan, setSearchSemakan] = useState("");
@@ -92,7 +96,7 @@ export default function GuruDashboard() {
   const [studentProgressData, setStudentProgressData] = useState<{skor: any[], chat: any[]}>({skor: [], chat: []});
   const [loadingStudentProgress, setLoadingStudentProgress] = useState(false);
 
-  // 🌟 STATE TEMA & MUZIK
+  // STATE TEMA & MUZIK
   const senaraiTheme = [
     { id: 'gelap', nama: '🌙 Makmal Gelap', class: 'bg-[#0f172a]' },
     { id: 'angkasa', nama: '🌌 Kosmos', class: 'bg-gradient-to-br from-indigo-950 via-purple-900 to-black' },
@@ -155,7 +159,6 @@ export default function GuruDashboard() {
     if (!isEditingSoalan) setQTopik(subtopikPilihan[0] || "");
   }, [qTingkatan, qBab, isEditingSoalan]);
 
-  // PROGRESS MURID DETAIL
   useEffect(() => {
     const tarikDetailMurid = async () => {
       if (selectedStudentDetail) {
@@ -191,19 +194,11 @@ export default function GuruDashboard() {
       const q = query(collection(db, "users"), orderBy("tarikhDaftar", "desc"));
       const querySnapshot = await getDocs(q);
       const data: any[] = [];
-      let tinggi = 0, sederhana = 0, rendah = 0, jumlahMurid = 0;
       querySnapshot.forEach((doc) => {
         const user = { id: doc.id, ...doc.data() } as any;
         data.push(user);
-        if (user.role === "murid") {
-          jumlahMurid++;
-          const tahap = user.tahapInkuiri || "Rendah";
-          if (tahap === "Tinggi") tinggi++;
-          else if (tahap === "Sederhana") sederhana++;
-          else rendah++;
-        }
       });
-      setSenaraiPengguna(data); setStatistik({ jumlah: jumlahMurid, tinggi, sederhana, rendah });
+      setSenaraiPengguna(data); 
     } catch (error) { console.error(error); } finally { setLoadingPengguna(false); }
   };
 
@@ -302,9 +297,12 @@ export default function GuruDashboard() {
           await createUserWithEmailAndPassword(secondaryAuth, emailMaya, uKataLaluan);
           await signOut(secondaryAuth); 
         } catch (error: any) { 
-          // 🌟 KEMAS KINI: Beritahu pengguna Error Code Sebenar dari Firebase!
           console.error("Firebase Auth Error Sebenar:", error);
-          showToastMessage(`Ralat Pendaftaran: ${error.code || error.message}`, "error"); 
+          if (error.code === 'auth/email-already-in-use') {
+             showToastMessage(`Ralat: E-mel ${emailMaya} sudah wujud di Firebase. Sila padam di Firebase Console.`, "error");
+          } else {
+             showToastMessage(`Ralat Pendaftaran: ${error.code || error.message}`, "error"); 
+          }
           setUIsSubmitting(false); 
           return; 
         }
@@ -394,10 +392,26 @@ export default function GuruDashboard() {
   const showToastMessage = (msg: string, type: 'success'|'error'|'info'='info') => { setToast({ message: msg, type }); setTimeout(() => setToast(null), 3000); };
   const handleLogout = () => { window.location.href = '/login'; };
 
-  // FILTERING LOGICS
+  // 🌟 FILTERING LOGICS (Dikemas kini)
   const filteredPengguna = senaraiPengguna.filter(u => u.nama?.toLowerCase().includes(searchMurid.toLowerCase()) || u.idPengguna?.toLowerCase().includes(searchMurid.toLowerCase()) || u.kelas?.toLowerCase().includes(searchMurid.toLowerCase()));
-  const filteredPemantauan = senaraiPengguna.filter(u => u.role === "murid" && (u.nama?.toLowerCase().includes(searchPemantauan.toLowerCase()) || u.idPengguna?.toLowerCase().includes(searchPemantauan.toLowerCase())));
   
+  // 🌟 Filter Baru untuk Pemantauan
+  const filteredPemantauan = senaraiPengguna.filter(u => {
+    if (u.role !== "murid") return false;
+    const matchSearch = u.nama?.toLowerCase().includes(searchPemantauan.toLowerCase()) || u.idPengguna?.toLowerCase().includes(searchPemantauan.toLowerCase());
+    const matchTingkatan = filterTingkatanPemantauan === "Semua" || String(u.tingkatan) === filterTingkatanPemantauan;
+    const matchKelas = filterKelasPemantauan === "Semua" || u.kelas === filterKelasPemantauan;
+    return matchSearch && matchTingkatan && matchKelas;
+  });
+
+  // 🌟 PENGIRAAN STATISTIK PEMANTAUAN (Dinamik)
+  const statPemantauan = {
+    jumlah: filteredPemantauan.length,
+    tinggi: filteredPemantauan.filter(u => u.tahapInkuiri === 'Tinggi').length,
+    sederhana: filteredPemantauan.filter(u => u.tahapInkuiri === 'Sederhana').length,
+    rendah: filteredPemantauan.filter(u => u.tahapInkuiri === 'Rendah').length,
+  };
+
   const soalanListFiltered = soalanList.filter((q) => {
     const matchTingkatan = filterTingkatan === "Semua" || q.tingkatan === filterTingkatan;
     const matchBab = filterBab === "Semua" || q.bab === filterBab;
@@ -580,18 +594,37 @@ export default function GuruDashboard() {
           {activeTab === "pemantauan" && ( 
              <div className="space-y-6 animate-in fade-in">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 gap-4 shadow-xl">
-                 <div><h3 className="text-xl font-bold text-white mb-2 flex items-center gap-3"><Activity className="text-emerald-400" size={24}/> Pemantauan Status Murid</h3><p className="text-slate-400 text-sm">Pantau tahap inkuiri dan akses profil pembelajaran murid.</p></div>
-                 <div className="relative w-full md:w-72">
-                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18}/>
-                   <input type="text" placeholder="Cari nama murid..." value={searchPemantauan} onChange={(e) => setSearchPemantauan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 text-white pl-10 pr-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner" />
+                 <div>
+                   <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-3"><Activity className="text-emerald-400" size={24}/> Pemantauan Status Murid</h3>
+                   <p className="text-slate-400 text-sm">Pantau tahap inkuiri dan akses profil pembelajaran murid.</p>
+                 </div>
+                 
+                 {/* 🌟 KEMAS KINI: FILTER TINGKATAN, KELAS & CARIAN */}
+                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                   <select value={filterTingkatanPemantauan} onChange={(e) => {setFilterTingkatanPemantauan(e.target.value); setFilterKelasPemantauan("Semua");}} className="w-full sm:w-auto bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner">
+                      <option className="bg-slate-900" value="Semua">Semua Tingkatan</option>
+                      <option className="bg-slate-900" value="4">Tingkatan 4</option>
+                      <option className="bg-slate-900" value="5">Tingkatan 5</option>
+                   </select>
+                   <select value={filterKelasPemantauan} onChange={(e) => setFilterKelasPemantauan(e.target.value)} className="w-full sm:w-auto bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner">
+                      <option className="bg-slate-900" value="Semua">Semua Kelas</option>
+                      {Array.from(new Set(senaraiPengguna.filter(u => u.role === "murid" && (filterTingkatanPemantauan === "Semua" || String(u.tingkatan) === filterTingkatanPemantauan)).map(u => u.kelas))).filter(Boolean).sort().map((k, idx) => (
+                        <option className="bg-slate-900" key={idx} value={k}>{k}</option>
+                      ))}
+                   </select>
+                   <div className="relative w-full sm:w-64">
+                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18}/>
+                     <input type="text" placeholder="Cari nama murid..." value={searchPemantauan} onChange={(e) => setSearchPemantauan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 text-white pl-10 pr-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner" />
+                   </div>
                  </div>
               </div>
               
+              {/* 🌟 KEMAS KINI: STATISTIK MENGGUNAKAN DATA YANG DITAPIS */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 p-4 md:p-6 flex flex-col items-center shadow-xl"><span className="text-slate-400 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider">Jumlah Murid</span><span className="text-3xl md:text-5xl font-black text-blue-400 drop-shadow-md">{statistik.jumlah}</span></div>
-                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-emerald-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl"><span className="text-emerald-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider">Inkuiri Tinggi</span><span className="text-3xl md:text-5xl font-black text-emerald-400 drop-shadow-md">{statistik.tinggi}</span></div>
-                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-amber-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl"><span className="text-amber-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider">Inkuiri Sederhana</span><span className="text-3xl md:text-5xl font-black text-amber-400 drop-shadow-md">{statistik.sederhana}</span></div>
-                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-rose-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl"><span className="text-rose-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider">Inkuiri Rendah</span><span className="text-3xl md:text-5xl font-black text-rose-400 drop-shadow-md">{statistik.rendah}</span></div>
+                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 p-4 md:p-6 flex flex-col items-center shadow-xl"><span className="text-slate-400 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider">Jumlah Murid</span><span className="text-3xl md:text-5xl font-black text-blue-400 drop-shadow-md">{statPemantauan.jumlah}</span></div>
+                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-emerald-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl"><span className="text-emerald-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider">Inkuiri Tinggi</span><span className="text-3xl md:text-5xl font-black text-emerald-400 drop-shadow-md">{statPemantauan.tinggi}</span></div>
+                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-amber-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl"><span className="text-amber-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider">Inkuiri Sederhana</span><span className="text-3xl md:text-5xl font-black text-amber-400 drop-shadow-md">{statPemantauan.sederhana}</span></div>
+                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-rose-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl"><span className="text-rose-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider">Inkuiri Rendah</span><span className="text-3xl md:text-5xl font-black text-rose-400 drop-shadow-md">{statPemantauan.rendah}</span></div>
               </div>
 
               <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
@@ -696,30 +729,30 @@ export default function GuruDashboard() {
                   <div className="bg-slate-800/80 backdrop-blur-md p-4 rounded-xl border border-slate-700 flex flex-col md:flex-row flex-wrap items-center gap-3 shadow-md">
                      <div className="flex items-center gap-2 text-slate-200 font-bold text-sm shrink-0 w-full md:w-auto"><Filter size={18} className="text-cyan-400"/> Tapis & Cari:</div>
                      
-                     <div className="relative w-full md:flex-1 min-w-50">
+                     <div className="relative w-full md:flex-1 min-w-[200px]">
                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
                        <input type="text" placeholder="Cari teks soalan / topik..." value={searchSoalan} onChange={(e) => setSearchSoalan(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 text-white pl-10 pr-3 py-2.5 rounded-xl text-sm focus:border-cyan-500 outline-none shadow-inner" />
                      </div>
 
                      <div className="flex flex-wrap w-full md:w-auto gap-3">
-                       <select value={filterTingkatan} onChange={(e) => setFilterTingkatan(e.target.value)} className="flex-1 min-w-30 bg-[#0f172a] text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
-                          <option value="Semua">Semua Tg.</option><option value="4">Tingkatan 4</option><option value="5">Tingkatan 5</option>
+                       <select value={filterTingkatan} onChange={(e) => setFilterTingkatan(e.target.value)} className="flex-1 min-w-[120px] bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
+                          <option className="bg-slate-900 text-white" value="Semua">Semua Tg.</option><option className="bg-slate-900 text-white" value="4">Tingkatan 4</option><option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
                        </select>
-                       <select value={filterBab} onChange={(e) => setFilterBab(e.target.value)} className="flex-1 min-w-25 bg-[#0f172a] text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
-                          <option value="Semua">Semua Bab</option>{[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}
+                       <select value={filterBab} onChange={(e) => setFilterBab(e.target.value)} className="flex-1 min-w-[100px] bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
+                          <option className="bg-slate-900 text-white" value="Semua">Semua Bab</option>{[1,2,3,4,5,6,7,8,9,10].map(num => (<option className="bg-slate-900 text-white" key={num} value={`Bab ${num}`}>Bab {num}</option>))}
                        </select>
-                       <select value={filterJenis} onChange={(e) => setFilterJenis(e.target.value)} className="flex-1 min-w-27.5 bg-[#0f172a] text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
-                          <option value="Semua">Semua Jenis</option><option value="objektif">Objektif</option><option value="struktur">Struktur</option>
+                       <select value={filterJenis} onChange={(e) => setFilterJenis(e.target.value)} className="flex-1 min-w-[110px] bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
+                          <option className="bg-slate-900 text-white" value="Semua">Semua Jenis</option><option className="bg-slate-900 text-white" value="objektif">Objektif</option><option className="bg-slate-900 text-white" value="struktur">Struktur</option>
                        </select>
                        
-                       <select value={filterKegunaan} onChange={(e) => setFilterKegunaan(e.target.value)} className="flex-1 min-w-35 bg-[#0f172a] text-sm text-cyan-400 font-bold border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
-                          <option value="Semua">Semua Sasaran</option>
-                          <option value="semua_ujian">Semua Ujian</option>
-                          <option value="pre_post">Pre & Post</option>
-                          <option value="pre_test">Pre-Test Sahaja</option>
-                          <option value="post_test">Post-Test Sahaja</option>
-                          <option value="pemulihan">Pemulihan Sahaja</option>
-                          <option value="simpanan" className="text-slate-400">Simpanan / Draf</option>
+                       <select value={filterKegunaan} onChange={(e) => setFilterKegunaan(e.target.value)} className="flex-1 min-w-[140px] bg-cyan-900/20 text-sm text-cyan-300 font-bold border border-cyan-800/50 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
+                          <option className="bg-slate-900 text-white font-normal" value="Semua">Semua Sasaran</option>
+                          <option className="bg-slate-900 text-white font-normal" value="semua_ujian">Semua Ujian</option>
+                          <option className="bg-slate-900 text-white font-normal" value="pre_post">Pre & Post</option>
+                          <option className="bg-slate-900 text-white font-normal" value="pre_test">Pre-Test Sahaja</option>
+                          <option className="bg-slate-900 text-white font-normal" value="post_test">Post-Test Sahaja</option>
+                          <option className="bg-slate-900 text-white font-normal" value="pemulihan">Pemulihan Sahaja</option>
+                          <option className="bg-slate-900 text-slate-400 font-normal" value="simpanan">Simpanan / Draf</option>
                        </select>
                      </div>
                   </div>
@@ -820,20 +853,20 @@ export default function GuruDashboard() {
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Tingkatan</label>
                       <select value={qTingkatan} onChange={e => setQTingkatan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        <option value="4">Tingkatan 4</option>
-                        <option value="5">Tingkatan 5</option>
+                        <option className="bg-slate-900 text-white" value="4">Tingkatan 4</option>
+                        <option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Bab</label>
                       <select value={qBab} onChange={e => setQBab(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        {[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}
+                        {[1,2,3,4,5,6,7,8,9,10].map(num => (<option className="bg-slate-900 text-white" key={num} value={`Bab ${num}`}>Bab {num}</option>))}
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Topik</label>
                       <select value={qTopik} onChange={e => setQTopik(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        {subtopikPilihan.map((sub: string, index: number) => (<option key={index} value={sub}>{sub}</option>))}
+                        {subtopikPilihan.map((sub: string, index: number) => (<option className="bg-slate-900 text-white" key={index} value={sub}>{sub}</option>))}
                       </select>
                     </div>
                   </div>
@@ -841,19 +874,19 @@ export default function GuruDashboard() {
                     <div>
                       <label className="block text-sm text-emerald-400 font-bold mb-2">Sasaran Ujian</label>
                       <select value={qKegunaan} onChange={e => setQKegunaan(e.target.value)} className="w-full bg-slate-900 border-2 border-emerald-800/50 rounded-xl p-3.5 text-emerald-400 font-bold outline-none text-sm focus:border-emerald-400 shadow-inner">
-                        <option value="semua_ujian">Semua (Pre, Post & Pemulihan)</option>
-                        <option value="semua">Pre-Test & Post-Test</option>
-                        <option value="pre_test">Khas Pre-Test Sahaja</option>
-                        <option value="post_test">Khas Post-Test Sahaja</option>
-                        <option value="pemulihan">Khas Pemulihan Sahaja</option>
-                        <option value="simpanan" className="text-slate-400">Simpanan Sahaja (Draf)</option>
+                        <option className="bg-slate-900 text-white font-normal" value="semua_ujian">Semua (Pre, Post & Pemulihan)</option>
+                        <option className="bg-slate-900 text-white font-normal" value="semua">Pre-Test & Post-Test</option>
+                        <option className="bg-slate-900 text-white font-normal" value="pre_test">Khas Pre-Test Sahaja</option>
+                        <option className="bg-slate-900 text-white font-normal" value="post_test">Khas Post-Test Sahaja</option>
+                        <option className="bg-slate-900 text-white font-normal" value="pemulihan">Khas Pemulihan Sahaja</option>
+                        <option className="bg-slate-900 text-slate-400 font-normal" value="simpanan">Simpanan Sahaja (Draf)</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Jenis Soalan</label>
                       <select value={qJenis} onChange={e => setQJenis(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        <option value="objektif">Objektif</option>
-                        <option value="struktur">Struktur / Esei</option>
+                        <option className="bg-slate-900 text-white font-normal" value="objektif">Objektif</option>
+                        <option className="bg-slate-900 text-white font-normal" value="struktur">Struktur / Esei</option>
                       </select>
                     </div>
                     <div><label className="block text-sm text-slate-400 mb-2 font-medium">Markah</label><input type="number" value={qMarkah} onChange={e => setQMarkah(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner"/></div>
@@ -876,10 +909,10 @@ export default function GuruDashboard() {
                       <div>
                         <label className="block text-sm text-emerald-400 font-bold mb-3">Jawapan Betul (Kunci)</label>
                         <select value={qJawapanBetul} onChange={e => setQJawapanBetul(e.target.value)} className="w-full md:w-1/2 bg-slate-900 border-2 border-emerald-500/50 rounded-xl p-3.5 text-emerald-400 font-bold outline-none focus:border-emerald-400 text-sm shadow-inner">
-                          <option value="A">Pilihan A</option>
-                          <option value="B">Pilihan B</option>
-                          <option value="C">Pilihan C</option>
-                          <option value="D">Pilihan D</option>
+                          <option className="bg-slate-900 text-white font-normal" value="A">Pilihan A</option>
+                          <option className="bg-slate-900 text-white font-normal" value="B">Pilihan B</option>
+                          <option className="bg-slate-900 text-white font-normal" value="C">Pilihan C</option>
+                          <option className="bg-slate-900 text-white font-normal" value="D">Pilihan D</option>
                         </select>
                       </div>
                     </div>
@@ -913,7 +946,7 @@ export default function GuruDashboard() {
                    <input type="text" placeholder="Cari tajuk bahan nota..." value={searchBahan} onChange={(e) => setSearchBahan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 text-white pl-10 pr-4 py-2.5 rounded-xl text-sm focus:border-blue-500 outline-none shadow-inner" />
                 </div>
                 <select value={filterTingkatanBahan} onChange={(e) => setFilterTingkatanBahan(e.target.value)} className="w-full md:w-auto bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-4 py-2.5 focus:border-blue-500 outline-none shadow-inner">
-                   <option value="Semua">Semua Tingkatan</option><option value="4">Tingkatan 4</option><option value="5">Tingkatan 5</option>
+                   <option className="bg-slate-900 text-white" value="Semua">Semua Tingkatan</option><option className="bg-slate-900 text-white" value="4">Tingkatan 4</option><option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
                 </select>
               </div>
 
@@ -962,7 +995,7 @@ export default function GuruDashboard() {
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50 flex-1 overflow-y-auto max-h-75 mt-4 shadow-inner custom-scrollbar">
+                        <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50 flex-1 overflow-y-auto max-h-[300px] mt-4 shadow-inner custom-scrollbar">
                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">Pemetaan Pautan Subtopik:</p>
                            <ul className="text-sm text-slate-300 space-y-3.5">
                              {bahan.subtopics?.map((sub: any, i: number) => (
@@ -996,14 +1029,14 @@ export default function GuruDashboard() {
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Tingkatan</label>
                       <select value={bTingkatan} onChange={e => setBTingkatan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-blue-500 shadow-inner">
-                        <option value="4">Tingkatan 4</option>
-                        <option value="5">Tingkatan 5</option>
+                        <option className="bg-slate-900 text-white" value="4">Tingkatan 4</option>
+                        <option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Pilih Bab Induk</label>
                       <select value={bBab} onChange={e => setBBab(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-blue-500 shadow-inner">
-                        {[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}
+                        {[1,2,3,4,5,6,7,8,9,10].map(num => (<option className="bg-slate-900 text-white" key={num} value={`Bab ${num}`}>Bab {num}</option>))}
                       </select>
                     </div>
                   </div>
@@ -1095,7 +1128,7 @@ export default function GuruDashboard() {
                 <div className="bg-slate-900/80 p-6 md:p-8 flex justify-between items-start border-b border-slate-700">
                   <div>
                     <h3 className="text-2xl md:text-3xl font-extrabold text-white mb-2 flex items-center gap-3">
-                      Profil Akademik: <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-cyan-400">{selectedStudentDetail.nama}</span>
+                      Profil Akademik: <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">{selectedStudentDetail.nama}</span>
                     </h3>
                     <div className="flex flex-wrap items-center gap-2 mt-3">
                       <span className="bg-slate-700/50 px-3 py-1 rounded-lg border border-slate-600 text-slate-300 text-xs font-bold uppercase tracking-widest shadow-sm">Tingkatan {selectedStudentDetail.tingkatan} {selectedStudentDetail.kelas}</span> 
@@ -1113,7 +1146,7 @@ export default function GuruDashboard() {
                    {loadingStudentProgress ? (
                       <div className="p-16 text-center text-slate-400 animate-pulse bg-slate-900/40 rounded-2xl border border-slate-700 font-medium">Memproses data pembelajaran raya... ⏳</div>
                    ) : (
-                     <div className="bg-slate-900/60 rounded-2xl border border-slate-700 overflow-hidden shadow-inner">
+                     <div className="bg-slate-900/60 rounded-2xl border border-slate-700 overflow-x-auto shadow-inner custom-scrollbar">
                        <table className="w-full text-left border-collapse min-w-max">
                           <thead>
                             <tr className="border-b border-slate-700 bg-slate-900/80">
@@ -1254,7 +1287,7 @@ export default function GuruDashboard() {
                                             <div className="p-6 md:p-8 flex flex-col lg:flex-row gap-6">
                                               
                                               {/* KOTAK METRIK SKOR */}
-                                              <div className="flex-1 flex gap-4">
+                                              <div className="flex-1 flex gap-4 min-w-0">
                                                 <div className="flex-1 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-inner">
                                                    <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 border-b border-slate-700 pb-2">Metrik Diagnostik (Pre)</h5>
                                                    {preTestRecord ? (
@@ -1280,11 +1313,11 @@ export default function GuruDashboard() {
                                               </div>
 
                                               {/* KOTAK ANALITIK GURU */}
-                                              <div className="flex-1 bg-linear-to-br from-indigo-900/20 to-purple-900/20 p-5 rounded-xl border border-indigo-800/30 shadow-inner">
+                                              <div className="flex-1 min-w-0 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 p-5 rounded-xl border border-indigo-800/30 shadow-inner">
                                                  <h5 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-3 flex items-center gap-2"><BrainCircuit size={16}/> Laporan Analitik Pedagogi</h5>
                                                  
                                                  <div className="flex items-center gap-4 mb-4">
-                                                   <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 shadow-md">
+                                                   <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 shadow-md shrink-0">
                                                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center mb-1">Learning Gain</p>
                                                      <div className="flex items-center justify-center gap-1.5">
                                                         {gainIcon}
