@@ -32,6 +32,7 @@ export default function GuruDashboard() {
   const [uTahapInkuiri, setUTahapInkuiri] = useState("Rendah");
   const [uKumpulan, setUKumpulan] = useState("Eksperimen");
   const [uIsSubmitting, setUIsSubmitting] = useState(false);
+  const [statistik, setStatistik] = useState({ jumlah: 0, tinggi: 0, sederhana: 0, rendah: 0 });
 
   const [soalanList, setSoalanList] = useState<any[]>([]);
   const [loadingSoalan, setLoadingSoalan] = useState(true);
@@ -42,11 +43,8 @@ export default function GuruDashboard() {
   // STATE CARIAN & FILTER
   const [searchMurid, setSearchMurid] = useState("");
   const [searchPemantauan, setSearchPemantauan] = useState("");
-  
-  // 🌟 TAMBAHAN: Filter Baru Untuk Tab Pemantauan
   const [filterTingkatanPemantauan, setFilterTingkatanPemantauan] = useState("Semua");
   const [filterKelasPemantauan, setFilterKelasPemantauan] = useState("Semua");
-
   const [searchSoalan, setSearchSoalan] = useState("");
   const [searchBahan, setSearchBahan] = useState("");
   const [searchSemakan, setSearchSemakan] = useState("");
@@ -159,6 +157,7 @@ export default function GuruDashboard() {
     if (!isEditingSoalan) setQTopik(subtopikPilihan[0] || "");
   }, [qTingkatan, qBab, isEditingSoalan]);
 
+  // PROGRESS MURID DETAIL
   useEffect(() => {
     const tarikDetailMurid = async () => {
       if (selectedStudentDetail) {
@@ -194,11 +193,19 @@ export default function GuruDashboard() {
       const q = query(collection(db, "users"), orderBy("tarikhDaftar", "desc"));
       const querySnapshot = await getDocs(q);
       const data: any[] = [];
+      let tinggi = 0, sederhana = 0, rendah = 0, jumlahMurid = 0;
       querySnapshot.forEach((doc) => {
         const user = { id: doc.id, ...doc.data() } as any;
         data.push(user);
+        if (user.role === "murid") {
+          jumlahMurid++;
+          const tahap = user.tahapInkuiri || "Rendah";
+          if (tahap === "Tinggi") tinggi++;
+          else if (tahap === "Sederhana") sederhana++;
+          else rendah++;
+        }
       });
-      setSenaraiPengguna(data); 
+      setSenaraiPengguna(data); setStatistik({ jumlah: jumlahMurid, tinggi, sederhana, rendah });
     } catch (error) { console.error(error); } finally { setLoadingPengguna(false); }
   };
 
@@ -388,14 +395,22 @@ export default function GuruDashboard() {
     try { await updateDoc(doc(db, "chapters", bahan.id), { subtopics: subtopicsArray, updatedAt: serverTimestamp() }); showToastMessage(`Senarai subtopik diselaraskan!`, "success"); tarikBahanFirebase(); } catch (error) { showToastMessage("Ralat sync subtopik.", "error"); }
   };
 
-  const handleSimpanMukaSurat = async (bahanId: string) => { try { await updateDoc(doc(db, "chapters", bahanId), { subtopics: tempSubtopik, updatedAt: serverTimestamp() }); showToastMessage("Maklumat Subtopik berjaya disimpan!", "success"); setEditSubtopikId(null); tarikBahanFirebase(); } catch(error) { showToastMessage("Ralat menyimpan maklumat.", "error"); } };
+  const handleSimpanMukaSurat = async (bahanId: string) => { 
+    if(!bahanId) return;
+    try { 
+      await updateDoc(doc(db, "chapters", bahanId), { subtopics: tempSubtopik, updatedAt: serverTimestamp() }); 
+      showToastMessage("Maklumat Subtopik berjaya disimpan!", "success"); 
+      setEditSubtopikId(null); 
+      tarikBahanFirebase(); 
+    } catch(error) { showToastMessage("Ralat menyimpan maklumat.", "error"); } 
+  };
+
   const showToastMessage = (msg: string, type: 'success'|'error'|'info'='info') => { setToast({ message: msg, type }); setTimeout(() => setToast(null), 3000); };
   const handleLogout = () => { window.location.href = '/login'; };
 
-  // 🌟 FILTERING LOGICS (Dikemas kini)
+  // FILTERING LOGICS
   const filteredPengguna = senaraiPengguna.filter(u => u.nama?.toLowerCase().includes(searchMurid.toLowerCase()) || u.idPengguna?.toLowerCase().includes(searchMurid.toLowerCase()) || u.kelas?.toLowerCase().includes(searchMurid.toLowerCase()));
   
-  // 🌟 Filter Baru untuk Pemantauan
   const filteredPemantauan = senaraiPengguna.filter(u => {
     if (u.role !== "murid") return false;
     const matchSearch = u.nama?.toLowerCase().includes(searchPemantauan.toLowerCase()) || u.idPengguna?.toLowerCase().includes(searchPemantauan.toLowerCase());
@@ -404,7 +419,6 @@ export default function GuruDashboard() {
     return matchSearch && matchTingkatan && matchKelas;
   });
 
-  // 🌟 PENGIRAAN STATISTIK PEMANTAUAN (Dinamik)
   const statPemantauan = {
     jumlah: filteredPemantauan.length,
     tinggi: filteredPemantauan.filter(u => u.tahapInkuiri === 'Tinggi').length,
@@ -599,7 +613,6 @@ export default function GuruDashboard() {
                    <p className="text-slate-400 text-sm">Pantau tahap inkuiri dan akses profil pembelajaran murid.</p>
                  </div>
                  
-                 {/* 🌟 KEMAS KINI: FILTER TINGKATAN, KELAS & CARIAN */}
                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
                    <select value={filterTingkatanPemantauan} onChange={(e) => {setFilterTingkatanPemantauan(e.target.value); setFilterKelasPemantauan("Semua");}} className="w-full sm:w-auto bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner">
                       <option className="bg-slate-900" value="Semua">Semua Tingkatan</option>
@@ -619,7 +632,6 @@ export default function GuruDashboard() {
                  </div>
               </div>
               
-              {/* 🌟 KEMAS KINI: STATISTIK MENGGUNAKAN DATA YANG DITAPIS */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 p-4 md:p-6 flex flex-col items-center shadow-xl"><span className="text-slate-400 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider">Jumlah Murid</span><span className="text-3xl md:text-5xl font-black text-blue-400 drop-shadow-md">{statPemantauan.jumlah}</span></div>
                 <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-emerald-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl"><span className="text-emerald-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider">Inkuiri Tinggi</span><span className="text-3xl md:text-5xl font-black text-emerald-400 drop-shadow-md">{statPemantauan.tinggi}</span></div>
@@ -716,7 +728,7 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 4: BANK SOALAN UJIAN (DIKEMAS KINI - FULL VIEW) */}
+          {/* TAB 4: BANK SOALAN UJIAN */}
           {activeTab === "soalan" && (
             <div className="space-y-6 animate-in fade-in">
               {!isCreatingSoalan ? (
@@ -736,13 +748,13 @@ export default function GuruDashboard() {
 
                      <div className="flex flex-wrap w-full md:w-auto gap-3">
                        <select value={filterTingkatan} onChange={(e) => setFilterTingkatan(e.target.value)} className="flex-1 min-w-[120px] bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
-                          <option className="bg-slate-900 text-white" value="Semua">Semua Tg.</option><option className="bg-slate-900 text-white" value="4">Tingkatan 4</option><option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
+                          <option value="Semua">Semua Tg.</option><option value="4">Tingkatan 4</option><option value="5">Tingkatan 5</option>
                        </select>
                        <select value={filterBab} onChange={(e) => setFilterBab(e.target.value)} className="flex-1 min-w-[100px] bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
-                          <option className="bg-slate-900 text-white" value="Semua">Semua Bab</option>{[1,2,3,4,5,6,7,8,9,10].map(num => (<option className="bg-slate-900 text-white" key={num} value={`Bab ${num}`}>Bab {num}</option>))}
+                          <option value="Semua">Semua Bab</option>{[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}
                        </select>
                        <select value={filterJenis} onChange={(e) => setFilterJenis(e.target.value)} className="flex-1 min-w-[110px] bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
-                          <option className="bg-slate-900 text-white" value="Semua">Semua Jenis</option><option className="bg-slate-900 text-white" value="objektif">Objektif</option><option className="bg-slate-900 text-white" value="struktur">Struktur</option>
+                          <option value="Semua">Semua Jenis</option><option value="objektif">Objektif</option><option value="struktur">Struktur</option>
                        </select>
                        
                        <select value={filterKegunaan} onChange={(e) => setFilterKegunaan(e.target.value)} className="flex-1 min-w-[140px] bg-cyan-900/20 text-sm text-cyan-300 font-bold border border-cyan-800/50 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
@@ -853,20 +865,20 @@ export default function GuruDashboard() {
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Tingkatan</label>
                       <select value={qTingkatan} onChange={e => setQTingkatan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        <option className="bg-slate-900 text-white" value="4">Tingkatan 4</option>
-                        <option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
+                        <option value="4">Tingkatan 4</option>
+                        <option value="5">Tingkatan 5</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Bab</label>
                       <select value={qBab} onChange={e => setQBab(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        {[1,2,3,4,5,6,7,8,9,10].map(num => (<option className="bg-slate-900 text-white" key={num} value={`Bab ${num}`}>Bab {num}</option>))}
+                        {[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Topik</label>
                       <select value={qTopik} onChange={e => setQTopik(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        {subtopikPilihan.map((sub: string, index: number) => (<option className="bg-slate-900 text-white" key={index} value={sub}>{sub}</option>))}
+                        {subtopikPilihan.map((sub: string, index: number) => (<option key={index} value={sub}>{sub}</option>))}
                       </select>
                     </div>
                   </div>
@@ -874,19 +886,19 @@ export default function GuruDashboard() {
                     <div>
                       <label className="block text-sm text-emerald-400 font-bold mb-2">Sasaran Ujian</label>
                       <select value={qKegunaan} onChange={e => setQKegunaan(e.target.value)} className="w-full bg-slate-900 border-2 border-emerald-800/50 rounded-xl p-3.5 text-emerald-400 font-bold outline-none text-sm focus:border-emerald-400 shadow-inner">
-                        <option className="bg-slate-900 text-white font-normal" value="semua_ujian">Semua (Pre, Post & Pemulihan)</option>
-                        <option className="bg-slate-900 text-white font-normal" value="semua">Pre-Test & Post-Test</option>
-                        <option className="bg-slate-900 text-white font-normal" value="pre_test">Khas Pre-Test Sahaja</option>
-                        <option className="bg-slate-900 text-white font-normal" value="post_test">Khas Post-Test Sahaja</option>
-                        <option className="bg-slate-900 text-white font-normal" value="pemulihan">Khas Pemulihan Sahaja</option>
-                        <option className="bg-slate-900 text-slate-400 font-normal" value="simpanan">Simpanan Sahaja (Draf)</option>
+                        <option value="semua_ujian">Semua (Pre, Post & Pemulihan)</option>
+                        <option value="semua">Pre-Test & Post-Test</option>
+                        <option value="pre_test">Khas Pre-Test Sahaja</option>
+                        <option value="post_test">Khas Post-Test Sahaja</option>
+                        <option value="pemulihan">Khas Pemulihan Sahaja</option>
+                        <option value="simpanan" className="text-slate-400">Simpanan Sahaja (Draf)</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Jenis Soalan</label>
                       <select value={qJenis} onChange={e => setQJenis(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        <option className="bg-slate-900 text-white font-normal" value="objektif">Objektif</option>
-                        <option className="bg-slate-900 text-white font-normal" value="struktur">Struktur / Esei</option>
+                        <option value="objektif">Objektif</option>
+                        <option value="struktur">Struktur / Esei</option>
                       </select>
                     </div>
                     <div><label className="block text-sm text-slate-400 mb-2 font-medium">Markah</label><input type="number" value={qMarkah} onChange={e => setQMarkah(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner"/></div>
@@ -909,10 +921,10 @@ export default function GuruDashboard() {
                       <div>
                         <label className="block text-sm text-emerald-400 font-bold mb-3">Jawapan Betul (Kunci)</label>
                         <select value={qJawapanBetul} onChange={e => setQJawapanBetul(e.target.value)} className="w-full md:w-1/2 bg-slate-900 border-2 border-emerald-500/50 rounded-xl p-3.5 text-emerald-400 font-bold outline-none focus:border-emerald-400 text-sm shadow-inner">
-                          <option className="bg-slate-900 text-white font-normal" value="A">Pilihan A</option>
-                          <option className="bg-slate-900 text-white font-normal" value="B">Pilihan B</option>
-                          <option className="bg-slate-900 text-white font-normal" value="C">Pilihan C</option>
-                          <option className="bg-slate-900 text-white font-normal" value="D">Pilihan D</option>
+                          <option value="A">Pilihan A</option>
+                          <option value="B">Pilihan B</option>
+                          <option value="C">Pilihan C</option>
+                          <option value="D">Pilihan D</option>
                         </select>
                       </div>
                     </div>
@@ -967,50 +979,21 @@ export default function GuruDashboard() {
                       <h4 className="text-xl font-bold text-white mb-2 line-clamp-2 leading-tight">{bahan.title}</h4>
                       <p className="text-sm font-bold text-amber-500 font-mono mb-2">ID: {bahan.id}</p>
                       
-                      {editSubtopikId === bahan.id ? (
-                        <div className="mt-4 bg-slate-900/60 p-5 rounded-2xl border border-amber-600/30 shadow-inner">
-                          <p className="text-xs text-amber-400 font-bold mb-4 uppercase tracking-widest flex items-center gap-2"><Edit3 size={14}/> Tetapkan Link Khas & Teks AI:</p>
-                          <div className="space-y-4 mb-5 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                            {tempSubtopik.map((sub, i) => (
-                               <div key={i} className="flex flex-col gap-3 bg-slate-800/80 p-5 rounded-xl border border-slate-700/50 shadow-sm">
-                                 <div className="flex items-center gap-3 border-b border-slate-700/50 pb-3"><span className="text-sm font-black text-blue-400 shrink-0 bg-blue-900/30 px-2 py-1 rounded">{sub.id}</span><span className="text-sm text-slate-200 font-bold">{sub.title}</span></div>
-                                 <div className="flex flex-col md:flex-row md:items-center gap-3 mt-2">
-                                   <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider shrink-0 md:w-16 md:text-right">🔗 Nota:</span>
-                                   <input type="text" value={sub.notaUrl || ""} placeholder="Link Canva/Drive Subtopik..." onChange={(e) => { const newSubs = [...tempSubtopik]; newSubs[i].notaUrl = e.target.value; setTempSubtopik(newSubs); }} className="flex-1 bg-slate-900 text-slate-300 font-mono text-xs p-2.5 rounded-lg border border-slate-700 focus:border-blue-500 outline-none shadow-inner" />
-                                 </div>
-                                 <div className="flex flex-col md:flex-row md:items-center gap-3">
-                                   <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider shrink-0 md:w-16 md:text-right">📺 Video:</span>
-                                   <input type="text" value={sub.videoUrl || ""} placeholder="Link YouTube Subtopik..." onChange={(e) => { const newSubs = [...tempSubtopik]; newSubs[i].videoUrl = e.target.value; setTempSubtopik(newSubs); }} className="flex-1 bg-slate-900 text-slate-300 font-mono text-xs p-2.5 rounded-lg border border-slate-700 focus:border-red-500 outline-none shadow-inner" />
-                                 </div>
-                                 <div className="flex flex-col gap-1.5 mt-3">
-                                   <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">🧠 Teks Rujukan Khusus (Fakta Mutlak AI):</span>
-                                   <textarea rows={4} value={sub.teksAI || ""} placeholder="Copy & Paste perenggan fakta rujukan mutlak AI di sini..." onChange={(e) => { const newSubs = [...tempSubtopik]; newSubs[i].teksAI = e.target.value; setTempSubtopik(newSubs); }} className="w-full bg-slate-900 text-emerald-300 font-sans text-xs p-3 rounded-xl border border-emerald-800/50 focus:border-emerald-500 outline-none resize-y shadow-inner leading-relaxed" />
-                                 </div>
+                      <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50 flex-1 overflow-y-auto max-h-[300px] mt-4 shadow-inner custom-scrollbar">
+                         <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">Pemetaan Pautan Subtopik:</p>
+                         <ul className="text-sm text-slate-300 space-y-3.5">
+                           {bahan.subtopics?.map((sub: any, i: number) => (
+                             <li key={i} className="flex flex-col gap-1.5 border-b border-slate-700/50 pb-3 last:border-0 last:pb-0">
+                               <div className="flex items-center gap-2"><span className="text-blue-400 font-black shrink-0 bg-blue-900/20 px-2 py-0.5 rounded text-xs">{sub.id}</span> <span className="truncate text-xs md:text-sm font-bold text-slate-200">{sub.title}</span></div>
+                               <div className="flex flex-wrap items-center gap-2 text-[10px] pl-1">
+                                 {sub.notaUrl ? <span className="text-blue-300 bg-blue-900/30 px-2 py-1 rounded-md border border-blue-800/50 shadow-sm flex items-center gap-1"><BookOpen size={10}/> Khas</span> : <span className="text-slate-400 bg-slate-800 px-2 py-1 rounded-md border border-slate-700 shadow-sm flex items-center gap-1"><BookOpen size={10}/> Induk Bab</span>}
+                                 {sub.videoUrl ? <span className="text-red-300 bg-red-900/30 px-2 py-1 rounded-md border border-red-800/50 shadow-sm flex items-center gap-1"><Zap size={10}/> Video</span> : null}
+                                 {sub.teksAI ? <span className="text-emerald-300 bg-emerald-900/30 px-2 py-1 rounded-md border border-emerald-800/50 shadow-sm flex items-center gap-1"><Sparkles size={10}/> Data AI</span> : null}
                                </div>
-                            ))}
-                          </div>
-                          <div className="flex gap-3 pt-4 border-t border-slate-700/50">
-                            <button onClick={() => setEditSubtopikId(null)} className="flex-1 bg-slate-700 text-slate-300 text-sm font-bold py-3 rounded-xl hover:bg-slate-600 transition-colors shadow-sm">Batal</button>
-                            <button onClick={() => handleSimpanMukaSurat(bahan.id)} className="flex-1 bg-amber-600 text-white font-bold text-sm py-3 rounded-xl hover:bg-amber-500 shadow-lg shadow-amber-900/50 transition-colors">Simpan Tetapan Khas</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50 flex-1 overflow-y-auto max-h-[300px] mt-4 shadow-inner custom-scrollbar">
-                           <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">Pemetaan Pautan Subtopik:</p>
-                           <ul className="text-sm text-slate-300 space-y-3.5">
-                             {bahan.subtopics?.map((sub: any, i: number) => (
-                               <li key={i} className="flex flex-col gap-1.5 border-b border-slate-700/50 pb-3 last:border-0 last:pb-0">
-                                 <div className="flex items-center gap-2"><span className="text-blue-400 font-black shrink-0 bg-blue-900/20 px-2 py-0.5 rounded text-xs">{sub.id}</span> <span className="truncate text-xs md:text-sm font-bold text-slate-200">{sub.title}</span></div>
-                                 <div className="flex flex-wrap items-center gap-2 text-[10px] pl-1">
-                                   {sub.notaUrl ? <span className="text-blue-300 bg-blue-900/30 px-2 py-1 rounded-md border border-blue-800/50 shadow-sm flex items-center gap-1"><BookOpen size={10}/> Khas</span> : <span className="text-slate-400 bg-slate-800 px-2 py-1 rounded-md border border-slate-700 shadow-sm flex items-center gap-1"><BookOpen size={10}/> Induk Bab</span>}
-                                   {sub.videoUrl ? <span className="text-red-300 bg-red-900/30 px-2 py-1 rounded-md border border-red-800/50 shadow-sm flex items-center gap-1"><Zap size={10}/> Video</span> : null}
-                                   {sub.teksAI ? <span className="text-emerald-300 bg-emerald-900/30 px-2 py-1 rounded-md border border-emerald-800/50 shadow-sm flex items-center gap-1"><Sparkles size={10}/> Data AI</span> : null}
-                                 </div>
-                               </li>
-                             ))}
-                           </ul>
-                        </div>
-                      )}
+                             </li>
+                           ))}
+                         </ul>
+                      </div>
                     </div>
                   ))
                 ) : <p className="text-slate-500 col-span-2 text-center p-12 bg-slate-800/40 rounded-3xl border border-slate-700 border-dashed text-lg">Belum ada nota yang padan didaftarkan.</p>}
@@ -1161,22 +1144,18 @@ export default function GuruDashboard() {
                             {[1,2,3,4,5,6,7,8,9,10].map((num) => {
                               const babName = `Bab ${num}`;
                               
-                              // Data Pre-Test
                               const preTestRecord = studentProgressData.skor.find(s => s.bab === babName && (s.jenisUjian === "pre_test" || !s.jenisUjian));
                               const preSkor = preTestRecord ? preTestRecord.skor : null;
                               const preSemakan = preTestRecord ? preTestRecord.statusPermarkahanEsei : null;
                               
-                              // Data Post-Test
                               const postTestRecord = studentProgressData.skor.find(s => s.bab === babName && s.jenisUjian === "post_test");
                               const postSkor = postTestRecord ? postTestRecord.skor : null;
                               const attempt = postTestRecord ? (postTestRecord.percubaan || 1) : 0;
                               const postSemakan = postTestRecord ? postTestRecord.statusPermarkahanEsei : null;
                               
-                              // Data AI Chat
                               const aiSelesaiCount = studentProgressData.chat.filter(c => c.chapterId?.includes(`bab${num}_sub`) && c.status === "completed").length;
                               const aiInProgress = studentProgressData.chat.some(c => c.chapterId?.includes(`bab${num}_sub`) && c.status === "in_progress");
 
-                              // Pengiraan Analitik Guru (Learning Gain)
                               let learningGain = null;
                               let rumusanAI = "Belum ada data cukup untuk dianalisis.";
                               let rumusanColor = "text-slate-400";
@@ -1191,7 +1170,7 @@ export default function GuruDashboard() {
                                 } else if (learningGain === 0) {
                                   rumusanAI = `Prestasi mendatar. Murid memerlukan penekanan dan pendekatan pedagogi yang berbeza untuk topik ini.`;
                                   rumusanColor = "text-amber-400";
-                                  gainIcon = <TrendingUp size={16} className="text-amber-400 rotate-45"/>; // Flat arrow illusion
+                                  gainIcon = <TrendingUp size={16} className="text-amber-400 rotate-45"/>; 
                                 } else {
                                   rumusanAI = `Kemerosotan prestasi (-${Math.abs(learningGain)}%). Murid sangat perlukan intervensi / pemulihan terus daripada guru.`;
                                   rumusanColor = "text-rose-400";
@@ -1218,7 +1197,6 @@ export default function GuruDashboard() {
                                       </div>
                                     </td>
                                     
-                                    {/* KOLOM 1: PRE-TEST */}
                                     <td className="p-5 text-center">
                                       {preSkor !== null ? (
                                         <span className={`text-[11px] px-3 py-1.5 rounded-lg font-bold border shadow-sm ${preSkor >= 70 ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50' : 'bg-slate-800 text-slate-300 border-slate-600'}`}>
@@ -1229,7 +1207,6 @@ export default function GuruDashboard() {
                                       )}
                                     </td>
                                     
-                                    {/* KOLOM 2: BIMBINGAN AI */}
                                     <td className="p-5 text-center">
                                       {selectedStudentDetail.kumpulan === 'Kawalan' ? (
                                          <span className="text-[11px] text-slate-600 font-medium bg-slate-900 px-2 py-1 rounded">Bukan Kumpulan AI</span>
@@ -1246,7 +1223,6 @@ export default function GuruDashboard() {
                                       )}
                                     </td>
                                     
-                                    {/* KOLOM 3: POST-TEST / PEMULIHAN */}
                                     <td className="p-5 text-center">
                                       {postSkor !== null ? (
                                         <div className="flex flex-col items-center justify-center gap-1.5">
@@ -1267,13 +1243,11 @@ export default function GuruDashboard() {
                                       )}
                                     </td>
 
-                                    {/* ICON DROPDOWN */}
                                     <td className="p-5 text-right">
                                        <ChevronDown size={18} className={`text-slate-500 transition-transform duration-300 inline-block ${isExpanded ? 'rotate-180 text-blue-400' : ''}`}/>
                                     </td>
                                   </tr>
 
-                                  {/* EXPANDABLE DETAIL ROW */}
                                   <AnimatePresence>
                                     {isExpanded && (
                                       <tr>
@@ -1286,7 +1260,6 @@ export default function GuruDashboard() {
                                           >
                                             <div className="p-6 md:p-8 flex flex-col lg:flex-row gap-6">
                                               
-                                              {/* KOTAK METRIK SKOR */}
                                               <div className="flex-1 flex gap-4 min-w-0">
                                                 <div className="flex-1 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-inner">
                                                    <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 border-b border-slate-700 pb-2">Metrik Diagnostik (Pre)</h5>
@@ -1312,7 +1285,6 @@ export default function GuruDashboard() {
                                                 </div>
                                               </div>
 
-                                              {/* KOTAK ANALITIK GURU */}
                                               <div className="flex-1 min-w-0 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 p-5 rounded-xl border border-indigo-800/30 shadow-inner">
                                                  <h5 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-3 flex items-center gap-2"><BrainCircuit size={16}/> Laporan Analitik Pedagogi</h5>
                                                  
@@ -1354,6 +1326,72 @@ export default function GuruDashboard() {
 
              </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 🌟 MODAL EDIT SUBTOPIK (NOTA & TEKS AI) - TETINGKAP BESAR */}
+      <AnimatePresence>
+        {editSubtopikId && (
+          (() => {
+            const activeBahan = senaraiBahan.find(b => b.id === editSubtopikId);
+            if(!activeBahan) return null;
+            return (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-slate-800 p-0 rounded-3xl w-full max-w-5xl border border-slate-600 shadow-2xl flex flex-col max-h-[95vh] overflow-hidden">
+                  
+                  {/* HEADER MODAL */}
+                  <div className="bg-slate-900/80 p-6 md:p-8 flex justify-between items-start border-b border-slate-700 shrink-0">
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="bg-blue-900/40 text-blue-400 text-[10px] font-bold px-3 py-1.5 rounded-md uppercase tracking-wider border border-blue-800/50 shadow-sm">Tingkatan {activeBahan.form}</span>
+                        <span className="text-amber-500 text-[10px] font-mono font-bold">ID: {activeBahan.id}</span>
+                      </div>
+                      <h3 className="text-2xl md:text-3xl font-extrabold text-white leading-tight">Suntingan Subtopik: {activeBahan.title}</h3>
+                      <p className="text-slate-400 text-sm mt-2 flex items-center gap-2"><Edit3 size={16} className="text-amber-400"/> Tetapkan pautan khas (Nota/Video) dan suapkan teks rujukan mutlak (Fakta) untuk AI.</p>
+                    </div>
+                    <button onClick={() => setEditSubtopikId(null)} className="p-2.5 bg-slate-800 rounded-xl border border-slate-600 text-slate-400 hover:text-white hover:bg-rose-600 hover:border-rose-500 transition-all shadow-md shrink-0"><X size={24}/></button>
+                  </div>
+
+                  {/* KANDUNGAN MODAL */}
+                  <div className="p-6 md:p-8 overflow-y-auto bg-slate-800 custom-scrollbar flex-1">
+                    <div className="space-y-6">
+                      {tempSubtopik.map((sub, i) => (
+                         <div key={i} className="flex flex-col gap-4 bg-slate-900/40 p-6 rounded-2xl border border-slate-700/50 shadow-inner">
+                           <div className="flex items-center gap-4 border-b border-slate-700/50 pb-4">
+                             <span className="text-sm font-black text-blue-400 shrink-0 bg-blue-900/30 px-3 py-1.5 rounded-lg border border-blue-800/50">{sub.id}</span>
+                             <span className="text-base text-slate-200 font-bold">{sub.title}</span>
+                           </div>
+                           
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div className="flex flex-col gap-2">
+                               <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider flex items-center gap-1.5"><BookOpen size={14}/> Pautan Nota Khas:</span>
+                               <input type="text" value={sub.notaUrl || ""} placeholder="Link Canva/Drive Subtopik (Kosongkan jika mahu guna link Induk Bab)..." onChange={(e) => { const newSubs = [...tempSubtopik]; newSubs[i].notaUrl = e.target.value; setTempSubtopik(newSubs); }} className="w-full bg-slate-900 text-slate-300 font-mono text-xs p-3.5 rounded-xl border border-slate-700 focus:border-blue-500 outline-none shadow-inner transition-colors" />
+                             </div>
+                             <div className="flex flex-col gap-2">
+                               <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider flex items-center gap-1.5"><PlayCircle size={14}/> Pautan Video YouTube:</span>
+                               <input type="text" value={sub.videoUrl || ""} placeholder="Link YouTube Subtopik (Mesti bermula https://youtu.be/...)" onChange={(e) => { const newSubs = [...tempSubtopik]; newSubs[i].videoUrl = e.target.value; setTempSubtopik(newSubs); }} className="w-full bg-slate-900 text-slate-300 font-mono text-xs p-3.5 rounded-xl border border-slate-700 focus:border-red-500 outline-none shadow-inner transition-colors" />
+                             </div>
+                           </div>
+                           
+                           <div className="flex flex-col gap-2 mt-2">
+                             <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1.5"><Sparkles size={14}/> Teks Rujukan Khusus (Fakta Mutlak AI):</span>
+                             <textarea rows={6} value={sub.teksAI || ""} placeholder="Contoh: \n- Kesultanan Melayu Melaka ada 6 ciri utama: Kerajaan, Rakyat...\n- Akronim untuk diingat: KRKWUL." onChange={(e) => { const newSubs = [...tempSubtopik]; newSubs[i].teksAI = e.target.value; setTempSubtopik(newSubs); }} className="w-full bg-slate-900 text-emerald-300 font-sans text-sm p-4 rounded-xl border border-emerald-800/50 focus:border-emerald-500 outline-none resize-y shadow-inner leading-relaxed transition-colors" />
+                           </div>
+                         </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* FOOTER MODAL */}
+                  <div className="bg-slate-900/80 p-6 flex justify-end gap-4 border-t border-slate-700 shrink-0">
+                    <button onClick={() => setEditSubtopikId(null)} className="px-8 py-3.5 bg-slate-800 text-slate-300 text-sm font-bold rounded-xl hover:bg-slate-700 border border-slate-600 transition-colors shadow-sm">Batal Penyuntingan</button>
+                    <button onClick={() => handleSimpanMukaSurat(editSubtopikId)} className="px-10 py-3.5 bg-amber-600 text-white font-bold text-sm rounded-xl hover:bg-amber-500 shadow-lg shadow-amber-900/50 transition-transform hover:scale-105 flex items-center gap-2"><Save size={18}/> Simpan Tetapan Khas</button>
+                  </div>
+                  
+                </motion.div>
+              </motion.div>
+            );
+          })()
         )}
       </AnimatePresence>
 
