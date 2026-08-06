@@ -127,17 +127,14 @@ function KandunganUjian() {
   };
 
   // ==========================================
-  // 🌟 LOGIK PINTAR: CABUTAN SOALAN IKUT ARAS & RAWAK
+  // 🌟 LOGIK PINTAR: CABUTAN SOALAN ADAPTIF
   // ==========================================
   useEffect(() => {
     if (!isClient) return;
 
     const initializeExam = async () => {
       const rawUser = localStorage.getItem("currentUser");
-      if (!rawUser) {
-        setLoading(false);
-        return;
-      }
+      if (!rawUser) { setLoading(false); return; }
       
       const user = JSON.parse(rawUser);
       let currentAttempt = 0;
@@ -149,7 +146,6 @@ function KandunganUjian() {
           const data = userSnap.data();
           currentTahap = data.tahapInkuiri || "Sederhana";
           setTahapMurid(currentTahap);
-          
           if (currentTahap === "Tinggi" || currentTahap === "Sederhana") setMarkahLulus(70);
           else setMarkahLulus(50); 
         }
@@ -163,23 +159,18 @@ function KandunganUjian() {
            }
         }
 
-        // 🌟 KAWALAN SASARAN MARKAH (ADAPTIVE ALGORITHM BERDASARKAN TESIS)
-        let sasaranMarkahObjektif = 30; 
-        let sasaranMarkahStruktur = 30;  
+        // KAWALAN SASARAN MARKAH
+        let sasaranMarkahObjektif = 30; let sasaranMarkahStruktur = 30;  
         let isPemulihan = currentAttempt > 0 && jenisUjian === "post_test";
 
         if (jenisUjian === "pre_test") {
-            sasaranMarkahObjektif = 40; 
-            sasaranMarkahStruktur = 40;
+            sasaranMarkahObjektif = 40; sasaranMarkahStruktur = 40;
         } else if (jenisUjian === "post_test") {
-            if (!isPemulihan) { 
-                // Post-Test Pertama (Standard)
+            if (!isPemulihan) { sasaranMarkahObjektif = 30; sasaranMarkahStruktur = 30; } 
+            else { 
                 sasaranMarkahObjektif = 30; 
-                sasaranMarkahStruktur = 30;
-            } else { 
-                // Mod Pemulihan (Kini 30 Objektif, 20 Struktur untuk beri kepuasan menjawab soalan pendek)
-                sasaranMarkahObjektif = 30; 
-                sasaranMarkahStruktur = 20; 
+                if (currentTahap === "Rendah") sasaranMarkahStruktur = 10; 
+                else sasaranMarkahStruktur = 20; 
             }
         }
 
@@ -192,7 +183,6 @@ function KandunganUjian() {
         querySnapshot.forEach((docSnap) => {
           let data = docSnap.data();
           const kegunaan = data.kegunaan || "semua";
-          
           if (kegunaan === "simpanan") return; 
           
           let layak = false;
@@ -206,45 +196,94 @@ function KandunganUjian() {
           if (!layak) return;
 
           if (data.jenis === "objektif") {
-            if (data.pilihan) {
-              let pilihanArray = Object.entries(data.pilihan);
-              data.shuffledPilihan = shuffleArray(pilihanArray); 
-            }
+            if (data.pilihan) data.shuffledPilihan = shuffleArray(Object.entries(data.pilihan)); 
             soalanObjektif.push({ id: docSnap.id, ...data });
           } else {
             const markahSoalan = parseInt(data.markah) || 0;
-            
-            // 🌟 SYARAT KETAT PRE-TEST: Buang soalan 2 markah ke bawah (Mesti mencabar)
-            if (jenisUjian === "pre_test" && markahSoalan <= 2) return;
-
+            if (jenisUjian === "pre_test" && markahSoalan <= 2) return; // Syarat Pre-Test Ketat
             soalanStruktur.push({ id: docSnap.id, ...data });
           }
         });
 
-        // 🌟 FUNGSI KUTIP SOALAN RAWAK
-        const kumpulSoalanIkutMarkah = (soalanShuffled: any[], sasaranMarkah: number) => {
+        // 🌟 FUNGSI 1: CABUTAN OBJEKTIF (ROUND-ROBIN SEMUA SUBTOPIK)
+        const pilihObjektifSeimbang = (senarai: any[], sasaran: number) => {
+            const groups: Record<string, any[]> = {};
+            // Kumpulkan ikut subtopik
+            senarai.forEach(s => {
+                const t = s.topik || "Umum";
+                if (!groups[t]) groups[t] = [];
+                groups[t].push(s);
+            });
+            // Shuffle setiap kumpulan
+            for (let k in groups) groups[k] = shuffleArray(groups[k]);
+
             let senaraiAkhir = [];
-            let jumlahSemasa = 0;
-            
-            for (let s of soalanShuffled) {
-                let m = parseInt(s.markah) || (s.jenis === "objektif" ? 1 : 0);
-                if (jumlahSemasa + m <= sasaranMarkah) {
-                    senaraiAkhir.push(s);
-                    jumlahSemasa += m;
-                } else if (jumlahSemasa < sasaranMarkah) {
-                    // Ambil soalan terakhir untuk pastikan cukup target (walaupun lebih sikit)
-                    senaraiAkhir.push(s);
-                    jumlahSemasa += m;
-                    if (jumlahSemasa >= sasaranMarkah) break;
+            let jumlah = 0;
+            const keys = Object.keys(groups);
+
+            let keepGoing = true;
+            while (keepGoing && jumlah < sasaran) {
+                let addedThisRound = false;
+                for (let k of keys) {
+                    if (groups[k].length > 0) {
+                        const q = groups[k].pop();
+                        const m = parseInt(q.markah) || 1;
+                        if (jumlah + m <= sasaran) {
+                            senaraiAkhir.push(q);
+                            jumlah += m;
+                            addedThisRound = true;
+                        } else if (jumlah < sasaran) {
+                            senaraiAkhir.push(q);
+                            jumlah += m;
+                            addedThisRound = true;
+                            break;
+                        }
+                    }
+                    if (jumlah >= sasaran) break;
                 }
+                if (!addedThisRound) keepGoing = false;
             }
-            // Jika bank soalan tak cukup, ia akan return sahaja apa yang ada (Fallback)
-            return senaraiAkhir;
+            return shuffleArray(senaraiAkhir); // Shuffle sekali lagi supaya subtopik bercampur
         };
 
-        // Guna soalan yang telah di-shuffle
-        let objektifAkhir = kumpulSoalanIkutMarkah(shuffleArray(soalanObjektif), sasaranMarkahObjektif);
-        let strukturAkhir = kumpulSoalanIkutMarkah(shuffleArray(soalanStruktur), sasaranMarkahStruktur);
+        // 🌟 FUNGSI 2: CABUTAN STRUKTUR (PRIORITY KEPADA SOALAN SPM SEBENAR/KBAT)
+        const pilihStrukturFokusSPM = (senarai: any[], sasaran: number) => {
+            const scoredSenarai = senarai.map(s => {
+                let priority = 0;
+                const textInfo = (s.soalan + " " + (s.topik || "")).toLowerCase();
+                // Jika cikgu letak tag ini, sistem beri keutamaan tertinggi!
+                if (textInfo.includes("spm") || textInfo.includes("ramalan") || textInfo.includes("kbat") || textInfo.includes("fokus")) {
+                    priority += 100; 
+                }
+                priority += (parseInt(s.markah) || 0); // Soalan markah tinggi diutamakan
+                priority += Math.random(); // Tie-breaker rawak
+                return { ...s, priority };
+            });
+
+            // Susun dari priority tertinggi ke terendah
+            scoredSenarai.sort((a, b) => b.priority - a.priority);
+
+            let senaraiAkhir = [];
+            let jumlah = 0;
+
+            for (let s of scoredSenarai) {
+                let m = parseInt(s.markah) || 0;
+                if (jumlah + m <= sasaran) {
+                    senaraiAkhir.push(s);
+                    jumlah += m;
+                } else if (jumlah < sasaran) {
+                    senaraiAkhir.push(s);
+                    jumlah += m;
+                    break;
+                }
+            }
+            // Shuffle supaya murid tak rasa soalan makin lama makin susah sentiasa
+            return shuffleArray(senaraiAkhir); 
+        };
+
+        // Eksekusi Algoritma
+        let objektifAkhir = pilihObjektifSeimbang(soalanObjektif, sasaranMarkahObjektif);
+        let strukturAkhir = pilihStrukturFokusSPM(soalanStruktur, sasaranMarkahStruktur);
 
         const finalSoalan = [...objektifAkhir, ...strukturAkhir];
         setSoalanSenarai(finalSoalan);
@@ -280,7 +319,6 @@ function KandunganUjian() {
                 const markahS = parseInt(s.markah) || 1;
                 markahPenuhUjian += markahS; 
                 
-                // Mesti simpan dalam db kalau kosong sebagai "TIDAK_DIJAWAB" supaya muka surat Semakan tak keliru
                 if (jawapanObjektif[s.id]) jawapanObjektifBersih[s.id] = jawapanObjektif[s.id];
                 else jawapanObjektifBersih[s.id] = "TIDAK_DIJAWAB";
 

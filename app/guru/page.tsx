@@ -70,7 +70,7 @@ export default function GuruDashboard() {
   const [qBab, setQBab] = useState("Bab 1");
   const [qTopik, setQTopik] = useState("");
   const [qJenis, setQJenis] = useState("objektif"); 
-  const [qKegunaan, setQKegunaan] = useState("semua");
+  const [qKegunaan, setQKegunaan] = useState("semua_ujian");
 
   const [qSoalan, setQSoalan] = useState("");
   const [qMarkah, setQMarkah] = useState("1");
@@ -479,7 +479,7 @@ export default function GuruDashboard() {
   };
 
   const handleEditSoalan = (q: any) => { 
-    setIsEditingSoalan(true); setEditSoalanId(q.id); setQTingkatan(q.tingkatan || "4"); setQBab(q.bab || "Bab 1"); setQTopik(q.topik || ""); setQJenis(q.jenis || "objektif"); setQKegunaan(q.kegunaan || "semua"); setQSoalan(q.soalan || ""); setQMarkah(q.markah?.toString() || "1"); setQUrutan(q.urutan === 999 ? "" : q.urutan?.toString() || ""); setQImageUrl(q.imageUrl || ""); 
+    setIsEditingSoalan(true); setEditSoalanId(q.id); setQTingkatan(q.tingkatan || "4"); setQBab(q.bab || "Bab 1"); setQTopik(q.topik || ""); setQJenis(q.jenis || "objektif"); setQKegunaan(q.kegunaan || "semua_ujian"); setQSoalan(q.soalan || ""); setQMarkah(q.markah?.toString() || "1"); setQUrutan(q.urutan === 999 ? "" : q.urutan?.toString() || ""); setQImageUrl(q.imageUrl || ""); 
     if (q.jenis === "objektif" && q.pilihan) { setQPilihanA(q.pilihan.A || ""); setQPilihanB(q.pilihan.B || ""); setQPilihanC(q.pilihan.C || ""); setQPilihanD(q.pilihan.D || ""); setQJawapanBetul(q.jawapan || "A"); } else { setQSkema(q.skemaJawapan || ""); } 
     setIsCreatingSoalan(true); window.scrollTo({ top: 0, behavior: "smooth" });
   };
