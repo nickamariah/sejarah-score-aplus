@@ -28,6 +28,7 @@ interface SkorMuridData {
   jawapanStruktur: Record<string, string>; 
   ulasanAI: Record<string, UlasanDetail>;
   markahGuru?: Record<string, number>;
+  susunanSoalan?: any[]; // 🌟 TAMBAHAN: Untuk tarik soalan sebenar yang dijawab
 }
 
 export default function SemakanUjianMurid() {
@@ -63,37 +64,39 @@ export default function SemakanUjianMurid() {
 
           setData({ ...resultData, namaMurid: namaTerkini });
 
-          const jenisUjianMurid = resultData.jenisUjian || "pre_test"; 
+          // 🌟 KEMAS KINI UTAMA: Guna susunanSoalan yang disimpan semasa ujian
+          if (resultData.susunanSoalan && resultData.susunanSoalan.length > 0) {
+            setSoalanBank(resultData.susunanSoalan);
+          } else {
+            // (Fallback) Jika ini adalah rekod ujian lama yang tiada susunanSoalan
+            const jenisUjianMurid = resultData.jenisUjian || "pre_test"; 
+            const q = query(
+              collection(db, "questionBank"), 
+              where("tingkatan", "==", resultData.tingkatan),
+              where("bab", "==", resultData.bab)
+            );
+            const qSnap = await getDocs(q);
+            const qListObj: any[] = [];
+            const qListStr: any[] = [];
+            
+            qSnap.forEach((d) => {
+              const soalanData = d.data();
+              const kegunaan = soalanData.kegunaan || "semua";
+              if (kegunaan === "simpanan") return;
+              if (kegunaan !== "semua" && kegunaan !== jenisUjianMurid) return;
 
-          const q = query(
-            collection(db, "questionBank"), 
-            where("tingkatan", "==", resultData.tingkatan),
-            where("bab", "==", resultData.bab)
-          );
-          const qSnap = await getDocs(q);
-          
-          const qListObj: any[] = [];
-          const qListStr: any[] = [];
-          
-          qSnap.forEach((d) => {
-            const soalanData = d.data();
-            const kegunaan = soalanData.kegunaan || "semua";
-
-            if (kegunaan === "simpanan") return;
-            if (kegunaan !== "semua" && kegunaan !== jenisUjianMurid) return;
-
-            if (soalanData.jenis === "objektif") {
-                qListObj.push({ id: d.id, ...soalanData });
-            } else {
-                const urutan = Number(soalanData.urutan);
-                if (!isNaN(urutan) && urutan > 0 && urutan !== 999) {
-                   qListStr.push({ id: d.id, ...soalanData });
-                }
-            }
-          });
-          
-          qListStr.sort((a, b) => Number(a.urutan) - Number(b.urutan));
-          setSoalanBank([...qListObj, ...qListStr]);
+              if (soalanData.jenis === "objektif") {
+                  qListObj.push({ id: d.id, ...soalanData });
+              } else {
+                  const urutan = Number(soalanData.urutan);
+                  if (!isNaN(urutan) && urutan > 0 && urutan !== 999) {
+                     qListStr.push({ id: d.id, ...soalanData });
+                  }
+              }
+            });
+            qListStr.sort((a, b) => Number(a.urutan) - Number(b.urutan));
+            setSoalanBank([...qListObj, ...qListStr]);
+          }
 
         } else {
           console.log("Tiada dokumen dijumpai untuk ID:", decodedId);
@@ -184,7 +187,7 @@ export default function SemakanUjianMurid() {
       </div>
 
       <div className="mt-8 space-y-6">
-        <h2 className="text-xl font-bold text-gray-800 px-1 border-b pb-2">Semakan Terperinci & Refleksi</h2>
+        <h2 className="text-xl font-bold text-gray-800 px-1 border-b pb-2">Semakan Terperinci & Refleksi ({soalanBank.length} Soalan)</h2>
         
         {soalanBank.length > 0 ? (
           soalanBank.map((soalan, index) => {
@@ -192,29 +195,34 @@ export default function SemakanUjianMurid() {
             
             if (jenisSoalan === "objektif") {
               const jawapanPilihanMurid = jawapanObjektifMurid[soalan.id];
-              const isBetul = jawapanPilihanMurid === soalan.jawapan;
+              const tiadaJawapan = !jawapanPilihanMurid || jawapanPilihanMurid === "TIDAK_DIJAWAB";
+              const isBetul = !tiadaJawapan && jawapanPilihanMurid.toLowerCase() === String(soalan.jawapan).toLowerCase();
               
               return (
                 <div key={soalan.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
                   <div className="mb-4">
                     <span className="font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-md text-sm border border-gray-200">Soalan {index + 1} (Objektif)</span>
                     <p className="mt-3 font-medium text-gray-800">{soalan.soalan}</p>
+                    
+                    {soalan.imageUrl && (
+                       <img src={soalan.imageUrl} alt="Gambar Soalan" className="max-h-48 mt-4 rounded-lg border shadow-sm object-contain" />
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className={`p-4 rounded-md border ${isBetul ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                      <span className={`text-xs font-bold uppercase block mb-1 ${isBetul ? 'text-green-600' : 'text-red-600'}`}>
-                        {isBetul ? '✅ Jawapan Anda (Betul)' : '❌ Jawapan Anda (Salah)'}
+                    <div className={`p-4 rounded-md border ${isBetul ? 'bg-green-50 border-green-200' : tiadaJawapan ? 'bg-gray-100 border-gray-300' : 'bg-red-50 border-red-200'}`}>
+                      <span className={`text-xs font-bold uppercase block mb-1 ${isBetul ? 'text-green-600' : tiadaJawapan ? 'text-gray-600' : 'text-red-600'}`}>
+                        {isBetul ? '✅ Jawapan Anda (Betul)' : tiadaJawapan ? '⚠️ Tidak Dijawab' : '❌ Jawapan Anda (Salah)'}
                       </span>
                       <p className="font-medium text-gray-800">
-                        {jawapanPilihanMurid ? `${jawapanPilihanMurid}: ${soalan.pilihan?.[jawapanPilihanMurid]}` : <span className="text-gray-400 italic">Tiada jawapan</span>}
+                        {tiadaJawapan ? <span className="text-gray-400 italic">Tiada jawapan direkodkan</span> : `${jawapanPilihanMurid}: ${soalan.pilihan?.[jawapanPilihanMurid] || soalan.shuffledPilihan?.find((p:any) => p[0] === jawapanPilihanMurid)?.[1] || "Pilihan"}`}
                       </p>
                     </div>
 
                     {!isBetul && (
                       <div className="p-4 rounded-md border bg-blue-50 border-blue-200">
                         <span className="text-xs font-bold uppercase block mb-1 text-blue-600">💡 Jawapan Sebenar</span>
-                        <p className="font-medium text-gray-800">{soalan.jawapan}: {soalan.pilihan?.[soalan.jawapan]}</p>
+                        <p className="font-medium text-gray-800">{soalan.jawapan}: {soalan.pilihan?.[soalan.jawapan] || soalan.shuffledPilihan?.find((p:any) => p[0] === soalan.jawapan)?.[1] || "Pilihan"}</p>
                       </div>
                     )}
                   </div>
@@ -223,6 +231,7 @@ export default function SemakanUjianMurid() {
             } 
             else {
               const jawapanEseiMurid = data.jawapanStruktur?.[soalan.id];
+              const tiadaJawapanEsei = !jawapanEseiMurid || jawapanEseiMurid.trim() === "";
               const ulasan = data.ulasanAI?.[soalan.id];
               const markahAkhir = data.markahGuru?.[soalan.id] !== undefined 
                                     ? data.markahGuru[soalan.id] 
@@ -234,6 +243,9 @@ export default function SemakanUjianMurid() {
                     <div>
                       <span className="font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-md text-sm border border-gray-200">Soalan {index + 1} (Struktur/Esei)</span>
                       <p className="mt-3 font-medium text-gray-800">{soalan.soalan}</p>
+                      {soalan.imageUrl && (
+                         <img src={soalan.imageUrl} alt="Gambar Soalan" className="max-h-48 mt-4 rounded-lg border shadow-sm object-contain" />
+                      )}
                     </div>
                     
                     <div className="flex flex-col items-end gap-1 shrink-0">
@@ -253,12 +265,12 @@ export default function SemakanUjianMurid() {
                     <div className="p-4 rounded-md border bg-gray-50 border-gray-200">
                       <span className="text-xs font-semibold uppercase block mb-1 text-gray-500">Jawapan Anda:</span>
                       <p className="font-medium text-gray-800 whitespace-pre-wrap">
-                        {jawapanEseiMurid ? jawapanEseiMurid : <span className="text-rose-400 italic">⚠️ Tiada jawapan diberikan</span>}
+                        {!tiadaJawapanEsei ? jawapanEseiMurid : <span className="text-rose-400 italic">⚠️ Tiada jawapan diberikan</span>}
                       </p>
                     </div>
                   </div>
 
-                  {ulasan && jawapanEseiMurid && (
+                  {ulasan && !tiadaJawapanEsei && (
                     <div className="bg-indigo-50 p-4 rounded-md border border-indigo-100 flex gap-4 items-start mb-4">
                       <div className="text-2xl mt-1">🤖</div>
                       <div className="flex-1">

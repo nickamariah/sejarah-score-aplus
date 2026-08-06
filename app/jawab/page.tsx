@@ -127,7 +127,7 @@ function KandunganUjian() {
   };
 
   // ==========================================
-  // 🌟 LOGIK PINTAR: CABUTAN SOALAN IKUT ARAS & RAWAK
+  // 🌟 LOGIK PINTAR: CABUTAN SOALAN IKUT ARAS & RAWAK (MEMENUHI MARKAH 40/30)
   // ==========================================
   useEffect(() => {
     if (!isClient) return;
@@ -196,39 +196,52 @@ function KandunganUjian() {
           }
         });
 
-        // KAWALAN JUMLAH SOALAN (KUOTA DINAMIK MENGIKUT ARAS)
-        let hadObjektif = 30; 
-        let hadStruktur = 5;  
+        // 🌟 KAWALAN SASARAN MARKAH KHUSUS
+        let sasaranMarkahObjektif = 30; 
+        let sasaranMarkahStruktur = 20;  
 
         if (jenisUjian === "pre_test") {
-            hadObjektif = 30; 
-            hadStruktur = 5;
+            sasaranMarkahObjektif = 40; 
+            sasaranMarkahStruktur = 30;
         } else if (jenisUjian === "post_test") {
             if (currentAttempt === 0) { 
                 if (currentTahap === "Sederhana" || currentTahap === "Tinggi") {
-                   hadObjektif = 25; 
-                   hadStruktur = 4;
+                   sasaranMarkahObjektif = 25; 
+                   sasaranMarkahStruktur = 20;
                 } else { 
-                   hadObjektif = 25; 
-                   hadStruktur = 3;
+                   sasaranMarkahObjektif = 25; 
+                   sasaranMarkahStruktur = 15;
                 }
             } else { 
-                hadObjektif = 20; 
-                hadStruktur = 2; 
+                sasaranMarkahObjektif = 20; 
+                sasaranMarkahStruktur = 10; 
             }
         }
 
-        let objektifDahShuffle = shuffleArray(soalanObjektif);
-        if (objektifDahShuffle.length > hadObjektif) {
-            objektifDahShuffle = objektifDahShuffle.slice(0, hadObjektif);
-        }
+        // Fungsi Helper: Ambil soalan sehingga mencapai sasaran markah
+        const kumpulSoalanIkutMarkah = (soalanShuffled: any[], sasaranMarkah: number) => {
+            let senaraiAkhir = [];
+            let jumlahSemasa = 0;
+            
+            for (let s of soalanShuffled) {
+                let m = parseInt(s.markah) || (s.jenis === "objektif" ? 1 : 0);
+                if (jumlahSemasa + m <= sasaranMarkah) {
+                    senaraiAkhir.push(s);
+                    jumlahSemasa += m;
+                } else if (jumlahSemasa < sasaranMarkah) {
+                    // Ambil selebihnya untuk memastikan markah hampir ke sasaran tanpa melebihi terlalu banyak
+                    senaraiAkhir.push(s);
+                    jumlahSemasa += m;
+                    if (jumlahSemasa >= sasaranMarkah) break;
+                }
+            }
+            return senaraiAkhir;
+        };
 
-        let strukturDahShuffle = shuffleArray(soalanStruktur);
-        if (strukturDahShuffle.length > hadStruktur) {
-            strukturDahShuffle = strukturDahShuffle.slice(0, hadStruktur);
-        }
+        let objektifAkhir = kumpulSoalanIkutMarkah(shuffleArray(soalanObjektif), sasaranMarkahObjektif);
+        let strukturAkhir = kumpulSoalanIkutMarkah(shuffleArray(soalanStruktur), sasaranMarkahStruktur);
 
-        const finalSoalan = [...objektifDahShuffle, ...strukturDahShuffle];
+        const finalSoalan = [...objektifAkhir, ...strukturAkhir];
         setSoalanSenarai(finalSoalan);
 
       } catch (error) { 
@@ -259,14 +272,20 @@ function KandunganUjian() {
 
             soalanSenarai.forEach(s => {
               if (s.jenis === "objektif") {
-                markahPenuhUjian += 1; 
+                const markahS = parseInt(s.markah) || 1;
+                markahPenuhUjian += markahS; 
+                
+                // Mesti simpan dalam db kalau kosong sebagai "TIDAK_DIJAWAB" supaya muka surat Semakan tak keliru
                 if (jawapanObjektif[s.id]) jawapanObjektifBersih[s.id] = jawapanObjektif[s.id];
+                else jawapanObjektifBersih[s.id] = "TIDAK_DIJAWAB";
+
                 const jawapanMurid = String(jawapanObjektif[s.id] || "").trim().toLowerCase();
                 const skemaBersih = String(s.jawapan || "").trim().toLowerCase();
-                if (jawapanMurid === skemaBersih && skemaBersih !== "") skorObjektifAkhir += 1;
+                if (jawapanMurid === skemaBersih && skemaBersih !== "") skorObjektifAkhir += markahS;
               } else { 
                 markahPenuhUjian += Number(s.markah) || 0; 
                 if (jawapanStruktur[s.id]) jawapanStrukturBersih[s.id] = jawapanStruktur[s.id];
+                else jawapanStrukturBersih[s.id] = ""; // Set default supaya nampak di Semakan
               }
             });
 
@@ -277,6 +296,10 @@ function KandunganUjian() {
             await new Promise(resolve => setTimeout(resolve, 1500));
 
             for (const [soalanId, jawapanMurid] of Object.entries(jawapanStrukturBersih)) {
+              if (jawapanMurid.trim() === "") {
+                 ulasanAIPenuh[soalanId] = { markahAI: 0, komenAI: "Murid tidak menjawab soalan ini." };
+                 continue;
+              }
               const detailSoalan = soalanSenarai.find(s => s.id === soalanId);
               if (detailSoalan) {
                 try {
@@ -300,12 +323,26 @@ function KandunganUjian() {
             
             setPeratusAkhir(peratus); setPercubaanTerkini(percubaanBaru);
 
+            // 🌟 TAMBAHAN: Simpan 'susunanSoalan' supaya muka surat semakan tidak tarik soalan rawak lain!
+            const susunanData = soalanSenarai.map((s) => ({
+                id: s.id,
+                soalan: s.soalan,
+                jenis: s.jenis,
+                markah: parseInt(s.markah) || (s.jenis === 'objektif' ? 1 : 0),
+                pilihan: s.pilihan || null,
+                shuffledPilihan: s.shuffledPilihan || null,
+                jawapan: s.jawapan || null,
+                skemaJawapan: s.skemaJawapan || null,
+                imageUrl: s.imageUrl || ""
+            }));
+
             await setDoc(doc(db, "skor_murid", docId), {
               idMurid: user.id, namaMurid: user.name || user.nama, tingkatan, bab,
               skorObjektif: skorObjektifAkhir, jawapanObjektif: jawapanObjektifBersih, skor: peratus, markahPenuhUjian,
               jawapanStruktur: jawapanStrukturBersih, ulasanAI: ulasanAIPenuh, markahStruktur: jumlahMarkahStrukturAI, skorAkhir: skorKeseluruhan,
               statusPermarkahanEsei: adaSoalanStruktur ? "disemak_oleh_AI" : "tiada_esei",
-              tarikh: new Date().toISOString(), jenisUjian, percubaan: percubaanBaru
+              tarikh: new Date().toISOString(), jenisUjian, percubaan: percubaanBaru,
+              susunanSoalan: susunanData
             });
 
             localStorage.removeItem(`auto_obj_${tingkatan}_${bab}_${jenisUjian}`);
