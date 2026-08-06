@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { doc, getDoc, collection, query, where, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase"; 
-import { ArrowLeft, Save, Loader2, User, BookOpen, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Save, Loader2, User, BookOpen, AlertTriangle, Sparkles, CheckCircle } from "lucide-react";
 
 export default function PemarkahanGuru() {
   const params = useParams();
@@ -20,7 +20,6 @@ export default function PemarkahanGuru() {
   useEffect(() => {
     const tarikData = async () => {
       try {
-        // 1. Tarik rekod jawapan murid
         const docRef = doc(db, "skor_murid", documentId);
         const docSnap = await getDoc(docRef);
 
@@ -28,7 +27,6 @@ export default function PemarkahanGuru() {
           const rekod = docSnap.data();
           setDataMurid(rekod);
 
-          // 2. Tarik soalan sebenar dari Bank Soalan
           const q = query(
             collection(db, "questionBank"), 
             where("tingkatan", "==", rekod.tingkatan),
@@ -41,15 +39,10 @@ export default function PemarkahanGuru() {
              const soalanData = d.data();
              const kegunaan = soalanData.kegunaan || "semua";
              
-             // 🌟 PENAPISAN KETAT: Sama seperti apa yang murid nampak masa ujian
              if (soalanData.jenis !== "objektif") {
-                // a) Buang soalan Simpanan (Draf)
                 if (kegunaan === "simpanan") return;
-                
-                // b) Pastikan ia sesuai dengan ujian (Pre/Post) yang diambil murid
                 if (kegunaan !== "semua" && kegunaan !== rekod.jenisUjian) return;
 
-                // c) Pastikan soalan ada No. Susunan (urutan yang sah)
                 const urutan = Number(soalanData.urutan);
                 if (!isNaN(urutan) && urutan > 0 && urutan !== 999) {
                    qList.push({ id: d.id, ...soalanData });
@@ -57,11 +50,9 @@ export default function PemarkahanGuru() {
              }
           });
           
-          // Susun soalan sama seperti urutan dalam kertas ujian murid
           qList.sort((a, b) => Number(a.urutan) - Number(b.urutan));
           setSoalanBank(qList);
 
-          // Sediakan markah input awal (Hanya untuk soalan yang wujud dalam ujian)
           const markahAwal: Record<string, number> = {};
           qList.forEach(soalan => {
             if (rekod.markahGuru && rekod.markahGuru[soalan.id] !== undefined) {
@@ -69,7 +60,7 @@ export default function PemarkahanGuru() {
             } else if (rekod.ulasanAI && rekod.ulasanAI[soalan.id]) {
               markahAwal[soalan.id] = rekod.ulasanAI[soalan.id].markahAI || 0;
             } else {
-              markahAwal[soalan.id] = 0; // Jika murid biarkan kosong, default markah 0
+              markahAwal[soalan.id] = 0; 
             }
           });
           setMarkahGuru(markahAwal);
@@ -85,7 +76,6 @@ export default function PemarkahanGuru() {
     if (documentId) tarikData();
   }, [documentId]);
 
-  // FUNGSI KEMASKINI INPUT MARKAH
   const handleMarkahChange = (soalanId: string, nilai: string, markahPenuh: number) => {
     let num = parseInt(nilai) || 0;
     if (num > markahPenuh) num = markahPenuh; 
@@ -97,27 +87,22 @@ export default function PemarkahanGuru() {
     }));
   };
 
-  // 🌟 FUNGSI SIMPAN MARKAH KE FIREBASE (TELAH DIBETULKAN)
   const simpanPemarkahan = async () => {
     setMenyimpan(true);
     try {
-      // 1. Kira jumlah markah Esei/Struktur yang baru
       let totalStrukturBaru = 0;
       Object.values(markahGuru).forEach(m => { 
         totalStrukturBaru += (Number(m) || 0); 
       });
 
-      // 2. Kira markah keseluruhan (Objektif sedia ada + Esei baru)
       const skorAkhirBaru = (Number(dataMurid.skorObjektif) || 0) + totalStrukturBaru;
-      const penuhUjian = Number(dataMurid.markahPenuhUjian) || 100; // Elak bahagi dengan 0
+      const penuhUjian = Number(dataMurid.markahPenuhUjian) || 100; 
       const peratusBaru = penuhUjian > 0 ? Math.round((skorAkhirBaru / penuhUjian) * 100) : 0;
 
-      // 3. Tentukan Tahap Inkuiri Murid yang terkini
       let tahapBaru = "Rendah";
       if (peratusBaru >= 80) tahapBaru = "Tinggi";
       else if (peratusBaru >= 50) tahapBaru = "Sederhana";
 
-      // 4. Update jadual 'skor_murid'
       await updateDoc(doc(db, "skor_murid", documentId), {
         markahGuru: markahGuru,
         markahStruktur: totalStrukturBaru,
@@ -126,7 +111,6 @@ export default function PemarkahanGuru() {
         statusPermarkahanEsei: "disemak_oleh_guru"
       });
 
-      // 5. Update jadual 'users' supaya dashboard murid & guru selari
       if (dataMurid.idMurid) {
          await updateDoc(doc(db, "users", dataMurid.idMurid), {
            markahTerkini: peratusBaru,
@@ -134,120 +118,149 @@ export default function PemarkahanGuru() {
          });
       }
 
-      alert("Markah berjaya disimpan! Status telah dikemaskini.");
-      
-      // Tutup tab ini
+      alert("Markah berjaya disimpan! Status pelajar telah dikemaskini.");
       window.close();
       
     } catch (error) {
       console.error("Gagal simpan:", error);
-      alert("Gagal menyimpan markah.");
+      alert("Gagal menyimpan markah. Sila pastikan talian internet anda stabil.");
     } finally {
       setMenyimpan(false);
     }
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center bg-slate-900 text-sky-400 font-bold"><Loader2 className="animate-spin mr-2"/> Memuatkan kertas jawapan...</div>;
-  if (!dataMurid) return <div className="flex h-screen items-center justify-center bg-slate-900 text-red-400 font-bold">Rekod tidak dijumpai.</div>;
+  if (loading) return <div className="flex h-screen items-center justify-center bg-slate-900 text-sky-400 font-bold"><Loader2 className="animate-spin mr-3" size={28}/> Menarik rekod kertas jawapan...</div>;
+  if (!dataMurid) return <div className="flex h-screen items-center justify-center bg-slate-900 text-rose-400 font-bold text-lg"><AlertTriangle className="mr-2"/> Rekod ujian tidak dijumpai.</div>;
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-200 py-10 px-4 font-sans">
-      <div className="max-w-4xl mx-auto">
+    // 'relative' dan 'flex flex-col' ditambah untuk kawalan ruang skrin
+    <div className="min-h-screen flex flex-col bg-[#0f172a] text-slate-200 py-6 sm:py-10 px-4 font-sans relative">
+      
+      {/* 🌟 PEMBAIKAN: Memaksa Latar Belakang Body Menjadi Gelap Penuh */}
+      <style dangerouslySetInnerHTML={{ __html: `body { background-color: #0f172a; margin: 0; }` }} />
+
+      <div className="max-w-4xl w-full mx-auto flex-1">
         
-        <div className="flex items-center justify-between mb-8">
-          <button onClick={() => window.close()} className="flex items-center gap-2 text-slate-400 hover:text-white transition">
-            <ArrowLeft size={20}/> Kembali
+        {/* HEADER BUTANG: Ditukar kepada sm:flex-row supaya atas/bawah jika skrin kecil */}
+        <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4">
+          <button onClick={() => window.close()} className="w-full sm:w-auto flex items-center justify-center gap-2 text-slate-400 hover:text-white bg-slate-800 sm:bg-transparent py-2.5 rounded-lg sm:py-0 transition">
+            <ArrowLeft size={20}/> Kembali ke Dashboard
           </button>
+          
           <button 
             onClick={simpanPemarkahan} 
             disabled={menyimpan}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg disabled:opacity-50 transition"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 sm:py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-900/50 disabled:opacity-50 transition-all hover:scale-[1.02]"
           >
-            {menyimpan ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
-            {menyimpan ? "Menyimpan..." : "Simpan Pemarkahan"}
+            {menyimpan ? <Loader2 className="animate-spin" size={18}/> : <CheckCircle size={18}/>}
+            {menyimpan ? "Sedang Menyimpan..." : "Sahkan & Simpan Pemarkahan"}
           </button>
         </div>
 
-        <div className="bg-[#1e293b] p-8 rounded-2xl border border-slate-700 shadow-xl mb-8">
-          <h1 className="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4">Semakan Kertas Jawapan Murid</h1>
-          <div className="grid grid-cols-2 gap-6">
-            <div className="flex items-start gap-3">
-              <div className="p-3 bg-blue-900/30 text-blue-400 rounded-lg"><User size={24}/></div>
+        {/* KAD MAKLUMAT MURID */}
+        <div className="bg-[#1e293b] p-6 sm:p-8 rounded-3xl border border-slate-700 shadow-xl mb-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-5"><User size={100}/></div>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-white mb-6 border-b border-slate-700/50 pb-4 relative z-10">Semakan Kertas Jawapan Murid</h1>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 relative z-10">
+            <div className="flex items-center gap-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-700/50">
+              <div className="p-3.5 bg-blue-900/40 text-blue-400 rounded-xl shadow-inner"><User size={24}/></div>
               <div>
-                <p className="text-xs text-slate-500 uppercase font-bold">Nama Murid</p>
-                <p className="text-lg font-bold text-white">{dataMurid.namaMurid}</p>
-                <p className="text-sm text-slate-400">{dataMurid.idMurid}</p>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-0.5">Identiti Murid</p>
+                <p className="text-base sm:text-lg font-bold text-slate-200 leading-tight">{dataMurid.namaMurid}</p>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">UID: {dataMurid.idMurid}</p>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <div className="p-3 bg-indigo-900/30 text-indigo-400 rounded-lg"><BookOpen size={24}/></div>
+            
+            <div className="flex items-center gap-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-700/50">
+              <div className="p-3.5 bg-indigo-900/40 text-indigo-400 rounded-xl shadow-inner"><BookOpen size={24}/></div>
               <div>
-                <p className="text-xs text-slate-500 uppercase font-bold">Topik Ujian</p>
-                <p className="text-lg font-bold text-white">{dataMurid.bab} <span className="text-sm font-medium text-amber-500">({dataMurid.jenisUjian === "post_test" ? "Post-Test" : "Pre-Test"})</span></p>
-                <p className="text-sm text-slate-400">Tingkatan {dataMurid.tingkatan}</p>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-0.5">Konteks Ujian</p>
+                <p className="text-base sm:text-lg font-bold text-slate-200 leading-tight flex items-center gap-2">
+                  {dataMurid.bab} 
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-wider border ${dataMurid.jenisUjian === "post_test" ? "bg-emerald-900/30 text-emerald-400 border-emerald-800/50" : "bg-indigo-900/30 text-indigo-400 border-indigo-800/50"}`}>
+                    {dataMurid.jenisUjian === "post_test" ? "POST" : "PRE"}
+                  </span>
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">Tingkatan {dataMurid.tingkatan}</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="space-y-6">
+        {/* SENARAI SOALAN DAN JAWAPAN */}
+        <div className="space-y-8 pb-12">
           {soalanBank.length > 0 ? soalanBank.map((soalan, index) => {
             const jawapanMurid = dataMurid.jawapanStruktur?.[soalan.id];
             const ulasanAI = dataMurid.ulasanAI?.[soalan.id];
             const isAIGagal = ulasanAI?.komenAI?.includes("GAGAL");
 
             return (
-              <div key={soalan.id} className="bg-[#1e293b] rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
-                <div className="bg-slate-800/50 p-5 flex justify-between items-start border-b border-slate-700">
+              <div key={soalan.id} className="bg-[#1e293b] rounded-3xl border border-slate-700 overflow-hidden shadow-2xl flex flex-col h-full">
+                
+                {/* HEADER SOALAN */}
+                <div className="bg-slate-800/80 p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-start border-b border-slate-700 gap-4 shrink-0">
                   <div>
-                    <span className="bg-slate-700 text-slate-300 text-xs font-bold px-3 py-1 rounded-md mb-3 inline-block">Soalan {index + 1}</span>
-                    <p className="text-lg font-medium text-white">{soalan.soalan}</p>
+                    <span className="bg-slate-900 text-slate-400 border border-slate-600 text-[10px] font-black px-3 py-1.5 rounded-lg mb-3 inline-block uppercase tracking-widest shadow-inner">Soalan {index + 1}</span>
+                    <p className="text-base sm:text-lg font-medium text-slate-200 leading-relaxed">{soalan.soalan}</p>
                   </div>
-                  <span className="bg-amber-900/30 text-amber-500 text-sm font-bold px-4 py-2 rounded-lg shrink-0 border border-amber-800/50">
+                  <span className="bg-amber-900/20 text-amber-500 text-xs font-black px-4 py-2 rounded-xl shrink-0 border border-amber-800/50 shadow-sm w-max">
                     Max: {soalan.markah} M
                   </span>
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className="p-5 sm:p-6 space-y-6 flex-1 flex flex-col">
+                  
                   {/* JAWAPAN MURID */}
-                  <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase mb-2">Jawapan Murid:</p>
-                    <div className="bg-[#0f172a] border border-slate-700 p-4 rounded-xl text-slate-300 whitespace-pre-wrap">
-                      {jawapanMurid ? jawapanMurid : <span className="text-rose-400/80 italic font-medium">⚠️ Tiada jawapan diberikan / Ditinggalkan kosong oleh murid.</span>}
+                  <div className="flex-1">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Teks Jawapan Murid:</p>
+                    <div className="bg-slate-900/80 border border-slate-700 p-5 rounded-2xl text-slate-300 whitespace-pre-wrap text-sm sm:text-base leading-relaxed shadow-inner">
+                      {jawapanMurid ? jawapanMurid : <span className="text-rose-400/80 italic font-medium flex items-center gap-2"><AlertTriangle size={16}/> Tiada jawapan diberikan / Ditinggalkan kosong oleh murid.</span>}
                     </div>
                   </div>
 
-                  {/* ULASAN AI (RUJUKAN GURU) */}
+                  {/* ULASAN AI TENTANG JAWAPAN INI */}
                   {ulasanAI && jawapanMurid && (
-                    <div className={`p-4 rounded-xl border ${isAIGagal ? 'bg-rose-900/10 border-rose-900/50' : 'bg-cyan-900/10 border-cyan-900/50'}`}>
-                      <p className={`text-xs font-bold uppercase mb-2 flex items-center gap-2 ${isAIGagal ? 'text-rose-400' : 'text-cyan-400'}`}>
-                        {isAIGagal ? <AlertTriangle size={14}/> : '🤖'} Ulasan AI (Cadangan: {ulasanAI.markahAI}M)
+                    <div className={`p-5 rounded-2xl border shrink-0 shadow-sm ${isAIGagal ? 'bg-rose-900/10 border-rose-800/50' : 'bg-cyan-900/10 border-cyan-800/50'}`}>
+                      <p className={`text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2 ${isAIGagal ? 'text-rose-400' : 'text-cyan-400'}`}>
+                        {isAIGagal ? <AlertTriangle size={16}/> : <Sparkles size={16}/>} 
+                        Bantuan AI (Cadangan: {ulasanAI.markahAI}M)
                       </p>
-                      <p className={`text-sm ${isAIGagal ? 'text-rose-300/80' : 'text-cyan-300/80'}`}>{ulasanAI.komenAI}</p>
+                      <p className={`text-sm leading-relaxed ${isAIGagal ? 'text-rose-300' : 'text-cyan-200'}`}>
+                        {ulasanAI.komenAI}
+                      </p>
                     </div>
                   )}
 
-                  {/* KEPUTUSAN & INPUT GURU */}
-                  <div className="bg-slate-800 p-5 rounded-xl border border-slate-600 flex items-center gap-6">
-                    <label className="text-sm font-bold text-emerald-400 uppercase tracking-wider">Markah Muktamad Guru:</label>
-                    <div className="flex items-center gap-3">
+                  {/* INPUT MARKAH MUKTAMAD (OLEH GURU) */}
+                  <div className="bg-slate-800 p-5 sm:p-6 rounded-2xl border border-slate-600 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0 mt-auto shadow-md">
+                    <div>
+                      <label className="block text-sm font-black text-emerald-400 uppercase tracking-widest mb-1">Keputusan Guru</label>
+                      <p className="text-[10px] text-slate-400">Markah ini akan menggantikan cadangan AI.</p>
+                    </div>
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
                       <input 
                         type="number" 
                         min="0" 
                         max={soalan.markah}
                         value={markahGuru[soalan.id] ?? ""}
                         onChange={(e) => handleMarkahChange(soalan.id, e.target.value, soalan.markah)}
-                        className="w-20 bg-[#0f172a] border-2 border-emerald-500/50 rounded-lg p-3 text-center text-xl font-bold text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                        className="w-full sm:w-24 bg-slate-900 border-2 border-emerald-500/50 rounded-xl p-3 sm:p-4 text-center text-xl font-black text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 shadow-inner transition-all"
                       />
-                      <span className="text-slate-500 font-medium">/ {soalan.markah}</span>
+                      <span className="text-slate-400 font-bold text-lg">/ {soalan.markah}</span>
                     </div>
                   </div>
+
                 </div>
               </div>
             );
           }) : (
-            <div className="bg-[#1e293b] p-10 rounded-2xl border border-slate-700 text-center text-slate-500">
-              Tiada soalan struktur ditemui untuk ujian ini. Semua soalan adalah objektif atau murid belum memulakan ujian struktur.
+            <div className="bg-[#1e293b] p-12 rounded-3xl border border-slate-700 border-dashed text-center flex flex-col items-center justify-center gap-4">
+              <div className="p-4 bg-slate-800 rounded-full"><BookOpen size={32} className="text-slate-500"/></div>
+              <div>
+                <p className="text-lg font-bold text-slate-300 mb-1">Tiada soalan esei / struktur ditemui.</p>
+                <p className="text-sm text-slate-500">Semua soalan dalam kertas ujian ini berkemungkinan berbentuk objektif, atau murid belum sampai ke fasa ujian struktur.</p>
+              </div>
             </div>
           )}
         </div>

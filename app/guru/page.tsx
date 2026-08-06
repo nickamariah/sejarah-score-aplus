@@ -173,35 +173,91 @@ export default function GuruDashboard() {
     if (!isEditingSoalan) setQTopik(subtopikPilihan[0] || "");
   }, [qTingkatan, qBab, isEditingSoalan]);
 
-  // PROGRESS MURID DETAIL
+  // 🌟 FUNGSI TARIK DATA MURID (Diasingkan supaya mudah di-refresh)
+  const tarikDetailMurid = async (murid: any) => {
+    setLoadingStudentProgress(true);
+    try {
+      const targetIds = [murid.id];
+      if (murid.idPengguna) targetIds.push(murid.idPengguna);
+      const uniqueIds = [...new Set(targetIds)];
+
+      const qSkor = query(collection(db, "skor_murid"), where("idMurid", "in", uniqueIds));
+      const snapSkor = await getDocs(qSkor);
+      const skorData = snapSkor.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      const qChat = query(collection(db, "chat_sessions"), where("studentId", "in", uniqueIds));
+      const snapChat = await getDocs(qChat);
+      const chatData = snapChat.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      setStudentProgressData({ skor: skorData, chat: chatData });
+    } catch (error) {
+      console.error("Gagal tarik progress murid", error);
+    } finally {
+      setLoadingStudentProgress(false);
+    }
+  };
+
+  // PROGRESS MURID DETAIL DIKEMASKINI APABILA MODAL DIBUKA
   useEffect(() => {
-    const tarikDetailMurid = async () => {
-      if (selectedStudentDetail) {
-        setLoadingStudentProgress(true);
-        setExpandedBabDetail(null); 
-        try {
-          const targetIds = [selectedStudentDetail.id];
-          if (selectedStudentDetail.idPengguna) targetIds.push(selectedStudentDetail.idPengguna);
-          const uniqueIds = [...new Set(targetIds)];
-
-          const qSkor = query(collection(db, "skor_murid"), where("idMurid", "in", uniqueIds));
-          const snapSkor = await getDocs(qSkor);
-          const skorData = snapSkor.docs.map(d => d.data());
-
-          const qChat = query(collection(db, "chat_sessions"), where("studentId", "in", uniqueIds));
-          const snapChat = await getDocs(qChat);
-          const chatData = snapChat.docs.map(d => d.data());
-
-          setStudentProgressData({ skor: skorData, chat: chatData });
-        } catch (error) {
-          console.error("Gagal tarik progress murid", error);
-        } finally {
-          setLoadingStudentProgress(false);
-        }
-      }
-    };
-    tarikDetailMurid();
+    if (selectedStudentDetail) {
+      setExpandedBabDetail(null); 
+      tarikDetailMurid(selectedStudentDetail);
+    }
   }, [selectedStudentDetail]);
+
+  // 🌟 FUNGSI BARU: DELETE REKOD MENGIKUT BAB (PRE, AI, POST)
+  const handleResetBabMurid = async (murid: any, ting: string, num: number) => {
+    const babName = `Bab ${num}`;
+    const sah = window.confirm(`AMARAN: Adakah anda pasti mahu RESET semua data ${babName} (Tingkatan ${ting}) untuk pelajar ${murid.nama}?\n\nSemua markah Ujian Diagnostik, Bimbingan AI Tutor, dan Ujian Pasca untuk topik ini akan dipadam kekal.`);
+    
+    if (!sah) return;
+
+    try {
+      setLoadingStudentProgress(true); // Tunjuk loading
+      const targetIds = [murid.id];
+      if (murid.idPengguna) targetIds.push(murid.idPengguna);
+      const uniqueIds = [...new Set(targetIds)];
+
+      // 1. Padam rekod skor (Pre/Post test) dari Firestore
+      const qSkor = query(
+        collection(db, "skor_murid"), 
+        where("idMurid", "in", uniqueIds),
+        where("tingkatan", "==", ting),
+        where("bab", "==", babName)
+      );
+      const snapSkor = await getDocs(qSkor);
+      const deleteSkorPromises = snapSkor.docs.map(d => deleteDoc(doc(db, "skor_murid", d.id)));
+
+      // 2. Padam rekod perbualan AI dari Firestore
+      const chatPrefix = `tingkatan${ting}_bab${num}_sub`;
+      const qChat = query(collection(db, "chat_sessions"), where("studentId", "in", uniqueIds));
+      const snapChat = await getDocs(qChat);
+      
+      const deleteChatPromises: Promise<void>[] = [];
+      snapChat.forEach(d => {
+        const dData = d.data();
+        // Cari rekod chat yang mengandungi ID Bab yang betul
+        if (dData.chapterId && dData.chapterId.includes(chatPrefix)) {
+          deleteChatPromises.push(deleteDoc(doc(db, "chat_sessions", d.id)));
+        }
+      });
+
+      // Tunggu kesemua query delete selesai
+      await Promise.all([...deleteSkorPromises, ...deleteChatPromises]);
+      
+      showToastMessage(`Berjaya reset data ${babName} untuk pelajar ini.`, "success");
+
+      // 3. Muat semula data di UI Profil Murid dan Semakan
+      await tarikDetailMurid(murid);
+      tarikDataSemakan(); 
+      
+    } catch (error) {
+      console.error("Gagal reset data bab:", error);
+      showToastMessage("Gagal reset data pangkalan data.", "error");
+    } finally {
+      setLoadingStudentProgress(false);
+    }
+  };
 
   const tarikDataPenggunaFirebase = async () => {
     setLoadingPengguna(true);
@@ -1485,34 +1541,44 @@ export default function GuruDashboard() {
                                                     </div>
 
                                                     {/* KOTAK ANALITIK GURU & TINDAKAN SUSULAN */}
-                                                    <div className="flex-[2] min-w-0 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 p-5 rounded-xl border border-indigo-800/30 shadow-inner print:bg-white print:border print:border-slate-300 print:shadow-none">
-                                                       <h5 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-3 flex items-center gap-2 print:text-black"><BrainCircuit size={16} className="print:hidden"/> Laporan Analitik Pedagogi & Tindakan Susulan</h5>
-                                                       
-                                                       <div className="flex items-start gap-4 mb-4">
-                                                         <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 shadow-md shrink-0 print:bg-slate-50 print:border-slate-300 print:shadow-none">
-                                                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center mb-1 print:text-slate-600">Learning Gain</p>
-                                                           <div className="flex items-center justify-center gap-1.5">
-                                                              {gainIcon}
-                                                              <span className={`text-xl font-black ${rumusanColor}`}>{learningGain !== null ? `${learningGain > 0 ? '+' : ''}${learningGain}%` : 'N/A'}</span>
-                                                           </div>
-                                                         </div>
+                                                    <div className="flex-[2] min-w-0 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 p-5 rounded-xl border border-indigo-800/30 shadow-inner print:bg-white print:border print:border-slate-300 print:shadow-none flex flex-col justify-between">
+                                                       <div>
+                                                         <h5 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-3 flex items-center gap-2 print:text-black"><BrainCircuit size={16} className="print:hidden"/> Laporan Analitik Pedagogi & Tindakan Susulan</h5>
                                                          
-                                                         <div className="flex-1 space-y-2">
-                                                           <p className="text-sm text-slate-300 leading-relaxed print:text-black">
-                                                             <strong>Analisis:</strong> {rumusanAI}
-                                                           </p>
-                                                           <p className="text-sm text-amber-200 leading-relaxed print:text-black">
-                                                             <strong>Tindakan Susulan:</strong> {tindakanSusulan}
-                                                           </p>
+                                                         <div className="flex items-start gap-4 mb-4">
+                                                           <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 shadow-md shrink-0 print:bg-slate-50 print:border-slate-300 print:shadow-none">
+                                                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center mb-1 print:text-slate-600">Learning Gain</p>
+                                                             <div className="flex items-center justify-center gap-1.5">
+                                                                {gainIcon}
+                                                                <span className={`text-xl font-black ${rumusanColor}`}>{learningGain !== null ? `${learningGain > 0 ? '+' : ''}${learningGain}%` : 'N/A'}</span>
+                                                             </div>
+                                                           </div>
+                                                           
+                                                           <div className="flex-1 space-y-2">
+                                                             <p className="text-sm text-slate-300 leading-relaxed print:text-black">
+                                                               <strong>Analisis:</strong> {rumusanAI}
+                                                             </p>
+                                                             <p className="text-sm text-amber-200 leading-relaxed print:text-black">
+                                                               <strong>Tindakan Susulan:</strong> {tindakanSusulan}
+                                                             </p>
+                                                           </div>
                                                          </div>
                                                        </div>
 
-                                                       {(preTestRecord?.docIdPre || postTestRecord?.docIdPost) && (
-                                                          <div className="flex gap-2 border-t border-indigo-800/30 pt-3 print:hidden">
-                                                             {preTestRecord && <a href={`/guru/semakan/${preTestRecord.id}`} target="_blank" rel="noreferrer" className="text-xs bg-indigo-600/80 hover:bg-indigo-500 text-white px-3 py-1.5 rounded shadow flex items-center gap-1 font-bold"><Eye size={12}/> Semak Esei Pre</a>}
-                                                             {postTestRecord && <a href={`/guru/semakan/${postTestRecord.id}`} target="_blank" rel="noreferrer" className="text-xs bg-emerald-600/80 hover:bg-emerald-500 text-white px-3 py-1.5 rounded shadow flex items-center gap-1 font-bold"><Eye size={12}/> Semak Esei Post</a>}
+                                                       {/* BUTANG TINDAKAN (SEMAKAN & DELETE) */}
+                                                       <div className="flex items-center justify-between border-t border-indigo-800/30 pt-4 mt-2 print:hidden w-full">
+                                                          <div className="flex gap-2">
+                                                            {preTestRecord && <a href={`/guru/semakan/${preTestRecord.id}`} target="_blank" rel="noreferrer" className="text-xs bg-indigo-600/80 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg shadow flex items-center gap-1.5 font-bold transition-all"><Eye size={14}/> Esei Pre-Test</a>}
+                                                            {postTestRecord && <a href={`/guru/semakan/${postTestRecord.id}`} target="_blank" rel="noreferrer" className="text-xs bg-emerald-600/80 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg shadow flex items-center gap-1.5 font-bold transition-all"><Eye size={14}/> Esei Post-Test</a>}
                                                           </div>
-                                                       )}
+                                                          
+                                                          <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleResetBabMurid(selectedStudentDetail, ting, num); }} 
+                                                            className="text-xs bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 font-bold transition-all ml-auto hover:shadow-rose-900/50 border border-rose-500"
+                                                          >
+                                                            <Trash2 size={14}/> Reset Data Bab Ini
+                                                          </button>
+                                                       </div>
                                                     </div>
                                                     
                                                   </div>
