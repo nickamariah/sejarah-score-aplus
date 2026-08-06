@@ -218,7 +218,7 @@ export default function GuruDashboard() {
       if (murid.idPengguna) targetIds.push(murid.idPengguna);
       const uniqueIds = [...new Set(targetIds)];
 
-      // 1. Padam rekod skor (Pre/Post test) dari Firestore
+      // 1. Padam rekod skor (Pre/Post test) from Firestore
       const qSkor = query(
         collection(db, "skor_murid"), 
         where("idMurid", "in", uniqueIds),
@@ -236,13 +236,11 @@ export default function GuruDashboard() {
       const deleteChatPromises: Promise<void>[] = [];
       snapChat.forEach(d => {
         const dData = d.data();
-        // Cari rekod chat yang mengandungi ID Bab yang betul
         if (dData.chapterId && dData.chapterId.includes(chatPrefix)) {
           deleteChatPromises.push(deleteDoc(doc(db, "chat_sessions", d.id)));
         }
       });
 
-      // Tunggu kesemua query delete selesai
       await Promise.all([...deleteSkorPromises, ...deleteChatPromises]);
       
       showToastMessage(`Berjaya reset data ${babName} untuk pelajar ini.`, "success");
@@ -946,6 +944,44 @@ export default function GuruDashboard() {
                        </select>
                      </div>
                   </div>
+
+                  {/* 🌟 KOTAK ANALISIS JUMLAH SOALAN (TAMBAHAN BAHARU) 🌟 */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 mb-6">
+                    {(() => {
+                       // Kiraan dinamik berdasarkan filter semasa
+                       const totalObjektif = soalanListFiltered.filter(q => q.jenis === 'objektif').length;
+                       const totalStruktur = soalanListFiltered.filter(q => q.jenis !== 'objektif').length;
+                       const totalSemua = soalanListFiltered.length;
+
+                       return (
+                         <>
+                           <div className="bg-slate-800/80 backdrop-blur-md rounded-xl border border-slate-700 p-4 shadow-md flex flex-col justify-center items-center text-center">
+                             <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Jumlah Keseluruhan</span>
+                             <span className="text-3xl font-black text-white">{totalSemua}</span>
+                           </div>
+                           <div className="bg-slate-800/80 backdrop-blur-md rounded-xl border border-amber-900/50 p-4 shadow-md flex flex-col justify-center items-center text-center">
+                             <span className="text-amber-500 text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1"><CheckSquare size={12}/> Objektif</span>
+                             <span className="text-3xl font-black text-amber-400">{totalObjektif}</span>
+                           </div>
+                           <div className="bg-slate-800/80 backdrop-blur-md rounded-xl border border-fuchsia-900/50 p-4 shadow-md flex flex-col justify-center items-center text-center">
+                             <span className="text-fuchsia-500 text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1"><FileText size={12}/> Struktur / Esei</span>
+                             <span className="text-3xl font-black text-fuchsia-400">{totalStruktur}</span>
+                           </div>
+                           <div className="bg-slate-800/80 backdrop-blur-md rounded-xl border border-slate-700 p-4 shadow-md flex flex-col justify-center items-center text-center">
+                             <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1"><Activity size={12}/> Kesihatan Bank Soalan</span>
+                             {totalObjektif >= 40 && totalStruktur >= 30 ? (
+                               <span className="text-sm font-black text-emerald-400 bg-emerald-900/30 px-3 py-1 rounded-lg mt-1 border border-emerald-800/50">CUKUP STABIL</span>
+                             ) : totalObjektif >= 20 && totalStruktur >= 10 ? (
+                               <span className="text-sm font-black text-amber-400 bg-amber-900/30 px-3 py-1 rounded-lg mt-1 border border-amber-800/50">SEDERHANA</span>
+                             ) : (
+                               <span className="text-sm font-black text-rose-400 bg-rose-900/30 px-3 py-1 rounded-lg mt-1 border border-rose-800/50 animate-pulse">PERLU TAMBAH</span>
+                             )}
+                           </div>
+                         </>
+                       );
+                    })()}
+                  </div>
+                  {/* 🌟 TAMAT TAMBAHAN BAHARU 🌟 */}
 
                   <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
                     {loadingSoalan ? ( <div className="p-12 text-center text-slate-400 animate-pulse">Memuat turun Bank Soalan... ⏳</div> ) : (
