@@ -484,7 +484,7 @@ export default function GuruDashboard() {
     setIsCreatingSoalan(true); window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const resetFormSoalan = () => { setIsCreatingSoalan(false); setIsEditingSoalan(false); setEditSoalanId(null); setQSoalan(""); setQTopik(""); setQKegunaan("semua"); setQSkema(""); setQImageUrl(""); setQMarkah("1"); setQUrutan(""); setQPilihanA(""); setQPilihanB(""); setQPilihanC(""); setQPilihanD(""); setQJawapanBetul("A"); };
+  const resetFormSoalan = () => { setIsCreatingSoalan(false); setIsEditingSoalan(false); setEditSoalanId(null); setQSoalan(""); setQTopik(""); setQKegunaan("semua_ujian"); setQSkema(""); setQImageUrl(""); setQMarkah("1"); setQUrutan(""); setQPilihanA(""); setQPilihanB(""); setQPilihanC(""); setQPilihanD(""); setQJawapanBetul("A"); };
   const handlePadamSoalan = async (id: string) => { if (confirm("Padam soalan?")) { try { await deleteDoc(doc(db, "questionBank", id)); showToastMessage("Berjaya dipadam.", "success"); tarikSoalanFirebase(); } catch (error) { showToastMessage("Ralat.", "error"); } } };
 
   const handleSimpanBahan = async (e: React.FormEvent) => {
