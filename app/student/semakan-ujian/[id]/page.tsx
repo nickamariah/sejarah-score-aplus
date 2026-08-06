@@ -64,13 +64,12 @@ export default function SemakanUjianMurid() {
 
           setData({ ...resultData, namaMurid: namaTerkini });
 
-          // JIKA UJIAN BARU (ADA SUSUNAN SOALAN YANG TEPAT)
+          // 🌟 JIKA UJIAN BARU: Guna susunan tepat
           if (resultData.susunanSoalan && resultData.susunanSoalan.length > 0) {
             setSoalanBank(resultData.susunanSoalan);
           } 
-          // JIKA UJIAN LAMA (TARIK SEMULA DARI DATABASE)
+          // 🌟 JIKA UJIAN LAMA: Tarik dari database tapi tapis mengikut jawapan murid!
           else {
-            const jenisUjianMurid = resultData.jenisUjian || "pre_test"; 
             const q = query(
               collection(db, "questionBank"), 
               where("tingkatan", "==", resultData.tingkatan),
@@ -81,31 +80,26 @@ export default function SemakanUjianMurid() {
             const qListObj: any[] = [];
             const qListStr: any[] = [];
             
+            // Kumpulkan SEMUA ID soalan yang murid ini ada jawab/dinilai AI
+            const soalanIDYangDijawab = new Set([
+               ...Object.keys(resultData.jawapanObjektif || {}),
+               ...Object.keys(resultData.jawapanStruktur || {}),
+               ...Object.keys(resultData.ulasanAI || {})
+            ]);
+            
             qSnap.forEach((d) => {
               const soalanData = d.data();
-              const kegunaan = soalanData.kegunaan || "semua";
-
-              if (kegunaan === "simpanan") return;
-
-              // Logik kelayakan soalan dilonggarkan supaya sama dengan ujian asal
-              let layak = false;
-              if (kegunaan === "semua" || kegunaan === "semua_ujian" || kegunaan === "pre_post") layak = true;
-              else if (jenisUjianMurid === "pre_test" && kegunaan === "pre_test") layak = true;
-              else if (jenisUjianMurid === "post_test") {
-                 if (kegunaan === "post_test" || kegunaan === "pemulihan") layak = true;
-              }
-
-              if (!layak) return;
+              
+              // 🚨 PENAPIS UTAMA: Jika ID soalan tiada dalam set soalan yang dijawab, ABAIKAN!
+              if (!soalanIDYangDijawab.has(d.id)) return;
 
               if (soalanData.jenis === "objektif") {
                   qListObj.push({ id: d.id, ...soalanData });
               } else {
-                  // Dibuang had urutan !== 999 supaya semua struktur keluar
                   qListStr.push({ id: d.id, ...soalanData });
               }
             });
             
-            // Susun struktur jika ada urutan
             qListStr.sort((a, b) => {
                const uA = Number(a.urutan); const uB = Number(b.urutan);
                if(isNaN(uA)) return 1; if(isNaN(uB)) return -1;
