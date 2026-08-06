@@ -199,7 +199,7 @@ function KandunganUjian() {
         });
 
         // ==========================================
-        // 🌟 KAWALAN JUMLAH SOALAN (KUOTA DINAMIK MENGIKUT ARAS) TERKINI
+        // 🌟 KAWALAN JUMLAH SOALAN (KUOTA DINAMIK MENGIKUT ARAS)
         // ==========================================
         let hadObjektif = 30; // Nilai lalai
         let hadStruktur = 5;  // Nilai lalai
@@ -585,11 +585,20 @@ function KandunganUjian() {
                </div>
              ) : (
                <div className="relative">
+                 {/* 🌟 KEMAS KINI: HALANG PASTE, DROP & COPY */}
                  <textarea
                    ref={textareaRef}
                    value={jawapanStruktur[semasa.id] || ""} 
                    onChange={(e) => handleInputStruktur(e, semasa.id)}
                    disabled={soalanSelesai}
+                   onPaste={(e) => {
+                     e.preventDefault();
+                     alert("⚠️ Amaran: Fungsi tampal (Paste) telah dinyahaktifkan untuk mengekalkan integriti ujian. Sila taip jawapan anda sendiri menggunakan kefahaman anda.");
+                   }}
+                   onDrop={(e) => e.preventDefault()}
+                   onCopy={(e) => e.preventDefault()}
+                   autoComplete="off"
+                   spellCheck="false"
                    placeholder="Sila taip jawapan esei/struktur di sini..."
                    className={`w-full p-4 md:p-5 text-slate-900 border-2 rounded-xl focus:ring-4 focus:ring-sky-500/10 resize-none min-h-40 max-h-96 overflow-y-auto text-sm md:text-base transition-all outline-none leading-relaxed ${soalanSelesai ? 'bg-slate-100 border-slate-300 opacity-80' : 'bg-slate-50 border-slate-300 focus:bg-white focus:border-sky-500'}`}
                  />
