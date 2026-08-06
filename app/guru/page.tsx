@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, HelpCircle, Save, Zap, Sparkles, Activity, UploadCloud, RefreshCw, CheckSquare, Filter, Menu, X, Search, MessageSquare, Eye, AlertTriangle, Rocket, Palette, Volume2, VolumeX, Music, TrendingUp, TrendingDown, BrainCircuit, ChevronDown, Check, Printer, PlayCircle } from "lucide-react";
+import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, HelpCircle, Save, Zap, Sparkles, Activity, UploadCloud, RefreshCw, CheckSquare, Filter, Menu, X, Search, MessageSquare, Eye, AlertTriangle, Rocket, Palette, Volume2, VolumeX, Music, TrendingUp, TrendingDown, BrainCircuit, ChevronDown, Check, Printer, PlayCircle, Grid } from "lucide-react";
 
 // IMPORT KOMPONEN MAKMAL DATA KAJIAN
 import MakmalDataKajian from "../../utils/MakmalDataKajian";
@@ -92,13 +92,17 @@ export default function GuruDashboard() {
   const [editSubtopikId, setEditSubtopikId] = useState<string | null>(null);
   const [tempSubtopik, setTempSubtopik] = useState<any[]>([]);
 
+  // 🌟 KEMAS KINI: Tarik SEMUA skor murid (Untuk Matriks)
+  const [semuaSkor, setSemuaSkor] = useState<any[]>([]);
   const [senaraiSemakan, setSenaraiSemakan] = useState<any[]>([]);
   const [loadingSemakan, setLoadingSemakan] = useState(false);
 
   const [senaraiMaklumBalas, setSenaraiMaklumBalas] = useState<any[]>([]);
   const [loadingMaklumBalas, setLoadingMaklumBalas] = useState(false);
+  
   const [selectedStudentDetail, setSelectedStudentDetail] = useState<any | null>(null);
   const [expandedBabDetail, setExpandedBabDetail] = useState<number | null>(null); 
+  const [showMatrixModal, setShowMatrixModal] = useState(false); // 🌟 Modal Matriks Kelas
   
   const [studentProgressData, setStudentProgressData] = useState<{skor: any[], chat: any[]}>({skor: [], chat: []});
   const [loadingStudentProgress, setLoadingStudentProgress] = useState(false);
@@ -257,19 +261,27 @@ export default function GuruDashboard() {
     } catch (error) { console.error(error); } finally { setLoadingBahan(false); }
   };
 
+  // 🌟 KEMAS KINI: TARIK SEMUA DATA UJIAN (UNTUK MATRIKS)
   const tarikDataSemakan = async () => {
     setLoadingSemakan(true);
     try {
       const q = query(collection(db, "skor_murid"), orderBy("tarikh", "desc"));
       const querySnapshot = await getDocs(q);
-      const data: any[] = [];
+      
+      const dataSemuaSkor: any[] = [];
+      const dataPerluSemak: any[] = [];
+
       querySnapshot.forEach((doc) => { 
         const docData = doc.data();
+        dataSemuaSkor.push({ id: doc.id, ...docData });
+        
         if (docData.statusPermarkahanEsei && docData.statusPermarkahanEsei !== "tiada_esei") {
-           data.push({ id: doc.id, ...docData }); 
+           dataPerluSemak.push({ id: doc.id, ...docData }); 
         }
       });
-      setSenaraiSemakan(data);
+
+      setSemuaSkor(dataSemuaSkor);
+      setSenaraiSemakan(dataPerluSemak);
     } catch (error) { console.error(error); } finally { setLoadingSemakan(false); }
   };
 
@@ -557,7 +569,6 @@ export default function GuruDashboard() {
                 </div>
               </div>
               
-              {/* 🌟 KEMAS KINI: GRID UNTUK "STICKY" FORM */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 
                 {/* 🌟 KOTAK BORANG (KIRI) - STICKY */}
@@ -620,7 +631,6 @@ export default function GuruDashboard() {
                   </form>
                 </div>
 
-                {/* 🌟 KOTAK JADUAL (KANAN) */}
                 <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 overflow-hidden lg:col-span-2 shadow-xl">
                   {loadingPengguna ? ( <div className="p-12 text-center text-slate-400 animate-pulse">Menarik data pengguna... ⏳</div> ) : (
                     <div className="overflow-x-auto">
@@ -671,12 +681,16 @@ export default function GuruDashboard() {
                  </div>
                  
                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto flex-wrap justify-end">
-                   {/* Butang Cetak Keseluruhan */}
-                   <button onClick={() => window.print()} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2">
-                     <Printer size={16}/> Cetak Laporan Kelas
+                   
+                   {/* 🌟 BUTANG MATRIKS KELAS BARU */}
+                   <button onClick={() => setShowMatrixModal(true)} className="w-full sm:w-auto bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2">
+                     <ChartBar size={16}/> Matriks Kelas (Keseluruhan)
                    </button>
                    
-                   {/* FILTER SEKOLAH UNTUK ADMIN */}
+                   <button onClick={() => window.print()} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2">
+                     <Printer size={16}/> Cetak Senarai
+                   </button>
+                   
                    {myRole === "admin" && (
                      <select value={filterSekolahPemantauan} onChange={(e) => {setFilterSekolahPemantauan(e.target.value); setFilterKelasPemantauan("Semua");}} className="w-full sm:w-auto bg-purple-900/30 border border-purple-700 text-purple-300 font-bold px-4 py-2.5 rounded-xl text-sm focus:border-purple-500 outline-none shadow-inner">
                         <option className="bg-slate-900 text-white" value="Semua">Semua Sekolah</option>
@@ -692,7 +706,7 @@ export default function GuruDashboard() {
                    <select value={filterKelasPemantauan} onChange={(e) => setFilterKelasPemantauan(e.target.value)} className="w-full sm:w-auto bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner truncate">
                       <option className="bg-slate-900" value="Semua">Semua Kelas</option>
                       {Array.from(new Set(senaraiPengguna.filter(u => u.role === "murid" && (filterTingkatanPemantauan === "Semua" || String(u.tingkatan) === filterTingkatanPemantauan) && (filterSekolahPemantauan === "Semua" || u.sekolah === filterSekolahPemantauan)).map(u => u.kelas))).filter(Boolean).sort().map((k, idx) => (
-                        <option className="bg-slate-900" key={idx} value={k}>{k}</option>
+                        <option className="bg-slate-900" key={idx} value={k as string}>{k as string}</option>
                       ))}
                    </select>
                    <div className="relative w-full sm:w-64">
@@ -984,7 +998,7 @@ export default function GuruDashboard() {
                    <input type="text" placeholder="Cari tajuk bahan nota..." value={searchBahan} onChange={(e) => setSearchBahan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 text-white pl-10 pr-4 py-2.5 rounded-xl text-sm focus:border-blue-500 outline-none shadow-inner" />
                 </div>
                 <select value={filterTingkatanBahan} onChange={(e) => setFilterTingkatanBahan(e.target.value)} className="w-full md:w-auto bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-4 py-2.5 focus:border-blue-500 outline-none shadow-inner">
-                   <option className="bg-slate-900 text-white" value="Semua">Semua Tingkatan</option><option className="bg-slate-900 text-white" value="4">Tingkatan 4</option><option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
+                   <option value="Semua">Semua Tingkatan</option><option value="4">Tingkatan 4</option><option value="5">Tingkatan 5</option>
                 </select>
               </div>
 
