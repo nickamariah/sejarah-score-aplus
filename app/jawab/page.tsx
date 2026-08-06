@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, getDoc } from "firebase/firestore"; 
 import { db } from "../../lib/firebase";
-import { Loader2, Image as ImageIcon, ChevronRight, Volume2, VolumeX, Music, Palette, ArrowLeft } from "lucide-react";
+import { Loader2, Image as ImageIcon, ChevronRight, Volume2, VolumeX, Music, Palette, ArrowLeft, ShieldAlert } from "lucide-react";
 
 // ==========================================
 // 1. KOMPONEN GAMBAR SOALAN
@@ -127,7 +127,7 @@ function KandunganUjian() {
   };
 
   // ==========================================
-  // 🌟 LOGIK PINTAR: CABUTAN SOALAN IKUT ARAS & RAWAK (MEMENUHI MARKAH 40/30)
+  // 🌟 LOGIK PINTAR: CABUTAN SOALAN IKUT ARAS & RAWAK
   // ==========================================
   useEffect(() => {
     if (!isClient) return;
@@ -163,6 +163,26 @@ function KandunganUjian() {
            }
         }
 
+        // 🌟 KAWALAN SASARAN MARKAH (ADAPTIVE ALGORITHM BERDASARKAN TESIS)
+        let sasaranMarkahObjektif = 30; 
+        let sasaranMarkahStruktur = 30;  
+        let isPemulihan = currentAttempt > 0 && jenisUjian === "post_test";
+
+        if (jenisUjian === "pre_test") {
+            sasaranMarkahObjektif = 40; 
+            sasaranMarkahStruktur = 40;
+        } else if (jenisUjian === "post_test") {
+            if (!isPemulihan) { 
+                // Post-Test Pertama (Standard)
+                sasaranMarkahObjektif = 30; 
+                sasaranMarkahStruktur = 30;
+            } else { 
+                // Mod Pemulihan (Kini 30 Objektif, 20 Struktur untuk beri kepuasan menjawab soalan pendek)
+                sasaranMarkahObjektif = 30; 
+                sasaranMarkahStruktur = 20; 
+            }
+        }
+
         const q = query(collection(db, "questionBank"), where("tingkatan", "==", tingkatan), where("bab", "==", bab));
         const querySnapshot = await getDocs(q);
         
@@ -179,8 +199,8 @@ function KandunganUjian() {
           if (kegunaan === "semua" || kegunaan === "semua_ujian" || kegunaan === "pre_post") layak = true;
           else if (jenisUjian === "pre_test" && kegunaan === "pre_test") layak = true;
           else if (jenisUjian === "post_test") {
-             if (kegunaan === "post_test") layak = true;
-             if (currentAttempt > 0 && kegunaan === "pemulihan") layak = true;
+             if (!isPemulihan && kegunaan === "post_test") layak = true;
+             if (isPemulihan && (kegunaan === "pemulihan" || kegunaan === "post_test")) layak = true; 
           }
 
           if (!layak) return;
@@ -192,33 +212,16 @@ function KandunganUjian() {
             }
             soalanObjektif.push({ id: docSnap.id, ...data });
           } else {
+            const markahSoalan = parseInt(data.markah) || 0;
+            
+            // 🌟 SYARAT KETAT PRE-TEST: Buang soalan 2 markah ke bawah (Mesti mencabar)
+            if (jenisUjian === "pre_test" && markahSoalan <= 2) return;
+
             soalanStruktur.push({ id: docSnap.id, ...data });
           }
         });
 
-        // 🌟 KAWALAN SASARAN MARKAH KHUSUS
-        let sasaranMarkahObjektif = 30; 
-        let sasaranMarkahStruktur = 20;  
-
-        if (jenisUjian === "pre_test") {
-            sasaranMarkahObjektif = 40; 
-            sasaranMarkahStruktur = 30;
-        } else if (jenisUjian === "post_test") {
-            if (currentAttempt === 0) { 
-                if (currentTahap === "Sederhana" || currentTahap === "Tinggi") {
-                   sasaranMarkahObjektif = 25; 
-                   sasaranMarkahStruktur = 20;
-                } else { 
-                   sasaranMarkahObjektif = 25; 
-                   sasaranMarkahStruktur = 15;
-                }
-            } else { 
-                sasaranMarkahObjektif = 20; 
-                sasaranMarkahStruktur = 10; 
-            }
-        }
-
-        // Fungsi Helper: Ambil soalan sehingga mencapai sasaran markah
+        // 🌟 FUNGSI KUTIP SOALAN RAWAK
         const kumpulSoalanIkutMarkah = (soalanShuffled: any[], sasaranMarkah: number) => {
             let senaraiAkhir = [];
             let jumlahSemasa = 0;
@@ -229,15 +232,17 @@ function KandunganUjian() {
                     senaraiAkhir.push(s);
                     jumlahSemasa += m;
                 } else if (jumlahSemasa < sasaranMarkah) {
-                    // Ambil selebihnya untuk memastikan markah hampir ke sasaran tanpa melebihi terlalu banyak
+                    // Ambil soalan terakhir untuk pastikan cukup target (walaupun lebih sikit)
                     senaraiAkhir.push(s);
                     jumlahSemasa += m;
                     if (jumlahSemasa >= sasaranMarkah) break;
                 }
             }
+            // Jika bank soalan tak cukup, ia akan return sahaja apa yang ada (Fallback)
             return senaraiAkhir;
         };
 
+        // Guna soalan yang telah di-shuffle
         let objektifAkhir = kumpulSoalanIkutMarkah(shuffleArray(soalanObjektif), sasaranMarkahObjektif);
         let strukturAkhir = kumpulSoalanIkutMarkah(shuffleArray(soalanStruktur), sasaranMarkahStruktur);
 
@@ -285,7 +290,7 @@ function KandunganUjian() {
               } else { 
                 markahPenuhUjian += Number(s.markah) || 0; 
                 if (jawapanStruktur[s.id]) jawapanStrukturBersih[s.id] = jawapanStruktur[s.id];
-                else jawapanStrukturBersih[s.id] = ""; // Set default supaya nampak di Semakan
+                else jawapanStrukturBersih[s.id] = ""; 
               }
             });
 
@@ -323,7 +328,6 @@ function KandunganUjian() {
             
             setPeratusAkhir(peratus); setPercubaanTerkini(percubaanBaru);
 
-            // 🌟 TAMBAHAN: Simpan 'susunanSoalan' supaya muka surat semakan tidak tarik soalan rawak lain!
             const susunanData = soalanSenarai.map((s) => ({
                 id: s.id,
                 soalan: s.soalan,
@@ -441,7 +445,7 @@ function KandunganUjian() {
   };
 
   if (!isClient) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-sky-600">Memulakan Ujian...</div>;
-  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-sky-700 font-semibold"><Loader2 className="animate-spin mr-3"/> Menjana Kertas Soalan Mengikut Aras...</div>;
+  if (loading) return <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-sky-700 font-semibold"><Loader2 className="animate-spin w-10 h-10 mb-4 text-sky-500"/><p>Menjana Kertas Soalan Adaptif...</p><p className="text-xs text-slate-400 mt-2 font-normal">Sistem sedang memilih soalan yang sesuai dengan keupayaan anda.</p></div>;
   if (soalanSenarai.length === 0) return <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4"><div className="p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center"><h2 className="text-xl font-bold">Soalan Belum Tersedia</h2><p className="text-slate-500 text-sm mt-2">Sila minta guru masukkan soalan ke dalam Bank Soalan terlebih dahulu.</p><button onClick={() => router.push('/murid')} className="mt-4 w-full bg-sky-600 text-white px-6 py-3 rounded-lg font-bold">Kembali ke Dashboard</button></div></div>;
 
   if (tamat) {
@@ -451,13 +455,14 @@ function KandunganUjian() {
     const isLulus = peratusAkhir >= markahLulus;
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-        <div className="max-w-lg w-full p-8 bg-white rounded-2xl shadow-sm border border-slate-200 border-t-8 border-t-sky-500 text-center">
-          <h2 className="text-2xl font-extrabold mb-2">{jenisUjian === "post_test" ? "Pasca-Ujian" : "Pra-Ujian"} Tamat</h2>
-          <p className="text-sm text-slate-500 mb-6 font-semibold uppercase">{bab}</p>
-          <div className={`p-6 rounded-xl mb-8 ${isLulus || jenisUjian === "pre_test" ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-amber-50 text-amber-800 border border-amber-100'}`}>
+        <div className="max-w-lg w-full p-8 bg-white rounded-2xl shadow-sm border border-slate-200 border-t-8 border-t-sky-500 text-center relative overflow-hidden">
+          {isLulus && <div className="absolute top-0 right-0 p-4 opacity-10"><ShieldAlert size={100} className="text-emerald-500"/></div>}
+          <h2 className="text-2xl font-extrabold mb-2 relative z-10">{jenisUjian === "post_test" && percubaanTerkini > 1 ? "Ujian Pemulihan" : jenisUjian === "post_test" ? "Pasca-Ujian" : "Pra-Ujian"} Tamat</h2>
+          <p className="text-sm text-slate-500 mb-6 font-semibold uppercase relative z-10">{bab}</p>
+          <div className={`p-6 rounded-xl mb-8 relative z-10 ${isLulus || jenisUjian === "pre_test" ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-amber-50 text-amber-800 border border-amber-100'}`}>
             {isLulus || jenisUjian === "pre_test" ? "🎉" : "⚠️"} <span className="font-bold text-lg">Skor: {peratusAkhir}%</span>
           </div>
-          <button onClick={() => router.push('/murid')} className="w-full bg-slate-800 text-white px-8 py-3 rounded-xl font-bold">Kembali ke Dashboard</button>
+          <button onClick={() => router.push('/murid')} className="w-full bg-slate-800 hover:bg-slate-700 text-white px-8 py-3 rounded-xl font-bold relative z-10 shadow-lg transition-transform hover:scale-[1.02]">Kembali ke Dashboard</button>
         </div>
       </div>
     );
@@ -491,7 +496,7 @@ function KandunganUjian() {
              
              <div>
                <h1 className="text-sm md:text-base font-extrabold text-slate-800">{bab}</h1>
-               <p className="text-[10px] md:text-xs font-bold text-sky-600 uppercase mt-0.5">Soalan Kuiz Interaktif</p>
+               <p className="text-[10px] md:text-xs font-bold text-sky-600 uppercase mt-0.5">Ujian {jenisUjian === 'pre_test' ? 'Diagnostik' : percubaanTerkini > 0 ? 'Pemulihan' : 'Pasca'}</p>
              </div>
            </div>
            
@@ -535,11 +540,11 @@ function KandunganUjian() {
 
              <div className="text-right hidden md:block">
                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Kemajuan</span>
-               <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-md">{indexSemasa + 1} / {soalanSenarai.length}</span>
+               <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-md shadow-inner">{indexSemasa + 1} / {soalanSenarai.length}</span>
              </div>
            </div>
          </div>
-         <div className="w-full bg-slate-100 h-1.5"><div className="bg-sky-500 h-full transition-all duration-300" style={{ width: `${progressPercentage}%` }}></div></div>
+         <div className="w-full bg-slate-200 h-1.5"><div className="bg-sky-500 h-full transition-all duration-300 shadow-[0_0_10px_rgba(14,165,233,0.5)]" style={{ width: `${progressPercentage}%` }}></div></div>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 w-full mt-2">
@@ -547,11 +552,11 @@ function KandunganUjian() {
            Soalan {indexSemasa + 1} daripada {soalanSenarai.length}
          </div>
 
-         <div className="bg-white/95 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-xl border border-white/40">
+         <div className="bg-white/95 backdrop-blur-md p-6 md:p-8 rounded-3xl shadow-xl border border-white/40">
            
            <div className="flex justify-between items-start gap-4 mb-6">
              <h2 className="text-base md:text-lg font-semibold text-slate-800 leading-relaxed whitespace-pre-wrap">{semasa.soalan}</h2>
-             {semasa.markah && <span className="shrink-0 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-amber-200">{semasa.markah} Markah</span>}
+             {semasa.markah && <span className="shrink-0 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-amber-200 shadow-sm">{semasa.markah} Markah</span>}
            </div>
 
            <GambarSoalan src={semasa.imageUrl} />
@@ -564,13 +569,12 @@ function KandunganUjian() {
                    const isCorrectOption = soalanSelesai && item[0] === semasa.jawapan;
                    const isWrongSelected = soalanSelesai && isSelected && !jawapanTepatSemasa;
                    
-                   let butangWarna = 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50'; 
+                   let butangWarna = 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50 hover:shadow-md'; 
                    let hurufWarna = 'bg-slate-100 text-slate-500';
 
                    if (soalanSelesai) {
-                     // Jika Ujian Pasca & Salah, JANGAN tunjuk warna Hijau untuk jawapan yang betul
                      if (isCorrectOption && jenisUjian === "pre_test") { 
-                         butangWarna = 'border-emerald-500 bg-emerald-50 shadow-md'; 
+                         butangWarna = 'border-emerald-500 bg-emerald-50 shadow-md scale-[1.02]'; 
                          hurufWarna = 'bg-emerald-500 text-white'; 
                      }
                      else if (isWrongSelected) { 
@@ -578,16 +582,16 @@ function KandunganUjian() {
                          hurufWarna = 'bg-red-500 text-white'; 
                      }
                      else { 
-                         butangWarna = 'border-slate-200 bg-slate-50 opacity-40'; 
+                         butangWarna = 'border-slate-200 bg-slate-50 opacity-40 grayscale'; 
                      } 
                    } else if (isSelected) {
-                     butangWarna = 'border-sky-500 bg-sky-50 shadow-sm'; hurufWarna = 'bg-sky-500 text-white';
+                     butangWarna = 'border-sky-500 bg-sky-50 shadow-md scale-[1.02]'; hurufWarna = 'bg-sky-500 text-white';
                    }
 
                    return (
                      <button key={item[0]} onClick={() => pilihJawapanObjektif(semasa.id, item[0])} disabled={soalanSelesai}
-                       className={`w-full text-left p-4 rounded-xl border-2 transition-all font-medium flex gap-4 items-center ${butangWarna}`}>
-                       <span className={`shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-bold text-sm md:text-base transition-colors ${hurufWarna}`}>
+                       className={`w-full text-left p-4 rounded-2xl border-2 transition-all duration-300 font-medium flex gap-4 items-center ${butangWarna}`}>
+                       <span className={`shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center font-bold text-sm md:text-base transition-colors shadow-inner ${hurufWarna}`}>
                          {(isCorrectOption && jenisUjian === "pre_test") ? '✓' : isWrongSelected ? '✗' : String.fromCharCode(65 + i)}
                        </span>
                        <span className={`text-sm md:text-base ${isCorrectOption && jenisUjian === "pre_test" ? 'text-emerald-900 font-bold' : isWrongSelected ? 'text-red-900' : 'text-slate-700'}`}>{item[1] as string}</span>
@@ -595,18 +599,17 @@ function KandunganUjian() {
                    );
                  })}
 
-                 {/* LOGIK RAHSIA SKEMA (ANTI-HAFALAN POST TEST) */}
                  {soalanSelesai && (
-                   <div className={`mt-4 p-4 rounded-xl flex items-start gap-3 border ${jawapanTepatSemasa ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                   <div className={`mt-4 p-5 rounded-2xl flex items-start gap-4 border shadow-inner ${jawapanTepatSemasa ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
                      <span className="text-2xl mt-0.5">{jawapanTepatSemasa ? '🎯' : '😢'}</span>
                      <div>
                        <h4 className="font-bold text-base">{jawapanTepatSemasa ? 'Tepat Sekali!' : 'Oops, Kurang Tepat!'}</h4>
                        
                        {!jawapanTepatSemasa && jenisUjian === "pre_test" && (
-                         <p className="text-sm mt-1 opacity-90">Jawapan sebenar ialah: <strong>{jawapanBetulTeks}</strong></p>
+                         <p className="text-sm mt-1.5 opacity-90">Jawapan sebenar ialah: <strong>{jawapanBetulTeks}</strong></p>
                        )}
                        {!jawapanTepatSemasa && jenisUjian === "post_test" && (
-                         <p className="text-sm mt-1 opacity-90 font-medium text-red-700">Ini adalah ujian pasca. Sila semak semula kefahaman anda terhadap nota rujukan nanti.</p>
+                         <p className="text-sm mt-1.5 opacity-90 font-medium text-red-700 bg-white/50 p-2 rounded-lg inline-block border border-red-100">Ini adalah ujian pasca. Sila semak semula nota rujukan nanti.</p>
                        )}
                      </div>
                    </div>
@@ -621,18 +624,18 @@ function KandunganUjian() {
                    disabled={soalanSelesai}
                    onPaste={(e) => {
                      e.preventDefault();
-                     alert("⚠️ Amaran: Fungsi tampal (Paste) telah dinyahaktifkan untuk mengekalkan integriti ujian. Sila taip jawapan anda sendiri menggunakan kefahaman anda.");
+                     alert("⚠️ Amaran: Fungsi tampal (Paste) dinyahaktifkan. Sila taip jawapan menggunakan kefahaman anda sendiri.");
                    }}
                    onDrop={(e) => e.preventDefault()}
                    onCopy={(e) => e.preventDefault()}
                    autoComplete="off"
                    spellCheck="false"
-                   placeholder="Sila taip jawapan esei/struktur di sini..."
-                   className={`w-full p-4 md:p-5 text-slate-900 border-2 rounded-xl focus:ring-4 focus:ring-sky-500/10 resize-none min-h-40 max-h-96 overflow-y-auto text-sm md:text-base transition-all outline-none leading-relaxed ${soalanSelesai ? 'bg-slate-100 border-slate-300 opacity-80' : 'bg-slate-50 border-slate-300 focus:bg-white focus:border-sky-500'}`}
+                   placeholder="Taip jawapan struktur/esei di sini..."
+                   className={`w-full p-5 text-slate-900 border-2 rounded-2xl focus:ring-4 focus:ring-sky-500/20 resize-none min-h-40 max-h-96 overflow-y-auto text-sm md:text-base transition-all outline-none leading-relaxed shadow-inner ${soalanSelesai ? 'bg-slate-100 border-slate-300 opacity-80' : 'bg-slate-50 border-slate-300 focus:bg-white focus:border-sky-500'}`}
                  />
                  
                  {soalanSelesai ? (
-                   <div className="mt-4 p-5 bg-sky-50 border border-sky-200 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+                   <div className="mt-4 p-5 bg-sky-50 border border-sky-200 rounded-2xl shadow-inner animate-in fade-in slide-in-from-bottom-2 duration-500">
                      <h4 className="font-bold text-sky-800 flex items-center gap-2 mb-2">💡 Jawapan Direkodkan:</h4>
                      {jenisUjian === "pre_test" ? (
                        <p className="text-sky-900 text-sm md:text-base whitespace-pre-wrap leading-relaxed">
@@ -640,15 +643,15 @@ function KandunganUjian() {
                           {semasa.skemaJawapan || semasa.jawapan || "Tiada skema khusus disediakan."}
                        </p>
                      ) : (
-                       <p className="text-sky-900 text-sm font-medium">Sistem AI akan menilai struktur jawapan anda secara menyeluruh di akhir ujian.</p>
+                       <p className="text-sky-900 text-sm font-medium">Sistem AI akan menilai ayat dan fakta anda secara menyeluruh di akhir ujian.</p>
                      )}
-                     <p className="text-xs text-sky-600 mt-3 font-semibold italic">*Jawapan anda akan dinilai oleh Guru dan Cikgu AI nanti.</p>
+                     <p className="text-[10px] text-sky-600 mt-3 font-bold uppercase tracking-wider italic">*Jawapan ini akan disemak secara Human-In-The-Loop oleh Cikgu AI dan Guru Anda.</p>
                    </div>
                  ) : (
                    <button 
                      onClick={sahkanJawapanStruktur} 
                      disabled={!jawapanStruktur[semasa.id]?.trim()}
-                     className="mt-4 w-full md:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                     className="mt-4 w-full md:w-auto px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
                    >
                      ✅ Sahkan & Semak Jawapan
                    </button>
@@ -660,9 +663,9 @@ function KandunganUjian() {
       </div>
 
       {soalanSelesai && (jenisSoalan !== "objektif" || isSoalanTerakhir) && (
-        <div className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-sm border-t border-slate-200 p-4 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] animate-in slide-in-from-bottom-full duration-300">
+        <div className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-md border-t border-slate-200 p-4 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] animate-in slide-in-from-bottom-full duration-300">
            <div className="max-w-3xl mx-auto flex justify-end">
-             <button onClick={pergiSoalanSeterusnyaAtauTamat} className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-bold transition-all text-sm md:text-base w-full shadow-lg ${isSoalanTerakhir ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/30' : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/30'}`}>
+             <button onClick={pergiSoalanSeterusnyaAtauTamat} className={`flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-extrabold transition-all text-sm md:text-base w-full shadow-xl hover:scale-[1.02] ${isSoalanTerakhir ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/40' : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/40'}`}>
                {isSoalanTerakhir ? 'Tamat & Analisis Markah' : 'Teruskan ke Soalan Seterusnya'} <ChevronRight size={20}/>
              </button>
            </div>
@@ -673,5 +676,5 @@ function KandunganUjian() {
 }
 
 export default function UjianDiagnostik() {
-  return <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center text-sky-600 font-bold"><Loader2 className="animate-spin mr-3"/>Memuatkan Sistem...</div>}><KandunganUjian /></Suspense>;
+  return <Suspense fallback={<div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-sky-600 font-bold"><Loader2 className="animate-spin w-10 h-10 mb-4"/><p>Memuatkan Sistem Pintar...</p></div>}><KandunganUjian /></Suspense>;
 }
