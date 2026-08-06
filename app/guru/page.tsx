@@ -49,6 +49,8 @@ export default function GuruDashboard() {
   
   // STATE CARIAN & FILTER
   const [searchMurid, setSearchMurid] = useState("");
+  const [filterTingkatanPengguna, setFilterTingkatanPengguna] = useState("Semua"); // 🌟 FILTER BARU UTK TAB PENGGUNA
+
   const [searchPemantauan, setSearchPemantauan] = useState("");
   const [filterTingkatanPemantauan, setFilterTingkatanPemantauan] = useState("Semua");
   const [filterKelasPemantauan, setFilterKelasPemantauan] = useState("Semua");
@@ -101,8 +103,9 @@ export default function GuruDashboard() {
   const [loadingMaklumBalas, setLoadingMaklumBalas] = useState(false);
   
   const [selectedStudentDetail, setSelectedStudentDetail] = useState<any | null>(null);
-  const [expandedBabDetail, setExpandedBabDetail] = useState<number | null>(null); 
+  const [expandedBabDetail, setExpandedBabDetail] = useState<string | null>(null); 
   const [showMatrixModal, setShowMatrixModal] = useState(false); // 🌟 Modal Matriks Kelas
+  const [matrixTingkatanFilter, setMatrixTingkatanFilter] = useState("4"); // Default papar bab ting 4 di matriks
   
   const [studentProgressData, setStudentProgressData] = useState<{skor: any[], chat: any[]}>({skor: [], chat: []});
   const [loadingStudentProgress, setLoadingStudentProgress] = useState(false);
@@ -445,8 +448,12 @@ export default function GuruDashboard() {
   const showToastMessage = (msg: string, type: 'success'|'error'|'info'='info') => { setToast({ message: msg, type }); setTimeout(() => setToast(null), 3000); };
   const handleLogout = () => { window.location.href = '/login'; };
 
-  // PENGIRAAN STATISTIK PEMANTAUAN
-  const filteredPengguna = senaraiPengguna.filter(u => u.nama?.toLowerCase().includes(searchMurid.toLowerCase()) || u.idPengguna?.toLowerCase().includes(searchMurid.toLowerCase()) || u.kelas?.toLowerCase().includes(searchMurid.toLowerCase()));
+  // 🌟 KEMAS KINI: FILTER PENGGUNA (TAMBAH TINGKATAN)
+  const filteredPengguna = senaraiPengguna.filter(u => {
+    const matchSearch = u.nama?.toLowerCase().includes(searchMurid.toLowerCase()) || u.idPengguna?.toLowerCase().includes(searchMurid.toLowerCase()) || u.kelas?.toLowerCase().includes(searchMurid.toLowerCase());
+    const matchTingkatan = filterTingkatanPengguna === "Semua" || String(u.tingkatan) === filterTingkatanPengguna;
+    return matchSearch && matchTingkatan;
+  });
   
   const filteredPemantauan = senaraiPengguna.filter(u => {
     if (u.role !== "murid") return false;
@@ -563,15 +570,23 @@ export default function GuruDashboard() {
              <div className="space-y-6 animate-in fade-in print:hidden">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 gap-4 shadow-xl">
                 <div><h3 className="text-xl font-bold text-white mb-1 flex items-center gap-2"><Users className="text-blue-400"/> Pendaftaran Berpusat</h3><p className="text-slate-400 text-sm">Daftar akaun murid dan guru mengikut sekolah.</p></div>
-                <div className="relative w-full md:w-64">
-                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18}/>
-                   <input type="text" placeholder="Cari nama / ID..." value={searchMurid} onChange={(e) => setSearchMurid(e.target.value)} className="w-full bg-slate-900 border border-slate-700 text-white pl-10 pr-4 py-2.5 rounded-xl text-sm focus:border-blue-500 outline-none shadow-inner" />
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                   {/* 🌟 KEMAS KINI: FILTER TINGKATAN UNTUK PENGGUNA */}
+                   <select value={filterTingkatanPengguna} onChange={(e) => setFilterTingkatanPengguna(e.target.value)} className="bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-blue-500 outline-none shadow-inner">
+                      <option className="bg-slate-900" value="Semua">Semua Tg.</option>
+                      <option className="bg-slate-900" value="4">Tingkatan 4</option>
+                      <option className="bg-slate-900" value="5">Tingkatan 5</option>
+                   </select>
+                   <div className="relative w-full md:w-64">
+                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18}/>
+                     <input type="text" placeholder="Cari nama / ID..." value={searchMurid} onChange={(e) => setSearchMurid(e.target.value)} className="w-full bg-slate-900 border border-slate-700 text-white pl-10 pr-4 py-2.5 rounded-xl text-sm focus:border-blue-500 outline-none shadow-inner" />
+                   </div>
                 </div>
               </div>
               
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 
-                {/* 🌟 KOTAK BORANG (KIRI) - STICKY */}
+                {/* KOTAK BORANG (KIRI) - STICKY */}
                 <div className="lg:sticky lg:top-6 bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 lg:col-span-1 h-fit shadow-xl order-last lg:order-first z-10">
                   <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><Users className="text-blue-400" size={20}/> {isEditingUser ? "Kemas Kini Akaun" : "Daftar Akaun Baru"}</h4>
                   <form onSubmit={handleSimpanPengguna} className="space-y-4">
@@ -631,6 +646,7 @@ export default function GuruDashboard() {
                   </form>
                 </div>
 
+                {/* KOTAK JADUAL (KANAN) */}
                 <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 overflow-hidden lg:col-span-2 shadow-xl">
                   {loadingPengguna ? ( <div className="p-12 text-center text-slate-400 animate-pulse">Menarik data pengguna... ⏳</div> ) : (
                     <div className="overflow-x-auto">
@@ -684,7 +700,7 @@ export default function GuruDashboard() {
                    
                    {/* 🌟 BUTANG MATRIKS KELAS BARU */}
                    <button onClick={() => setShowMatrixModal(true)} className="w-full sm:w-auto bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2">
-                     <ChartBar size={16}/> Matriks Kelas (Keseluruhan)
+                     <Grid size={16}/> Matriks Kelas (Keseluruhan)
                    </button>
                    
                    <button onClick={() => window.print()} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2">
@@ -703,7 +719,7 @@ export default function GuruDashboard() {
                       <option className="bg-slate-900" value="4">Tingkatan 4</option>
                       <option className="bg-slate-900" value="5">Tingkatan 5</option>
                    </select>
-                   <select value={filterKelasPemantauan} onChange={(e) => setFilterKelasPemantauan(e.target.value)} className="w-full sm:w-auto bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner truncate">
+                   <select value={filterKelasPemantauan} onChange={(e) => setFilterKelasPemantauan(e.target.value)} className="w-full sm:w-auto bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner truncate max-w-[200px]">
                       <option className="bg-slate-900" value="Semua">Semua Kelas</option>
                       {Array.from(new Set(senaraiPengguna.filter(u => u.role === "murid" && (filterTingkatanPemantauan === "Semua" || String(u.tingkatan) === filterTingkatanPemantauan) && (filterSekolahPemantauan === "Semua" || u.sekolah === filterSekolahPemantauan)).map(u => u.kelas))).filter(Boolean).sort().map((k, idx) => (
                         <option className="bg-slate-900" key={idx} value={k as string}>{k as string}</option>
@@ -1142,7 +1158,94 @@ export default function GuruDashboard() {
         </main>
       </div>
 
-      {/* 🌟 MODAL TERPERINCI MURID DENGAN PROGRESS SETIAP BAB & DRILL-DOWN ANALYTICS */}
+      {/* 🌟 MODAL MATRIKS KELAS KESELURUHAN (BARU) */}
+      <AnimatePresence>
+        {showMatrixModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4 print:absolute print:inset-0 print:bg-white print:p-0">
+             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-slate-800 p-0 rounded-3xl w-full max-w-[95vw] border border-slate-600 shadow-2xl flex flex-col h-[95vh] overflow-hidden print:border-none print:shadow-none print:h-auto print:overflow-visible">
+                
+                <div className="bg-slate-900/80 p-6 flex justify-between items-start border-b border-slate-700 print:bg-white print:border-black print:pb-4 shrink-0">
+                  <div>
+                    <h2 className="hidden print:block text-xl font-black text-black uppercase mb-4 tracking-widest text-center w-full">Matriks Keseluruhan Pencapaian Bab (I-RAGs)</h2>
+                    <h3 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-3 print:text-black">
+                      <Grid className="text-fuchsia-400 print:hidden"/> Matriks Kelas
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span className="bg-slate-700/50 px-3 py-1 rounded-lg border border-slate-600 text-slate-300 text-xs font-bold shadow-sm print:bg-white print:text-black print:border-black">Tingkatan {filterTingkatanPemantauan} | Kelas: {filterKelasPemantauan}</span> 
+                      <span className="bg-slate-700/50 px-3 py-1 rounded-lg border border-slate-600 text-slate-400 text-xs font-bold shadow-sm print:bg-white print:text-black print:border-black">{myRole === "admin" ? filterSekolahPemantauan : mySekolah}</span>
+                      <span className="hidden print:inline-block bg-white px-3 py-1 rounded-lg border border-black text-black text-[10px] font-bold shadow-sm ml-auto">Tarikh Cetakan: {new Date().toLocaleDateString('ms-MY')}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 print:hidden">
+                    <select value={matrixTingkatanFilter} onChange={(e) => setMatrixTingkatanFilter(e.target.value)} className="bg-fuchsia-900/30 border border-fuchsia-700 text-fuchsia-300 px-4 py-2.5 rounded-xl text-sm font-bold focus:border-fuchsia-500 outline-none shadow-inner">
+                        <option value="4">Papar Bab Tingkatan 4</option>
+                        <option value="5">Papar Bab Tingkatan 5</option>
+                    </select>
+                    <button onClick={() => window.print()} className="p-2.5 px-4 bg-indigo-600 rounded-xl text-white font-bold hover:bg-indigo-500 transition-all shadow-md flex items-center gap-2"><Printer size={18}/> Cetak Matriks</button>
+                    <button onClick={() => setShowMatrixModal(false)} className="p-2.5 bg-slate-800 rounded-xl border border-slate-600 text-slate-400 hover:text-white hover:bg-rose-600 transition-all shadow-md"><X size={24}/></button>
+                  </div>
+                </div>
+
+                <div className="p-6 overflow-auto bg-slate-800 custom-scrollbar flex-1 print:bg-white print:overflow-visible">
+                  <div className="bg-slate-900/60 rounded-xl border border-slate-700 shadow-inner print:bg-white print:border-none print:shadow-none w-max min-w-full">
+                     <table className="w-full text-left border-collapse print:text-black">
+                        <thead>
+                          <tr>
+                            <th className="p-4 border border-slate-700 bg-slate-900/80 font-bold text-xs text-slate-300 sticky left-0 z-10 print:bg-slate-200 print:border-black w-64">Nama Murid</th>
+                            {[1,2,3,4,5,6,7,8,9,10].map(num => (
+                              <th key={num} className="p-4 border border-slate-700 bg-slate-900/80 font-bold text-[10px] text-center text-slate-300 print:bg-slate-200 print:border-black min-w-[80px]">Bab {num} <br/><span className="text-[8px] text-slate-500 print:text-slate-600">(Pre | Post)</span></th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredPemantauan.map((murid, i) => {
+                            // Senaraikan markah bab 1-10 utk murid ini berdasarkan filterTingkatan Matriks
+                            return (
+                              <tr key={i} className="hover:bg-slate-800/50 transition-colors print:hover:bg-white">
+                                <td className="p-3 border border-slate-700 font-bold text-xs text-slate-200 bg-slate-800 sticky left-0 z-10 print:bg-white print:text-black print:border-black truncate max-w-[250px]" title={murid.nama}>
+                                  {murid.nama}
+                                </td>
+                                {[1,2,3,4,5,6,7,8,9,10].map(num => {
+                                  const babName = `Bab ${num}`;
+                                  
+                                  const rekodSkorMuridIni = semuaSkor.filter(s => (s.idMurid === murid.id || s.idMurid === murid.idPengguna) && s.bab === babName && s.tingkatan === matrixTingkatanFilter);
+                                  
+                                  const preData = rekodSkorMuridIni.find(s => s.jenisUjian === "pre_test" || !s.jenisUjian);
+                                  const postData = rekodSkorMuridIni.find(s => s.jenisUjian === "post_test");
+                                  
+                                  const preSkor = preData ? preData.skor : "-";
+                                  const postSkor = postData ? postData.skor : "-";
+                                  
+                                  let cellBg = "bg-transparent";
+                                  if (preSkor !== "-" && postSkor !== "-") {
+                                    if (postSkor >= 50) cellBg = "bg-emerald-900/20 print:bg-emerald-50";
+                                    else cellBg = "bg-rose-900/20 print:bg-rose-50";
+                                  } else if (preSkor >= 70) {
+                                    cellBg = "bg-blue-900/20 print:bg-blue-50"; // Dikecualikan
+                                  }
+
+                                  return (
+                                    <td key={num} className={`p-3 border border-slate-700 text-center text-xs font-mono font-medium print:border-black ${cellBg}`}>
+                                      <span className={preSkor >= 70 ? "text-blue-400 print:text-blue-700" : "text-slate-400 print:text-slate-600"}>{preSkor}</span>
+                                      <span className="text-slate-600 mx-1">|</span>
+                                      <span className={postSkor >= 50 ? "text-emerald-400 print:text-emerald-700" : postSkor !== "-" ? "text-rose-400 print:text-rose-700" : "text-slate-400 print:text-slate-600"}>{postSkor}</span>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                     </table>
+                  </div>
+                </div>
+
+             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 🌟 MODAL TERPERINCI MURID DENGAN PROGRESS SETIAP BAB (INDIVIDU) */}
       <AnimatePresence>
         {selectedStudentDetail && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4 print:absolute print:inset-0 print:bg-white print:p-0">
@@ -1170,221 +1273,229 @@ export default function GuruDashboard() {
                 </div>
 
                 <div className="p-6 md:p-8 overflow-y-auto bg-slate-800 custom-scrollbar flex-1 print:bg-white print:overflow-visible">
-                   <h4 className="text-slate-200 font-extrabold text-lg mb-4 flex items-center gap-2 uppercase tracking-wide print:text-black"><ChartBar size={20} className="text-emerald-400 print:text-black"/> Kad Kemajuan Bab Berstruktur & Tindakan Susulan</h4>
-                   <p className="text-xs text-slate-400 mb-6 print:hidden">Klik pada mana-mana baris bab di bawah untuk melihat butiran skor terperinci dan Analisis Nilai Tambah (Learning Gain).</p>
                    
                    {loadingStudentProgress ? (
                       <div className="p-16 text-center text-slate-400 animate-pulse bg-slate-900/40 rounded-2xl border border-slate-700 font-medium print:hidden">Memproses data pembelajaran raya... ⏳</div>
                    ) : (
-                     <div className="bg-slate-900/60 rounded-2xl border border-slate-700 overflow-x-auto shadow-inner custom-scrollbar print:bg-white print:border-black print:shadow-none print:overflow-visible">
-                       <table className="w-full text-left border-collapse min-w-max print:min-w-full">
-                          <thead>
-                            <tr className="border-b border-slate-700 bg-slate-900/80 print:bg-slate-100 print:border-black">
-                              <th className="p-5 font-bold text-xs text-slate-300 uppercase tracking-wider print:text-black">Bab Sejarah</th>
-                              <th className="p-5 font-bold text-xs text-slate-300 text-center uppercase tracking-wider print:text-black">Ujian Diagnostik (Pre)</th>
-                              <th className="p-5 font-bold text-xs text-slate-300 text-center uppercase tracking-wider print:text-black">Bimbingan AI</th>
-                              <th className="p-5 font-bold text-xs text-slate-300 text-center uppercase tracking-wider print:text-black">Ujian Pasca (Post)</th>
-                              <th className="p-5 font-bold text-xs text-slate-300 text-center uppercase tracking-wider print:hidden"></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {[1,2,3,4,5,6,7,8,9,10].map((num) => {
-                              const babName = `Bab ${num}`;
-                              
-                              const preTestRecord = studentProgressData.skor.find(s => s.bab === babName && (s.jenisUjian === "pre_test" || !s.jenisUjian));
-                              const preSkor = preTestRecord ? preTestRecord.skor : null;
-                              const preSemakan = preTestRecord ? preTestRecord.statusPermarkahanEsei : null;
-                              
-                              const postTestRecord = studentProgressData.skor.find(s => s.bab === babName && s.jenisUjian === "post_test");
-                              const postSkor = postTestRecord ? postTestRecord.skor : null;
-                              const attempt = postTestRecord ? (postTestRecord.percubaan || 1) : 0;
-                              const postSemakan = postTestRecord ? postTestRecord.statusPermarkahanEsei : null;
-                              
-                              const aiSelesaiCount = studentProgressData.chat.filter(c => c.chapterId?.includes(`bab${num}_sub`) && c.status === "completed").length;
-                              const aiInProgress = studentProgressData.chat.some(c => c.chapterId?.includes(`bab${num}_sub`) && c.status === "in_progress");
-
-                              // Pengiraan Analitik Guru (Learning Gain)
-                              let learningGain = null;
-                              let rumusanAI = "Belum ada data cukup untuk dianalisis.";
-                              let tindakanSusulan = "Tiada tindakan susulan diperlukan buat masa ini.";
-                              let rumusanColor = "text-slate-400 print:text-black";
-                              let gainIcon = null;
-
-                              if (preSkor !== null && postSkor !== null) {
-                                learningGain = postSkor - preSkor;
-                                if (learningGain > 0) {
-                                  rumusanAI = `Peningkatan Kognitif dikesan (+${learningGain}%). Bimbingan AI / Modul menunjukkan kesan positif pada pemahaman murid.`;
-                                  tindakanSusulan = "KEFAHAMAN OPTIMUM: Teruskan ke bab seterusnya. Galakkan penyertaan dalam latihan pengayaan (KBAT) untuk mencabar minda murid.";
-                                  rumusanColor = "text-emerald-400 print:text-black";
-                                  gainIcon = <TrendingUp size={16} className="text-emerald-400 print:text-black"/>;
-                                } else if (learningGain === 0) {
-                                  rumusanAI = `Prestasi mendatar. Murid memerlukan penekanan dan pendekatan pedagogi yang berbeza untuk topik ini.`;
-                                  tindakanSusulan = "PERHATIAN GURU: Bimbingan rakan sebaya disyorkan. Guru perlu menyemak semula jawapan struktur murid untuk kenal pasti miskonsepsi.";
-                                  rumusanColor = "text-amber-400 print:text-black";
-                                  gainIcon = <TrendingUp size={16} className="text-amber-400 print:text-black rotate-45"/>; 
-                                } else {
-                                  rumusanAI = `Kemerosotan prestasi (-${Math.abs(learningGain)}%). Murid gagal menyerap fakta dengan berkesan melalui medium digital sepenuhnya.`;
-                                  tindakanSusulan = "INTERVENSI WAJIB: Laksanakan Mod Pemulihan. Sesi intervensi bersemuka dengan guru adalah sangat kritikal pada tahap ini.";
-                                  rumusanColor = "text-rose-400 print:text-black";
-                                  gainIcon = <TrendingDown size={16} className="text-rose-400 print:text-black"/>;
-                                }
-                              } else if (preSkor !== null && preSkor >= 70) {
-                                rumusanAI = "Murid menguasai topik ini di tahap Cemerlang sejak Ujian Diagnostik. Pintasan (Bypass) dibenarkan.";
-                                tindakanSusulan = "PENGECUALIAN (BYPASS): Murid ini cemerlang. Fokuskan murid ini kepada elemen Mencipta & Menilai (Tahap 5 & 6 Taksonomi Bloom).";
-                                rumusanColor = "text-blue-400 print:text-black";
-                                gainIcon = <CheckSquare size={16} className="text-blue-400 print:text-black"/>;
-                              }
-
-                              const isExpanded = expandedBabDetail === num;
-
-                              // MASA PRINT, SEMUA EXPAND ROW MESTI DIBUKA
-                              const showDetailRow = isExpanded;
-
-                              return (
-                                <React.Fragment key={num}>
-                                  <tr 
-                                    onClick={() => setExpandedBabDetail(isExpanded ? null : num)} 
-                                    className={`border-b border-slate-700/50 transition-all cursor-pointer print:border-black/40 print:cursor-default ${isExpanded ? 'bg-slate-800/80 shadow-inner print:bg-white print:shadow-none' : 'hover:bg-slate-800/40 print:hover:bg-white'}`}
-                                  >
-                                    <td className="p-5 text-sm text-slate-200 font-bold w-1/4 whitespace-nowrap print:text-black">
-                                      <div className="flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full print:hidden ${preSkor !== null || postSkor !== null ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-slate-600'}`}></div>
-                                        {babName}
-                                      </div>
-                                    </td>
-                                    
-                                    <td className="p-5 text-center">
-                                      {preSkor !== null ? (
-                                        <span className={`text-[11px] px-3 py-1.5 rounded-lg font-bold border shadow-sm print:border-none print:shadow-none print:bg-transparent print:text-black ${preSkor >= 70 ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50' : 'bg-slate-800 text-slate-300 border-slate-600'}`}>
-                                          {preSemakan === 'disemak_oleh_AI' && preTestRecord.markahStruktur === null ? '⏳ Semakan' : `${preSkor}%`}
-                                        </span>
-                                      ) : (
-                                        <span className="text-[11px] text-slate-600 font-medium italic print:text-black">Belum Mula</span>
-                                      )}
-                                    </td>
-                                    
-                                    <td className="p-5 text-center">
-                                      {selectedStudentDetail.kumpulan === 'Kawalan' ? (
-                                         <span className="text-[11px] text-slate-600 font-medium bg-slate-900 px-2 py-1 rounded print:bg-transparent print:text-black print:border print:border-black">Bukan Kumpulan AI</span>
-                                      ) : aiSelesaiCount > 0 ? (
-                                        <span className="text-[11px] px-3 py-1.5 rounded-lg font-bold bg-amber-900/30 text-amber-400 border border-amber-800/50 shadow-sm flex items-center justify-center w-max mx-auto gap-1 print:border-none print:shadow-none print:bg-transparent print:text-black">
-                                          <Sparkles size={12} className="print:hidden"/> {aiSelesaiCount} Sub Selesai
-                                        </span>
-                                      ) : aiInProgress ? (
-                                        <span className="text-[11px] px-3 py-1.5 rounded-lg font-bold bg-blue-900/30 text-blue-400 border border-blue-800/50 shadow-sm animate-pulse flex items-center justify-center w-max mx-auto gap-1 print:border-none print:shadow-none print:bg-transparent print:text-black print:animate-none">
-                                          <Loader2 size={12} className="animate-spin print:hidden"/> Proses...
-                                        </span>
-                                      ) : (
-                                        <span className="text-[11px] text-slate-600 font-medium italic print:text-black">Belum Akses</span>
-                                      )}
-                                    </td>
-                                    
-                                    <td className="p-5 text-center">
-                                      {postSkor !== null ? (
-                                        <div className="flex flex-col items-center justify-center gap-1.5 print:flex-row print:gap-2">
-                                          <span className={`text-[11px] px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 border shadow-sm print:border-none print:shadow-none print:bg-transparent print:text-black ${
-                                            postSkor >= 50 ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50' : 'bg-rose-900/40 text-rose-400 border-rose-800/50'
-                                          }`}>
-                                            {postSemakan === 'disemak_oleh_AI' && postTestRecord.markahStruktur === null ? '⏳ Semakan' : `${postSkor}%`} 
-                                            {postSkor < 50 && <AlertTriangle size={12} className="print:hidden"/>}
-                                          </span>
-                                          {attempt > 1 && (
-                                             <span className="text-[9px] font-black text-orange-400 bg-orange-900/40 border border-orange-800/50 px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 shadow-sm print:border-none print:shadow-none print:bg-transparent print:text-black"><Rocket size={10} className="print:hidden"/> Pemulihan</span>
-                                          )}
-                                        </div>
-                                      ) : preSkor !== null && preSkor >= 70 ? (
-                                        <span className="text-[10px] px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800/50 font-bold uppercase tracking-wider shadow-sm print:border-none print:shadow-none print:bg-transparent print:text-black">Dikecualikan</span>
-                                      ) : (
-                                        <span className="text-[11px] text-slate-600 font-medium italic print:text-black">Belum Diambil</span>
-                                      )}
-                                    </td>
-
-                                    <td className="p-5 text-right print:hidden">
-                                       <ChevronDown size={18} className={`text-slate-500 transition-transform duration-300 inline-block ${isExpanded ? 'rotate-180 text-blue-400' : ''}`}/>
-                                    </td>
+                     <>
+                       {/* 🌟 KEMAS KINI: LOOP UNTUK TINGKATAN (JIKA TINGKATAN 5, PAPAR TINGKATAN 4 & 5) */}
+                       {(selectedStudentDetail.tingkatan === "5" ? ["4", "5"] : ["4"]).map((ting) => (
+                         <div key={ting} className="mb-10 last:mb-0">
+                           <h4 className="text-slate-200 font-extrabold text-lg mb-4 flex items-center gap-2 uppercase tracking-wide print:text-black border-b border-slate-700 pb-2 print:border-black">
+                             <ChartBar size={20} className="text-emerald-400 print:text-black"/> Prestasi Tingkatan {ting}
+                           </h4>
+                           
+                           <div className="bg-slate-900/60 rounded-2xl border border-slate-700 overflow-x-auto shadow-inner custom-scrollbar print:bg-white print:border-black print:shadow-none print:overflow-visible">
+                             <table className="w-full text-left border-collapse min-w-max print:min-w-full">
+                                <thead>
+                                  <tr className="border-b border-slate-700 bg-slate-900/80 print:bg-slate-100 print:border-black">
+                                    <th className="p-5 font-bold text-xs text-slate-300 uppercase tracking-wider print:text-black">Bab Sejarah</th>
+                                    <th className="p-5 font-bold text-xs text-slate-300 text-center uppercase tracking-wider print:text-black">Ujian Diagnostik (Pre)</th>
+                                    <th className="p-5 font-bold text-xs text-slate-300 text-center uppercase tracking-wider print:text-black">Bimbingan AI</th>
+                                    <th className="p-5 font-bold text-xs text-slate-300 text-center uppercase tracking-wider print:text-black">Ujian Pasca (Post)</th>
+                                    <th className="p-5 font-bold text-xs text-slate-300 text-center uppercase tracking-wider print:hidden"></th>
                                   </tr>
+                                </thead>
+                                <tbody>
+                                  {[1,2,3,4,5,6,7,8,9,10].map((num) => {
+                                    const babName = `Bab ${num}`;
+                                    
+                                    // Cari Rekod Berdasarkan Tingkatan (ting)
+                                    const preTestRecord = studentProgressData.skor.find(s => s.bab === babName && s.tingkatan === ting && (s.jenisUjian === "pre_test" || !s.jenisUjian));
+                                    const preSkor = preTestRecord ? preTestRecord.skor : null;
+                                    const preSemakan = preTestRecord ? preTestRecord.statusPermarkahanEsei : null;
+                                    
+                                    const postTestRecord = studentProgressData.skor.find(s => s.bab === babName && s.tingkatan === ting && s.jenisUjian === "post_test");
+                                    const postSkor = postTestRecord ? postTestRecord.skor : null;
+                                    const attempt = postTestRecord ? (postTestRecord.percubaan || 1) : 0;
+                                    const postSemakan = postTestRecord ? postTestRecord.statusPermarkahanEsei : null;
+                                    
+                                    const aiSelesaiCount = studentProgressData.chat.filter(c => c.chapterId?.includes(`tingkatan${ting}_bab${num}_sub`) && c.status === "completed").length;
+                                    const aiInProgress = studentProgressData.chat.some(c => c.chapterId?.includes(`tingkatan${ting}_bab${num}_sub`) && c.status === "in_progress");
 
-                                  <AnimatePresence>
-                                    {(showDetailRow) && (
-                                      <tr className="print:table-row print:border-b print:border-black">
-                                        <td colSpan={5} className="p-0 border-b border-slate-700/50 bg-slate-900/80 print:bg-white print:border-none">
-                                          <motion.div 
-                                            initial={{ height: 0, opacity: 0 }} 
-                                            animate={{ height: "auto", opacity: 1 }} 
-                                            exit={{ height: 0, opacity: 0 }} 
-                                            className="overflow-hidden print:overflow-visible"
-                                          >
-                                            <div className="p-6 md:p-8 flex flex-col lg:flex-row gap-6 print:flex-col print:gap-4 print:p-4">
-                                              
-                                              {/* KOTAK METRIK SKOR */}
-                                              <div className="flex-1 flex gap-4 min-w-0 print:gap-2">
-                                                <div className="flex-1 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-inner print:bg-white print:border print:border-slate-300 print:shadow-none">
-                                                   <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 border-b border-slate-700 pb-2 print:text-black print:border-slate-300">Metrik Diagnostik (Pre)</h5>
-                                                   {preTestRecord ? (
-                                                     <div className="space-y-1.5 text-sm print:text-black">
-                                                       <p className="flex justify-between text-slate-300 print:text-black"><span>Objektif:</span> <span className="font-bold text-blue-400 print:text-black">{preTestRecord.skorObjektif || 0}</span></p>
-                                                       <p className="flex justify-between text-slate-300 print:text-black"><span>Struktur:</span> <span className="font-bold text-purple-400 print:text-black">{preSemakan === 'disemak_oleh_AI' && preTestRecord.markahStruktur === null ? 'Semakan' : preTestRecord.markahStruktur || 0}</span></p>
-                                                       <p className="flex justify-between text-slate-200 mt-2 pt-2 border-t border-slate-700 print:text-black print:border-slate-300"><span>Jumlah Skor:</span> <span className="font-black text-white print:text-black">{preSkor}%</span></p>
-                                                     </div>
-                                                   ) : <p className="text-xs text-slate-500 italic mt-4 print:text-black">Tiada rekod ujian.</p>}
-                                                </div>
+                                    let learningGain = null;
+                                    let rumusanAI = "Belum ada data cukup untuk dianalisis.";
+                                    let tindakanSusulan = "Tiada tindakan susulan diperlukan buat masa ini.";
+                                    let rumusanColor = "text-slate-400 print:text-black";
+                                    let gainIcon = null;
 
-                                                <div className="flex-1 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-inner print:bg-white print:border print:border-slate-300 print:shadow-none">
-                                                   <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 border-b border-slate-700 pb-2 print:text-black print:border-slate-300">Metrik Pasca (Post)</h5>
-                                                   {postTestRecord ? (
-                                                     <div className="space-y-1.5 text-sm print:text-black">
-                                                       <p className="flex justify-between text-slate-300 print:text-black"><span>Objektif:</span> <span className="font-bold text-blue-400 print:text-black">{postTestRecord.skorObjektif || 0}</span></p>
-                                                       <p className="flex justify-between text-slate-300 print:text-black"><span>Struktur:</span> <span className="font-bold text-purple-400 print:text-black">{postSemakan === 'disemak_oleh_AI' && postTestRecord.markahStruktur === null ? 'Semakan' : postTestRecord.markahStruktur || 0}</span></p>
-                                                       <p className="flex justify-between text-slate-200 mt-2 pt-2 border-t border-slate-700 print:text-black print:border-slate-300"><span>Jumlah Skor:</span> <span className={`font-black ${postSkor! >= 50 ? 'text-emerald-400 print:text-black' : 'text-rose-400 print:text-black'}`}>{postSkor}%</span></p>
-                                                       <p className="flex justify-between text-slate-400 text-xs mt-1 print:text-black"><span>Bil. Cubaan:</span> <span>{attempt}</span></p>
-                                                     </div>
-                                                   ) : <p className="text-xs text-slate-500 italic mt-4 print:text-black">Tiada rekod ujian.</p>}
-                                                </div>
-                                              </div>
+                                    if (preSkor !== null && postSkor !== null) {
+                                      learningGain = postSkor - preSkor;
+                                      if (learningGain > 0) {
+                                        rumusanAI = `Peningkatan Kognitif dikesan (+${learningGain}%). Bimbingan AI / Modul menunjukkan kesan positif pada pemahaman murid.`;
+                                        tindakanSusulan = "KEFAHAMAN OPTIMUM: Teruskan ke bab seterusnya. Galakkan penyertaan dalam latihan pengayaan (KBAT) untuk mencabar minda murid.";
+                                        rumusanColor = "text-emerald-400 print:text-black";
+                                        gainIcon = <TrendingUp size={16} className="text-emerald-400 print:text-black"/>;
+                                      } else if (learningGain === 0) {
+                                        rumusanAI = `Prestasi mendatar. Murid memerlukan penekanan dan pendekatan pedagogi yang berbeza untuk topik ini.`;
+                                        tindakanSusulan = "PERHATIAN GURU: Bimbingan rakan sebaya disyorkan. Guru perlu menyemak semula jawapan struktur murid untuk kenal pasti miskonsepsi.";
+                                        rumusanColor = "text-amber-400 print:text-black";
+                                        gainIcon = <TrendingUp size={16} className="text-amber-400 print:text-black rotate-45"/>; 
+                                      } else {
+                                        rumusanAI = `Kemerosotan prestasi (-${Math.abs(learningGain)}%). Murid gagal menyerap fakta dengan berkesan melalui medium digital sepenuhnya.`;
+                                        tindakanSusulan = "INTERVENSI WAJIB: Laksanakan Mod Pemulihan. Sesi intervensi bersemuka dengan guru adalah sangat kritikal pada tahap ini.";
+                                        rumusanColor = "text-rose-400 print:text-black";
+                                        gainIcon = <TrendingDown size={16} className="text-rose-400 print:text-black"/>;
+                                      }
+                                    } else if (preSkor !== null && preSkor >= 70) {
+                                      rumusanAI = "Murid menguasai topik ini di tahap Cemerlang sejak Ujian Diagnostik. Pintasan (Bypass) dibenarkan.";
+                                      tindakanSusulan = "PENGECUALIAN (BYPASS): Murid ini cemerlang. Fokuskan murid ini kepada elemen Mencipta & Menilai (Tahap 5 & 6 Taksonomi Bloom).";
+                                      rumusanColor = "text-blue-400 print:text-black";
+                                      gainIcon = <CheckSquare size={16} className="text-blue-400 print:text-black"/>;
+                                    }
 
-                                              {/* KOTAK ANALITIK GURU & TINDAKAN SUSULAN */}
-                                              <div className="flex-[2] min-w-0 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 p-5 rounded-xl border border-indigo-800/30 shadow-inner print:bg-white print:border print:border-slate-300 print:shadow-none">
-                                                 <h5 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-3 flex items-center gap-2 print:text-black"><BrainCircuit size={16} className="print:hidden"/> Laporan Analitik Pedagogi & Tindakan Susulan</h5>
-                                                 
-                                                 <div className="flex items-start gap-4 mb-4">
-                                                   <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 shadow-md shrink-0 print:bg-slate-50 print:border-slate-300 print:shadow-none">
-                                                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center mb-1 print:text-slate-600">Learning Gain</p>
-                                                     <div className="flex items-center justify-center gap-1.5">
-                                                        {gainIcon}
-                                                        <span className={`text-xl font-black ${rumusanColor}`}>{learningGain !== null ? `${learningGain > 0 ? '+' : ''}${learningGain}%` : 'N/A'}</span>
-                                                     </div>
-                                                   </div>
-                                                   
-                                                   <div className="flex-1 space-y-2">
-                                                     <p className="text-sm text-slate-300 leading-relaxed print:text-black">
-                                                       <strong>Analisis:</strong> {rumusanAI}
-                                                     </p>
-                                                     <p className="text-sm text-amber-200 leading-relaxed print:text-black">
-                                                       <strong>Tindakan Susulan:</strong> {tindakanSusulan}
-                                                     </p>
-                                                   </div>
-                                                 </div>
+                                    const uniqueRowId = `${ting}_${num}`;
+                                    const isExpanded = expandedBabDetail === uniqueRowId;
+                                    const showDetailRow = isExpanded;
 
-                                                 {(preTestRecord?.docIdPre || postTestRecord?.docIdPost) && (
-                                                    <div className="flex gap-2 border-t border-indigo-800/30 pt-3 print:hidden">
-                                                       {preTestRecord && <a href={`/guru/semakan/${preTestRecord.id}`} target="_blank" rel="noreferrer" className="text-xs bg-indigo-600/80 hover:bg-indigo-500 text-white px-3 py-1.5 rounded shadow flex items-center gap-1 font-bold"><Eye size={12}/> Semak Esei Pre</a>}
-                                                       {postTestRecord && <a href={`/guru/semakan/${postTestRecord.id}`} target="_blank" rel="noreferrer" className="text-xs bg-emerald-600/80 hover:bg-emerald-500 text-white px-3 py-1.5 rounded shadow flex items-center gap-1 font-bold"><Eye size={12}/> Semak Esei Post</a>}
-                                                    </div>
-                                                 )}
-                                              </div>
-                                              
+                                    return (
+                                      <React.Fragment key={uniqueRowId}>
+                                        <tr 
+                                          onClick={() => setExpandedBabDetail(isExpanded ? null : uniqueRowId)} 
+                                          className={`border-b border-slate-700/50 transition-all cursor-pointer print:border-black/40 print:cursor-default ${isExpanded ? 'bg-slate-800/80 shadow-inner print:bg-white print:shadow-none' : 'hover:bg-slate-800/40 print:hover:bg-white'}`}
+                                        >
+                                          <td className="p-5 text-sm text-slate-200 font-bold w-1/4 whitespace-nowrap print:text-black">
+                                            <div className="flex items-center gap-2">
+                                              <div className={`w-2 h-2 rounded-full print:hidden ${preSkor !== null || postSkor !== null ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-slate-600'}`}></div>
+                                              {babName}
                                             </div>
-                                          </motion.div>
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </AnimatePresence>
-                                </React.Fragment>
-                              );
-                            })}
-                          </tbody>
-                       </table>
-                     </div>
+                                          </td>
+                                          
+                                          <td className="p-5 text-center">
+                                            {preSkor !== null ? (
+                                              <span className={`text-[11px] px-3 py-1.5 rounded-lg font-bold border shadow-sm print:border-none print:shadow-none print:bg-transparent print:text-black ${preSkor >= 70 ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50' : 'bg-slate-800 text-slate-300 border-slate-600'}`}>
+                                                {preSemakan === 'disemak_oleh_AI' && preTestRecord.markahStruktur === null ? '⏳ Semakan' : `${preSkor}%`}
+                                              </span>
+                                            ) : (
+                                              <span className="text-[11px] text-slate-600 font-medium italic print:text-black">Belum Mula</span>
+                                            )}
+                                          </td>
+                                          
+                                          <td className="p-5 text-center">
+                                            {selectedStudentDetail.kumpulan === 'Kawalan' ? (
+                                               <span className="text-[11px] text-slate-600 font-medium bg-slate-900 px-2 py-1 rounded print:bg-transparent print:text-black print:border print:border-black">Bukan Kumpulan AI</span>
+                                            ) : aiSelesaiCount > 0 ? (
+                                              <span className="text-[11px] px-3 py-1.5 rounded-lg font-bold bg-amber-900/30 text-amber-400 border border-amber-800/50 shadow-sm flex items-center justify-center w-max mx-auto gap-1 print:border-none print:shadow-none print:bg-transparent print:text-black">
+                                                <Sparkles size={12} className="print:hidden"/> {aiSelesaiCount} Sub Selesai
+                                              </span>
+                                            ) : aiInProgress ? (
+                                              <span className="text-[11px] px-3 py-1.5 rounded-lg font-bold bg-blue-900/30 text-blue-400 border border-blue-800/50 shadow-sm animate-pulse flex items-center justify-center w-max mx-auto gap-1 print:border-none print:shadow-none print:bg-transparent print:text-black print:animate-none">
+                                                <Loader2 size={12} className="animate-spin print:hidden"/> Proses...
+                                              </span>
+                                            ) : (
+                                              <span className="text-[11px] text-slate-600 font-medium italic print:text-black">Belum Akses</span>
+                                            )}
+                                          </td>
+                                          
+                                          <td className="p-5 text-center">
+                                            {postSkor !== null ? (
+                                              <div className="flex flex-col items-center justify-center gap-1.5 print:flex-row print:gap-2">
+                                                <span className={`text-[11px] px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 border shadow-sm print:border-none print:shadow-none print:bg-transparent print:text-black ${
+                                                  postSkor >= 50 ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50' : 'bg-rose-900/40 text-rose-400 border-rose-800/50'
+                                                }`}>
+                                                  {postSemakan === 'disemak_oleh_AI' && postTestRecord.markahStruktur === null ? '⏳ Semakan' : `${postSkor}%`} 
+                                                  {postSkor < 50 && <AlertTriangle size={12} className="print:hidden"/>}
+                                                </span>
+                                                {attempt > 1 && (
+                                                   <span className="text-[9px] font-black text-orange-400 bg-orange-900/40 border border-orange-800/50 px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 shadow-sm print:border-none print:shadow-none print:bg-transparent print:text-black"><Rocket size={10} className="print:hidden"/> Pemulihan</span>
+                                                )}
+                                              </div>
+                                            ) : preSkor !== null && preSkor >= 70 ? (
+                                              <span className="text-[10px] px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800/50 font-bold uppercase tracking-wider shadow-sm print:border-none print:shadow-none print:bg-transparent print:text-black">Dikecualikan</span>
+                                            ) : (
+                                              <span className="text-[11px] text-slate-600 font-medium italic print:text-black">Belum Diambil</span>
+                                            )}
+                                          </td>
+
+                                          <td className="p-5 text-right print:hidden">
+                                             <ChevronDown size={18} className={`text-slate-500 transition-transform duration-300 inline-block ${isExpanded ? 'rotate-180 text-blue-400' : ''}`}/>
+                                          </td>
+                                        </tr>
+
+                                        <AnimatePresence>
+                                          {(showDetailRow) && (
+                                            <tr className="print:table-row print:border-b print:border-black">
+                                              <td colSpan={5} className="p-0 border-b border-slate-700/50 bg-slate-900/80 print:bg-white print:border-none">
+                                                <motion.div 
+                                                  initial={{ height: 0, opacity: 0 }} 
+                                                  animate={{ height: "auto", opacity: 1 }} 
+                                                  exit={{ height: 0, opacity: 0 }} 
+                                                  className="overflow-hidden print:overflow-visible"
+                                                >
+                                                  <div className="p-6 md:p-8 flex flex-col lg:flex-row gap-6 print:flex-col print:gap-4 print:p-4">
+                                                    
+                                                    {/* KOTAK METRIK SKOR */}
+                                                    <div className="flex-1 flex gap-4 min-w-0 print:gap-2">
+                                                      <div className="flex-1 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-inner print:bg-white print:border print:border-slate-300 print:shadow-none">
+                                                         <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 border-b border-slate-700 pb-2 print:text-black print:border-slate-300">Metrik Diagnostik (Pre)</h5>
+                                                         {preTestRecord ? (
+                                                           <div className="space-y-1.5 text-sm print:text-black">
+                                                             <p className="flex justify-between text-slate-300 print:text-black"><span>Objektif:</span> <span className="font-bold text-blue-400 print:text-black">{preTestRecord.skorObjektif || 0}</span></p>
+                                                             <p className="flex justify-between text-slate-300 print:text-black"><span>Struktur:</span> <span className="font-bold text-purple-400 print:text-black">{preSemakan === 'disemak_oleh_AI' && preTestRecord.markahStruktur === null ? 'Semakan' : preTestRecord.markahStruktur || 0}</span></p>
+                                                             <p className="flex justify-between text-slate-200 mt-2 pt-2 border-t border-slate-700 print:text-black print:border-slate-300"><span>Jumlah Skor:</span> <span className="font-black text-white print:text-black">{preSkor}%</span></p>
+                                                           </div>
+                                                         ) : <p className="text-xs text-slate-500 italic mt-4 print:text-black">Tiada rekod ujian.</p>}
+                                                      </div>
+
+                                                      <div className="flex-1 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-inner print:bg-white print:border print:border-slate-300 print:shadow-none">
+                                                         <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 border-b border-slate-700 pb-2 print:text-black print:border-slate-300">Metrik Pasca (Post)</h5>
+                                                         {postTestRecord ? (
+                                                           <div className="space-y-1.5 text-sm print:text-black">
+                                                             <p className="flex justify-between text-slate-300 print:text-black"><span>Objektif:</span> <span className="font-bold text-blue-400 print:text-black">{postTestRecord.skorObjektif || 0}</span></p>
+                                                             <p className="flex justify-between text-slate-300 print:text-black"><span>Struktur:</span> <span className="font-bold text-purple-400 print:text-black">{postSemakan === 'disemak_oleh_AI' && postTestRecord.markahStruktur === null ? 'Semakan' : postTestRecord.markahStruktur || 0}</span></p>
+                                                             <p className="flex justify-between text-slate-200 mt-2 pt-2 border-t border-slate-700 print:text-black print:border-slate-300"><span>Jumlah Skor:</span> <span className={`font-black ${postSkor! >= 50 ? 'text-emerald-400 print:text-black' : 'text-rose-400 print:text-black'}`}>{postSkor}%</span></p>
+                                                             <p className="flex justify-between text-slate-400 text-xs mt-1 print:text-black"><span>Bil. Cubaan:</span> <span>{attempt}</span></p>
+                                                           </div>
+                                                         ) : <p className="text-xs text-slate-500 italic mt-4 print:text-black">Tiada rekod ujian.</p>}
+                                                      </div>
+                                                    </div>
+
+                                                    {/* KOTAK ANALITIK GURU & TINDAKAN SUSULAN */}
+                                                    <div className="flex-[2] min-w-0 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 p-5 rounded-xl border border-indigo-800/30 shadow-inner print:bg-white print:border print:border-slate-300 print:shadow-none">
+                                                       <h5 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-3 flex items-center gap-2 print:text-black"><BrainCircuit size={16} className="print:hidden"/> Laporan Analitik Pedagogi & Tindakan Susulan</h5>
+                                                       
+                                                       <div className="flex items-start gap-4 mb-4">
+                                                         <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 shadow-md shrink-0 print:bg-slate-50 print:border-slate-300 print:shadow-none">
+                                                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center mb-1 print:text-slate-600">Learning Gain</p>
+                                                           <div className="flex items-center justify-center gap-1.5">
+                                                              {gainIcon}
+                                                              <span className={`text-xl font-black ${rumusanColor}`}>{learningGain !== null ? `${learningGain > 0 ? '+' : ''}${learningGain}%` : 'N/A'}</span>
+                                                           </div>
+                                                         </div>
+                                                         
+                                                         <div className="flex-1 space-y-2">
+                                                           <p className="text-sm text-slate-300 leading-relaxed print:text-black">
+                                                             <strong>Analisis:</strong> {rumusanAI}
+                                                           </p>
+                                                           <p className="text-sm text-amber-200 leading-relaxed print:text-black">
+                                                             <strong>Tindakan Susulan:</strong> {tindakanSusulan}
+                                                           </p>
+                                                         </div>
+                                                       </div>
+
+                                                       {(preTestRecord?.docIdPre || postTestRecord?.docIdPost) && (
+                                                          <div className="flex gap-2 border-t border-indigo-800/30 pt-3 print:hidden">
+                                                             {preTestRecord && <a href={`/guru/semakan/${preTestRecord.id}`} target="_blank" rel="noreferrer" className="text-xs bg-indigo-600/80 hover:bg-indigo-500 text-white px-3 py-1.5 rounded shadow flex items-center gap-1 font-bold"><Eye size={12}/> Semak Esei Pre</a>}
+                                                             {postTestRecord && <a href={`/guru/semakan/${postTestRecord.id}`} target="_blank" rel="noreferrer" className="text-xs bg-emerald-600/80 hover:bg-emerald-500 text-white px-3 py-1.5 rounded shadow flex items-center gap-1 font-bold"><Eye size={12}/> Semak Esei Post</a>}
+                                                          </div>
+                                                       )}
+                                                    </div>
+                                                    
+                                                  </div>
+                                                </motion.div>
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </AnimatePresence>
+                                      </React.Fragment>
+                                    );
+                                  })}
+                                </tbody>
+                             </table>
+                           </div>
+                         </div>
+                       ))}
+                     </>
                    )}
                 </div>
 
