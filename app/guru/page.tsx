@@ -49,7 +49,7 @@ export default function GuruDashboard() {
   
   // STATE CARIAN & FILTER
   const [searchMurid, setSearchMurid] = useState("");
-  const [filterTingkatanPengguna, setFilterTingkatanPengguna] = useState("Semua"); // 🌟 FILTER BARU UTK TAB PENGGUNA
+  const [filterTingkatanPengguna, setFilterTingkatanPengguna] = useState("Semua"); 
 
   const [searchPemantauan, setSearchPemantauan] = useState("");
   const [filterTingkatanPemantauan, setFilterTingkatanPemantauan] = useState("Semua");
@@ -94,7 +94,6 @@ export default function GuruDashboard() {
   const [editSubtopikId, setEditSubtopikId] = useState<string | null>(null);
   const [tempSubtopik, setTempSubtopik] = useState<any[]>([]);
 
-  // 🌟 KEMAS KINI: Tarik SEMUA skor murid (Untuk Matriks)
   const [semuaSkor, setSemuaSkor] = useState<any[]>([]);
   const [senaraiSemakan, setSenaraiSemakan] = useState<any[]>([]);
   const [loadingSemakan, setLoadingSemakan] = useState(false);
@@ -104,8 +103,8 @@ export default function GuruDashboard() {
   
   const [selectedStudentDetail, setSelectedStudentDetail] = useState<any | null>(null);
   const [expandedBabDetail, setExpandedBabDetail] = useState<string | null>(null); 
-  const [showMatrixModal, setShowMatrixModal] = useState(false); // 🌟 Modal Matriks Kelas
-  const [matrixTingkatanFilter, setMatrixTingkatanFilter] = useState("4"); // Default papar bab ting 4 di matriks
+  const [showMatrixModal, setShowMatrixModal] = useState(false); 
+  const [matrixTingkatanFilter, setMatrixTingkatanFilter] = useState("4"); 
   
   const [studentProgressData, setStudentProgressData] = useState<{skor: any[], chat: any[]}>({skor: [], chat: []});
   const [loadingStudentProgress, setLoadingStudentProgress] = useState(false);
@@ -115,6 +114,7 @@ export default function GuruDashboard() {
     { id: 'gelap', nama: '🌙 Makmal Gelap', class: 'bg-[#0f172a]' },
     { id: 'angkasa', nama: '🌌 Kosmos', class: 'bg-gradient-to-br from-indigo-950 via-purple-900 to-black' },
     { id: 'cerah', nama: '🌞 Makmal Cerah', class: 'bg-slate-100 text-slate-800' },
+    { id: 'putih', nama: '⚪ Latar Putih', class: 'bg-slate-50 text-slate-900' },
     { id: 'senja', nama: '🌅 Senja Merah', class: 'bg-gradient-to-br from-rose-900 via-orange-900 to-black' },
   ];
   const [selectedTheme, setSelectedTheme] = useState(senaraiTheme[0].class);
@@ -264,7 +264,6 @@ export default function GuruDashboard() {
     } catch (error) { console.error(error); } finally { setLoadingBahan(false); }
   };
 
-  // 🌟 KEMAS KINI: TARIK SEMUA DATA UJIAN (UNTUK MATRIKS)
   const tarikDataSemakan = async () => {
     setLoadingSemakan(true);
     try {
@@ -448,7 +447,6 @@ export default function GuruDashboard() {
   const showToastMessage = (msg: string, type: 'success'|'error'|'info'='info') => { setToast({ message: msg, type }); setTimeout(() => setToast(null), 3000); };
   const handleLogout = () => { window.location.href = '/login'; };
 
-  // 🌟 KEMAS KINI: FILTER PENGGUNA (TAMBAH TINGKATAN)
   const filteredPengguna = senaraiPengguna.filter(u => {
     const matchSearch = u.nama?.toLowerCase().includes(searchMurid.toLowerCase()) || u.idPengguna?.toLowerCase().includes(searchMurid.toLowerCase()) || u.kelas?.toLowerCase().includes(searchMurid.toLowerCase());
     const matchTingkatan = filterTingkatanPengguna === "Semua" || String(u.tingkatan) === filterTingkatanPengguna;
@@ -571,7 +569,7 @@ export default function GuruDashboard() {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 gap-4 shadow-xl">
                 <div><h3 className="text-xl font-bold text-white mb-1 flex items-center gap-2"><Users className="text-blue-400"/> Pendaftaran Berpusat</h3><p className="text-slate-400 text-sm">Daftar akaun murid dan guru mengikut sekolah.</p></div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                   {/* 🌟 KEMAS KINI: FILTER TINGKATAN UNTUK PENGGUNA */}
+                   {/* FILTER TINGKATAN UNTUK PENGGUNA */}
                    <select value={filterTingkatanPengguna} onChange={(e) => setFilterTingkatanPengguna(e.target.value)} className="bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-blue-500 outline-none shadow-inner">
                       <option className="bg-slate-900" value="Semua">Semua Tg.</option>
                       <option className="bg-slate-900" value="4">Tingkatan 4</option>
@@ -698,7 +696,7 @@ export default function GuruDashboard() {
                  
                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto flex-wrap justify-end">
                    
-                   {/* 🌟 BUTANG MATRIKS KELAS BARU */}
+                   {/* BUTANG MATRIKS KELAS */}
                    <button onClick={() => setShowMatrixModal(true)} className="w-full sm:w-auto bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2">
                      <Grid size={16}/> Matriks Kelas (Keseluruhan)
                    </button>
@@ -707,6 +705,7 @@ export default function GuruDashboard() {
                      <Printer size={16}/> Cetak Senarai
                    </button>
                    
+                   {/* FILTER SEKOLAH UNTUK ADMIN */}
                    {myRole === "admin" && (
                      <select value={filterSekolahPemantauan} onChange={(e) => {setFilterSekolahPemantauan(e.target.value); setFilterKelasPemantauan("Semua");}} className="w-full sm:w-auto bg-purple-900/30 border border-purple-700 text-purple-300 font-bold px-4 py-2.5 rounded-xl text-sm focus:border-purple-500 outline-none shadow-inner">
                         <option className="bg-slate-900 text-white" value="Semua">Semua Sekolah</option>
@@ -719,7 +718,7 @@ export default function GuruDashboard() {
                       <option className="bg-slate-900" value="4">Tingkatan 4</option>
                       <option className="bg-slate-900" value="5">Tingkatan 5</option>
                    </select>
-                   <select value={filterKelasPemantauan} onChange={(e) => setFilterKelasPemantauan(e.target.value)} className="w-full sm:w-auto bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner truncate max-w-[200px]">
+                   <select value={filterKelasPemantauan} onChange={(e) => setFilterKelasPemantauan(e.target.value)} className="w-full sm:w-auto bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner truncate max-w-50">
                       <option className="bg-slate-900" value="Semua">Semua Kelas</option>
                       {Array.from(new Set(senaraiPengguna.filter(u => u.role === "murid" && (filterTingkatanPemantauan === "Semua" || String(u.tingkatan) === filterTingkatanPemantauan) && (filterSekolahPemantauan === "Semua" || u.sekolah === filterSekolahPemantauan)).map(u => u.kelas))).filter(Boolean).sort().map((k, idx) => (
                         <option className="bg-slate-900" key={idx} value={k as string}>{k as string}</option>
@@ -732,27 +731,50 @@ export default function GuruDashboard() {
                  </div>
               </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:grid-cols-4 print:gap-2">
-                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none"><span className="text-slate-400 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Jumlah Murid</span><span className="text-3xl md:text-5xl font-black text-blue-400 drop-shadow-md print:text-black print:drop-shadow-none">{statPemantauan.jumlah}</span></div>
-                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-emerald-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none"><span className="text-emerald-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Inkuiri Tinggi</span><span className="text-3xl md:text-5xl font-black text-emerald-400 drop-shadow-md print:text-black print:drop-shadow-none">{statPemantauan.tinggi}</span></div>
-                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-amber-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none"><span className="text-amber-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Inkuiri Sederhana</span><span className="text-3xl md:text-5xl font-black text-amber-400 drop-shadow-md print:text-black print:drop-shadow-none">{statPemantauan.sederhana}</span></div>
-                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-rose-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none"><span className="text-rose-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Inkuiri Rendah</span><span className="text-3xl md:text-5xl font-black text-rose-400 drop-shadow-md print:text-black print:drop-shadow-none">{statPemantauan.rendah}</span></div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8 print:grid-cols-5 print:gap-2">
+                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none"><span className="text-slate-400 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Jumlah Murid</span><span className="text-3xl md:text-4xl font-black text-blue-400 drop-shadow-md print:text-black print:drop-shadow-none">{statPemantauan.jumlah}</span></div>
+                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-emerald-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none"><span className="text-emerald-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Inkuiri Tinggi</span><span className="text-3xl md:text-4xl font-black text-emerald-400 drop-shadow-md print:text-black print:drop-shadow-none">{statPemantauan.tinggi}</span></div>
+                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-amber-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none"><span className="text-amber-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Inkuiri Sederhana</span><span className="text-3xl md:text-4xl font-black text-amber-400 drop-shadow-md print:text-black print:drop-shadow-none">{statPemantauan.sederhana}</span></div>
+                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-rose-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none"><span className="text-rose-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Inkuiri Rendah</span><span className="text-3xl md:text-4xl font-black text-rose-400 drop-shadow-md print:text-black print:drop-shadow-none">{statPemantauan.rendah}</span></div>
+                {/* TAMBAHAN: Kira Rekod Pemulihan */}
+                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-orange-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none">
+                  <span className="text-orange-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Lalui Pemulihan</span>
+                  <span className="text-3xl md:text-4xl font-black text-orange-400 drop-shadow-md print:text-black print:drop-shadow-none">
+                    {filteredPemantauan.filter(u => semuaSkor.some(s => (s.idMurid === u.id || s.idMurid === u.idPengguna) && s.jenisUjian === "post_test" && s.percubaan > 1)).length}
+                  </span>
+                </div>
               </div>
 
               <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 overflow-hidden shadow-xl print:bg-white print:border-black print:shadow-none">
                 <div className="overflow-x-auto print:overflow-visible">
                   <table className="w-full text-left border-collapse min-w-max print:min-w-full">
-                    <thead><tr className="border-b border-slate-700 bg-slate-900/50 print:bg-slate-100 print:border-black"><th className="p-5 font-semibold text-sm text-slate-300 print:text-black">Nama Murid</th><th className="p-5 font-semibold text-sm text-slate-300 text-center print:text-black">Tahap Inkuiri Semasa</th><th className="p-5 font-semibold text-sm text-slate-300 text-center print:text-black">Status / Indikator</th><th className="p-5 font-semibold text-sm text-slate-300 text-right print:hidden">Tindakan</th></tr></thead>
+                    <thead><tr className="border-b border-slate-700 bg-slate-900/50 print:bg-slate-100 print:border-black"><th className="p-5 font-semibold text-sm text-slate-300 print:text-black">Nama Murid</th><th className="p-5 font-semibold text-sm text-slate-300 text-center print:text-black">Tahap Inkuiri Semasa</th><th className="p-5 font-semibold text-sm text-slate-300 text-center print:text-black">Status / Indikator</th><th className="p-5 font-semibold text-sm text-slate-300 text-center print:text-black">Rekod Pemulihan</th><th className="p-5 font-semibold text-sm text-slate-300 text-right print:hidden">Tindakan</th></tr></thead>
                     <tbody>
-                      {filteredPemantauan.map((murid, i) => (
-                        <tr key={i} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors print:border-black/30 print:hover:bg-white">
-                          <td className="p-5"><div className="font-bold text-slate-200 print:text-black">{murid.nama}</div><div className="text-slate-400 print:text-slate-600 text-xs mt-1">Tg. {murid.tingkatan} {murid.kelas} {myRole === "admin" && <span className="ml-2 text-purple-400 bg-purple-900/20 px-2 py-0.5 rounded">[{murid.sekolah}]</span>}</div></td>
-                          <td className="p-5 text-center"><span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border print:border-slate-400 print:text-black print:bg-white ${murid.tahapInkuiri === 'Tinggi' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50' : murid.tahapInkuiri === 'Sederhana' ? 'bg-amber-900/40 text-amber-400 border-amber-800/50' : 'bg-rose-900/40 text-rose-400 border-rose-800/50'}`}>{murid.tahapInkuiri || 'Rendah'}</span></td>
-                          <td className="p-5 text-center print:text-black print:font-bold">{murid.tahapInkuiri === 'Tinggi' ? <span className="text-emerald-400 print:text-black text-xs font-bold flex items-center justify-center gap-1.5"><Zap size={14} className="print:hidden"/> Cemerlang</span> : murid.tahapInkuiri === 'Sederhana' ? <span className="text-amber-400 print:text-black text-xs font-bold flex items-center justify-center gap-1.5"><Activity size={14} className="print:hidden"/> Berkembang</span> : <span className="text-rose-400 print:text-black text-xs font-bold flex items-center justify-center gap-1.5"><AlertTriangle size={14} className="print:hidden"/> Perlu Bimbingan</span>}</td>
-                          <td className="p-5 text-right print:hidden"><button onClick={() => setSelectedStudentDetail(murid)} className="inline-flex items-center gap-2 bg-slate-700 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md transition-all hover:scale-105 hover:shadow-emerald-900/50"><Eye size={16}/> Analisis Penuh</button></td>
-                        </tr>
-                      ))}
-                      {filteredPemantauan.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-slate-500 print:text-black">Tiada murid ditemui.</td></tr>}
+                      {filteredPemantauan.map((murid, i) => {
+                        const studentSkor = semuaSkor.filter(s => s.idMurid === murid.id || s.idMurid === murid.idPengguna);
+                        const pemulihanCount = studentSkor.filter(s => s.jenisUjian === "post_test" && s.percubaan > 1).length;
+                        const hasPemulihan = pemulihanCount > 0;
+
+                        return (
+                          <tr key={i} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors print:border-black/30 print:hover:bg-white">
+                            <td className="p-5"><div className="font-bold text-slate-200 print:text-black">{murid.nama}</div><div className="text-slate-400 print:text-slate-600 text-xs mt-1">Tg. {murid.tingkatan} {murid.kelas} {myRole === "admin" && <span className="ml-2 text-purple-400 bg-purple-900/20 px-2 py-0.5 rounded">[{murid.sekolah}]</span>}</div></td>
+                            <td className="p-5 text-center"><span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border print:border-slate-400 print:text-black print:bg-white ${murid.tahapInkuiri === 'Tinggi' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50' : murid.tahapInkuiri === 'Sederhana' ? 'bg-amber-900/40 text-amber-400 border-amber-800/50' : 'bg-rose-900/40 text-rose-400 border-rose-800/50'}`}>{murid.tahapInkuiri || 'Rendah'}</span></td>
+                            <td className="p-5 text-center print:text-black print:font-bold">{murid.tahapInkuiri === 'Tinggi' ? <span className="text-emerald-400 print:text-black text-xs font-bold flex items-center justify-center gap-1.5"><Zap size={14} className="print:hidden"/> Cemerlang</span> : murid.tahapInkuiri === 'Sederhana' ? <span className="text-amber-400 print:text-black text-xs font-bold flex items-center justify-center gap-1.5"><Activity size={14} className="print:hidden"/> Berkembang</span> : <span className="text-rose-400 print:text-black text-xs font-bold flex items-center justify-center gap-1.5"><AlertTriangle size={14} className="print:hidden"/> Perlu Bimbingan</span>}</td>
+                            
+                            {/* LAJUR PEMULIHAN */}
+                            <td className="p-5 text-center">
+                              {hasPemulihan ? (
+                                <span className="text-orange-400 bg-orange-900/30 border border-orange-800/50 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center w-max mx-auto gap-1 shadow-sm print:bg-transparent print:text-black print:border-black">
+                                  <Rocket size={12} className="print:hidden"/> {pemulihanCount} Bab
+                                </span>
+                              ) : <span className="text-slate-500 font-medium">-</span>}
+                            </td>
+
+                            <td className="p-5 text-right print:hidden"><button onClick={() => setSelectedStudentDetail(murid)} className="inline-flex items-center gap-2 bg-slate-700 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md transition-all hover:scale-105 hover:shadow-emerald-900/50"><Eye size={16}/> Analisis Penuh</button></td>
+                          </tr>
+                        );
+                      })}
+                      {filteredPemantauan.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-500 print:text-black">Tiada murid ditemui.</td></tr>}
                     </tbody>
                   </table>
                 </div>
@@ -841,23 +863,23 @@ export default function GuruDashboard() {
                   <div className="bg-slate-800/80 backdrop-blur-md p-4 rounded-xl border border-slate-700 flex flex-col md:flex-row flex-wrap items-center gap-3 shadow-md">
                      <div className="flex items-center gap-2 text-slate-200 font-bold text-sm shrink-0 w-full md:w-auto"><Filter size={18} className="text-cyan-400"/> Tapis & Cari:</div>
                      
-                     <div className="relative w-full md:flex-1 min-w-[200px]">
+                     <div className="relative w-full md:flex-1 min-w-50">
                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
                        <input type="text" placeholder="Cari teks soalan / topik..." value={searchSoalan} onChange={(e) => setSearchSoalan(e.target.value)} className="w-full bg-[#0f172a] border border-slate-700 text-white pl-10 pr-3 py-2.5 rounded-xl text-sm focus:border-cyan-500 outline-none shadow-inner" />
                      </div>
 
                      <div className="flex flex-wrap w-full md:w-auto gap-3">
-                       <select value={filterTingkatan} onChange={(e) => setFilterTingkatan(e.target.value)} className="flex-1 min-w-[120px] bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
+                       <select value={filterTingkatan} onChange={(e) => setFilterTingkatan(e.target.value)} className="flex-1 min-w-30 bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
                           <option value="Semua">Semua Tg.</option><option value="4">Tingkatan 4</option><option value="5">Tingkatan 5</option>
                        </select>
-                       <select value={filterBab} onChange={(e) => setFilterBab(e.target.value)} className="flex-1 min-w-[100px] bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
+                       <select value={filterBab} onChange={(e) => setFilterBab(e.target.value)} className="flex-1 min-w-25 bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
                           <option value="Semua">Semua Bab</option>{[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}
                        </select>
-                       <select value={filterJenis} onChange={(e) => setFilterJenis(e.target.value)} className="flex-1 min-w-[110px] bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
+                       <select value={filterJenis} onChange={(e) => setFilterJenis(e.target.value)} className="flex-1 min-w-27.5 bg-slate-900 text-sm text-slate-200 border border-slate-700 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
                           <option value="Semua">Semua Jenis</option><option value="objektif">Objektif</option><option value="struktur">Struktur</option>
                        </select>
                        
-                       <select value={filterKegunaan} onChange={(e) => setFilterKegunaan(e.target.value)} className="flex-1 min-w-[140px] bg-cyan-900/20 text-sm text-cyan-300 font-bold border border-cyan-800/50 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
+                       <select value={filterKegunaan} onChange={(e) => setFilterKegunaan(e.target.value)} className="flex-1 min-w-35 bg-cyan-900/20 text-sm text-cyan-300 font-bold border border-cyan-800/50 rounded-xl px-3 py-2.5 focus:border-cyan-500 outline-none shadow-inner">
                           <option className="bg-slate-900 text-white font-normal" value="Semua">Semua Sasaran</option>
                           <option className="bg-slate-900 text-white font-normal" value="semua_ujian">Semua Ujian</option>
                           <option className="bg-slate-900 text-white font-normal" value="pre_post">Pre & Post</option>
@@ -873,7 +895,7 @@ export default function GuruDashboard() {
                     {loadingSoalan ? ( <div className="p-12 text-center text-slate-400 animate-pulse">Memuat turun Bank Soalan... ⏳</div> ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse min-w-max">
-                          <thead><tr className="border-b border-slate-700 bg-slate-900/50"><th className="p-5 font-semibold text-sm text-slate-300">ID</th><th className="p-5 font-semibold text-sm text-slate-300">Topik</th><th className="p-5 font-semibold text-sm text-slate-300">Kegunaan</th><th className="p-5 font-semibold text-sm text-slate-300">Jenis</th><th className="p-5 font-semibold text-sm text-slate-300 text-center">Susunan / Markah</th><th className="p-5 font-semibold text-sm text-slate-300 max-w-sm">Soalan</th><th className="p-5 font-semibold text-sm text-slate-300 text-right">Tindakan</th></tr></thead>
+                          <thead><tr className="border-b border-slate-700 bg-slate-900/50"><th className="p-5 font-semibold text-sm text-slate-300">ID</th><th className="p-5 font-semibold text-sm text-slate-300">Topik</th><th className="p-5 font-semibold text-sm text-slate-300">Kegunaan</th><th className="p-5 font-semibold text-sm text-slate-300">Jenis</th><th className="p-5 font-semibold text-sm text-slate-300 text-center">Markah</th><th className="p-5 font-semibold text-sm text-slate-300 max-w-sm">Soalan</th><th className="p-5 font-semibold text-sm text-slate-300 text-right">Tindakan</th></tr></thead>
                           <tbody>
                             {soalanListFiltered.length > 0 ? soalanListFiltered.map((q, i) => {
                               let kegunaanBadge = <></>;
@@ -938,7 +960,7 @@ export default function GuruDashboard() {
                       </select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 relative z-10">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 relative z-10">
                     <div>
                       <label className="block text-sm text-emerald-400 font-bold mb-2">Sasaran Ujian</label>
                       <select value={qKegunaan} onChange={e => setQKegunaan(e.target.value)} className="w-full bg-slate-900 border-2 border-emerald-800/50 rounded-xl p-3.5 text-emerald-400 font-bold outline-none text-sm focus:border-emerald-400 shadow-inner">
@@ -958,7 +980,6 @@ export default function GuruDashboard() {
                       </select>
                     </div>
                     <div><label className="block text-sm text-slate-400 mb-2 font-medium">Markah</label><input type="number" value={qMarkah} onChange={e => setQMarkah(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner"/></div>
-                    <div><label className="block text-sm text-blue-400 font-bold mb-2">No. Susunan</label><input type="number" value={qUrutan} onChange={e => setQUrutan(e.target.value)} placeholder="Cth: 1, 2, 3..." className="w-full bg-slate-900 border border-blue-800/50 rounded-xl p-3.5 text-white text-sm focus:outline-none focus:border-blue-500 shadow-inner"/></div>
                   </div>
                   <div className="mb-6 relative z-10"><label className="block text-sm text-slate-400 mb-2 font-medium">Soalan</label><textarea rows={5} value={qSoalan} onChange={e => setQSoalan(e.target.value)} placeholder="Taip soalan penuh di sini..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-5 text-white resize-none text-base focus:outline-none focus:border-cyan-500 shadow-inner leading-relaxed"></textarea></div>
                   <div className="mb-8 relative z-10"><label className="block text-sm text-slate-400 mb-2 font-medium">Pautan URL Gambar Rujukan (Pilihan)</label><input type="url" value={qImageUrl} onChange={e => setQImageUrl(e.target.value)} placeholder="Tampal link gambar jika soalan berasaskan rajah..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:outline-none focus:border-cyan-500 text-sm shadow-inner"/>
@@ -1158,7 +1179,7 @@ export default function GuruDashboard() {
         </main>
       </div>
 
-      {/* 🌟 MODAL MATRIKS KELAS KESELURUHAN (BARU) */}
+      {/* 🌟 MODAL MATRIKS KELAS KESELURUHAN */}
       <AnimatePresence>
         {showMatrixModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4 print:absolute print:inset-0 print:bg-white print:p-0">
@@ -1195,11 +1216,11 @@ export default function GuruDashboard() {
                             {[1,2,3,4,5,6,7,8,9,10].map(num => (
                               <th key={num} className="p-4 border border-slate-700 bg-slate-900/80 font-bold text-[10px] text-center text-slate-300 print:bg-slate-200 print:border-black min-w-[80px]">Bab {num} <br/><span className="text-[8px] text-slate-500 print:text-slate-600">(Pre | Post)</span></th>
                             ))}
+                            <th className="p-4 border border-slate-700 bg-slate-900/80 font-bold text-[10px] text-slate-300 print:bg-slate-200 print:border-black min-w-[150px]">Rumusan Keseluruhan</th>
                           </tr>
                         </thead>
                         <tbody>
                           {filteredPemantauan.map((murid, i) => {
-                            // Senaraikan markah bab 1-10 utk murid ini berdasarkan filterTingkatan Matriks
                             return (
                               <tr key={i} className="hover:bg-slate-800/50 transition-colors print:hover:bg-white">
                                 <td className="p-3 border border-slate-700 font-bold text-xs text-slate-200 bg-slate-800 sticky left-0 z-10 print:bg-white print:text-black print:border-black truncate max-w-[250px]" title={murid.nama}>
@@ -1215,23 +1236,36 @@ export default function GuruDashboard() {
                                   
                                   const preSkor = preData ? preData.skor : "-";
                                   const postSkor = postData ? postData.skor : "-";
+                                  const isPemulihan = postData && postData.percubaan > 1;
                                   
                                   let cellBg = "bg-transparent";
                                   if (preSkor !== "-" && postSkor !== "-") {
                                     if (postSkor >= 50) cellBg = "bg-emerald-900/20 print:bg-emerald-50";
                                     else cellBg = "bg-rose-900/20 print:bg-rose-50";
                                   } else if (preSkor >= 70) {
-                                    cellBg = "bg-blue-900/20 print:bg-blue-50"; // Dikecualikan
+                                    cellBg = "bg-blue-900/20 print:bg-blue-50"; 
                                   }
 
                                   return (
                                     <td key={num} className={`p-3 border border-slate-700 text-center text-xs font-mono font-medium print:border-black ${cellBg}`}>
                                       <span className={preSkor >= 70 ? "text-blue-400 print:text-blue-700" : "text-slate-400 print:text-slate-600"}>{preSkor}</span>
                                       <span className="text-slate-600 mx-1">|</span>
-                                      <span className={postSkor >= 50 ? "text-emerald-400 print:text-emerald-700" : postSkor !== "-" ? "text-rose-400 print:text-rose-700" : "text-slate-400 print:text-slate-600"}>{postSkor}</span>
+                                      <span className={postSkor >= 50 ? "text-emerald-400 print:text-emerald-700" : postSkor !== "-" ? "text-rose-400 print:text-rose-700" : "text-slate-400 print:text-slate-600"}>
+                                        {postSkor}
+                                        {isPemulihan && <span title="Skor Pemulihan"><Rocket size={8} className="inline ml-1 text-orange-400 print:text-orange-600" /></span>}
+                                      </span>
                                     </td>
                                   );
                                 })}
+                                <td className="p-3 border border-slate-700 text-[10px] leading-tight print:border-black">
+                                  {murid.tahapInkuiri === 'Tinggi' ? (
+                                    <span className="text-emerald-400 font-bold print:text-emerald-700">Cemerlang. Sedia untuk pengayaan KBAT.</span>
+                                  ) : murid.tahapInkuiri === 'Sederhana' ? (
+                                    <span className="text-amber-400 font-bold print:text-amber-700">Sederhana. Perlu latihan pengukuhan.</span>
+                                  ) : (
+                                    <span className="text-rose-400 font-bold print:text-rose-700">Kritikal. Intervensi/Pemulihan wajib.</span>
+                                  )}
+                                </td>
                               </tr>
                             );
                           })}
@@ -1278,7 +1312,7 @@ export default function GuruDashboard() {
                       <div className="p-16 text-center text-slate-400 animate-pulse bg-slate-900/40 rounded-2xl border border-slate-700 font-medium print:hidden">Memproses data pembelajaran raya... ⏳</div>
                    ) : (
                      <>
-                       {/* 🌟 KEMAS KINI: LOOP UNTUK TINGKATAN (JIKA TINGKATAN 5, PAPAR TINGKATAN 4 & 5) */}
+                       {/* 🌟 TINGKATAN LOOP UTK KAD INDIVIDU */}
                        {(selectedStudentDetail.tingkatan === "5" ? ["4", "5"] : ["4"]).map((ting) => (
                          <div key={ting} className="mb-10 last:mb-0">
                            <h4 className="text-slate-200 font-extrabold text-lg mb-4 flex items-center gap-2 uppercase tracking-wide print:text-black border-b border-slate-700 pb-2 print:border-black">

@@ -144,7 +144,6 @@ function KandunganUjian() {
       let currentTahap = "Sederhana"; 
 
       try {
-        // 1. Dapatkan Tahap & Percubaan Murid
         const userSnap = await getDoc(doc(db, "users", user.id));
         if (userSnap.exists()) {
           const data = userSnap.data();
@@ -164,7 +163,6 @@ function KandunganUjian() {
            }
         }
 
-        // 2. Tarik Bank Soalan
         const q = query(collection(db, "questionBank"), where("tingkatan", "==", tingkatan), where("bab", "==", bab));
         const querySnapshot = await getDocs(q);
         
@@ -198,34 +196,28 @@ function KandunganUjian() {
           }
         });
 
-        // ==========================================
-        // 🌟 KAWALAN JUMLAH SOALAN (KUOTA DINAMIK MENGIKUT ARAS)
-        // ==========================================
-        let hadObjektif = 30; // Nilai lalai
-        let hadStruktur = 5;  // Nilai lalai
+        // KAWALAN JUMLAH SOALAN (KUOTA DINAMIK MENGIKUT ARAS)
+        let hadObjektif = 30; 
+        let hadStruktur = 5;  
 
         if (jenisUjian === "pre_test") {
-            // UJIAN DIAGNOSTIK: Semua jawab, tapis betul-betul
             hadObjektif = 30; 
             hadStruktur = 5;
         } else if (jenisUjian === "post_test") {
             if (currentAttempt === 0) { 
-                // UJIAN PASCA (CUBAAN PERTAMA) - Disesuaikan ikut aras murid
                 if (currentTahap === "Sederhana" || currentTahap === "Tinggi") {
                    hadObjektif = 25; 
                    hadStruktur = 4;
-                } else { // Aras Rendah
+                } else { 
                    hadObjektif = 25; 
                    hadStruktur = 3;
                 }
             } else { 
-                // MOD PEMULIHAN (CUBAAN KEDUA): Soalan lebih santai/mudah
                 hadObjektif = 20; 
                 hadStruktur = 2; 
             }
         }
 
-        // RAWAKKAN SEMUA SOALAN DAN POTONG MENGIKUT HAD DI ATAS
         let objektifDahShuffle = shuffleArray(soalanObjektif);
         if (objektifDahShuffle.length > hadObjektif) {
             objektifDahShuffle = objektifDahShuffle.slice(0, hadObjektif);
@@ -585,7 +577,6 @@ function KandunganUjian() {
                </div>
              ) : (
                <div className="relative">
-                 {/* 🌟 KEMAS KINI: HALANG PASTE, DROP & COPY */}
                  <textarea
                    ref={textareaRef}
                    value={jawapanStruktur[semasa.id] || ""} 
