@@ -27,6 +27,16 @@ export default function PemarkahanGuru() {
           const rekod = docSnap.data();
           setDataMurid(rekod);
 
+          // 🌟 KUNCI UTAMA: Dapatkan senarai ID soalan yang BETUL-BETUL DITANYA semasa ujian.
+          // Kita ekstrak ID daripada kunci (keys) objek jawapan murid atau rekod ulasan AI.
+          const keysJawapan = rekod.jawapanStruktur ? Object.keys(rekod.jawapanStruktur) : [];
+          const keysUlasan = rekod.ulasanAI ? Object.keys(rekod.ulasanAI) : [];
+          const keysMarkah = rekod.markahGuru ? Object.keys(rekod.markahGuru) : [];
+          
+          // Gabungkan semua ID dan buang yang duplicate menggunakan Set
+          const senaraiIdSoalanSah = Array.from(new Set([...keysJawapan, ...keysUlasan, ...keysMarkah]));
+
+          // Tarik Bank Soalan
           const q = query(
             collection(db, "questionBank"), 
             where("tingkatan", "==", rekod.tingkatan),
@@ -37,19 +47,16 @@ export default function PemarkahanGuru() {
           
           qSnap.forEach((d) => {
              const soalanData = d.data();
-             const kegunaan = soalanData.kegunaan || "semua";
+             const soalanId = d.id;
              
-             if (soalanData.jenis !== "objektif") {
-                if (kegunaan === "simpanan") return;
-                if (kegunaan !== "semua" && kegunaan !== rekod.jenisUjian) return;
-
-                const urutan = Number(soalanData.urutan);
-                if (!isNaN(urutan) && urutan > 0 && urutan !== 999) {
-                   qList.push({ id: d.id, ...soalanData });
-                }
+             // 🌟 PENAPISAN KETAT:
+             // Hanya masukkan dalam senarai jika ia soalan struktur DAN ID-nya WUJUD dalam 'senaraiIdSoalanSah'
+             if (soalanData.jenis !== "objektif" && senaraiIdSoalanSah.includes(soalanId)) {
+                qList.push({ id: soalanId, ...soalanData });
              }
           });
           
+          // Susun ikut urutan markah/nombor
           qList.sort((a, b) => Number(a.urutan) - Number(b.urutan));
           setSoalanBank(qList);
 
@@ -133,15 +140,12 @@ export default function PemarkahanGuru() {
   if (!dataMurid) return <div className="flex h-screen items-center justify-center bg-slate-900 text-rose-400 font-bold text-lg"><AlertTriangle className="mr-2"/> Rekod ujian tidak dijumpai.</div>;
 
   return (
-    // 'relative' dan 'flex flex-col' ditambah untuk kawalan ruang skrin
     <div className="min-h-screen flex flex-col bg-[#0f172a] text-slate-200 py-6 sm:py-10 px-4 font-sans relative">
       
-      {/* 🌟 PEMBAIKAN: Memaksa Latar Belakang Body Menjadi Gelap Penuh */}
       <style dangerouslySetInnerHTML={{ __html: `body { background-color: #0f172a; margin: 0; }` }} />
 
       <div className="max-w-4xl w-full mx-auto flex-1">
         
-        {/* HEADER BUTANG: Ditukar kepada sm:flex-row supaya atas/bawah jika skrin kecil */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4">
           <button onClick={() => window.close()} className="w-full sm:w-auto flex items-center justify-center gap-2 text-slate-400 hover:text-white bg-slate-800 sm:bg-transparent py-2.5 rounded-lg sm:py-0 transition">
             <ArrowLeft size={20}/> Kembali ke Dashboard
@@ -178,8 +182,8 @@ export default function PemarkahanGuru() {
                 <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-0.5">Konteks Ujian</p>
                 <p className="text-base sm:text-lg font-bold text-slate-200 leading-tight flex items-center gap-2">
                   {dataMurid.bab} 
-                  <span className={`text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-wider border ${dataMurid.jenisUjian === "post_test" ? "bg-emerald-900/30 text-emerald-400 border-emerald-800/50" : "bg-indigo-900/30 text-indigo-400 border-indigo-800/50"}`}>
-                    {dataMurid.jenisUjian === "post_test" ? "POST" : "PRE"}
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-wider border ${dataMurid.jenisUjian === "post_test" ? "bg-emerald-900/30 text-emerald-400 border-emerald-800/50" : dataMurid.jenisUjian === "pre_test" ? "bg-indigo-900/30 text-indigo-400 border-indigo-800/50" : "bg-orange-900/30 text-orange-400 border-orange-800/50"}`}>
+                    {dataMurid.jenisUjian === "post_test" ? "POST" : dataMurid.jenisUjian === "pre_test" ? "PRE" : "PEMULIHAN"}
                   </span>
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">Tingkatan {dataMurid.tingkatan}</p>
@@ -259,7 +263,7 @@ export default function PemarkahanGuru() {
               <div className="p-4 bg-slate-800 rounded-full"><BookOpen size={32} className="text-slate-500"/></div>
               <div>
                 <p className="text-lg font-bold text-slate-300 mb-1">Tiada soalan esei / struktur ditemui.</p>
-                <p className="text-sm text-slate-500">Semua soalan dalam kertas ujian ini berkemungkinan berbentuk objektif, atau murid belum sampai ke fasa ujian struktur.</p>
+                <p className="text-sm text-slate-500">Semua soalan dalam kertas ujian ini berkemungkinan berbentuk objektif, atau murid belum memulakan/menjawab apa-apa soalan struktur.</p>
               </div>
             </div>
           )}
