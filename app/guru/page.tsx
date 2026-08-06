@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, HelpCircle, Save, Zap, Sparkles, Activity, UploadCloud, RefreshCw, CheckSquare, Filter, Menu, X, Search, MessageSquare, Eye, AlertTriangle, Rocket, Palette, Volume2, VolumeX, Music, TrendingUp, TrendingDown, BrainCircuit, ChevronDown, Check, Printer } from "lucide-react";
+import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, HelpCircle, Save, Zap, Sparkles, Activity, UploadCloud, RefreshCw, CheckSquare, Filter, Menu, X, Search, MessageSquare, Eye, AlertTriangle, Rocket, Palette, Volume2, VolumeX, Music, TrendingUp, TrendingDown, BrainCircuit, ChevronDown, Check, Printer, PlayCircle } from "lucide-react";
 
 // IMPORT KOMPONEN MAKMAL DATA KAJIAN
 import MakmalDataKajian from "../../utils/MakmalDataKajian";
@@ -20,9 +20,9 @@ export default function GuruDashboard() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
-  // 🌟 PENGESAHAN IDENTITI (SEKOLAH & ROLE)
+  // PENGESAHAN IDENTITI (SEKOLAH & ROLE)
   const [myRole, setMyRole] = useState("guru");
-  const [mySekolah, setMySekolah] = useState("Sekolah A");
+  const [mySekolah, setMySekolah] = useState("SMA Kota Gelanggi 3");
 
   const [senaraiPengguna, setSenaraiPengguna] = useState<any[]>([]);
   const [loadingPengguna, setLoadingPengguna] = useState(true);
@@ -35,11 +35,11 @@ export default function GuruDashboard() {
   const [uKelas, setUKelas] = useState("");
   const [uTahapInkuiri, setUTahapInkuiri] = useState("Rendah");
   const [uKumpulan, setUKumpulan] = useState("Eksperimen");
-  const [uSekolah, setUSekolah] = useState("Sekolah A"); // 🌟 STATE BARU: Sekolah
+  const [uSekolah, setUSekolah] = useState("SMA Kota Gelanggi 3"); 
   const [uIsSubmitting, setUIsSubmitting] = useState(false);
 
-  // 🌟 SENARAI NAMA 3 SEKOLAH KAJIAN (Cikgu boleh edit nama sebenar di sini)
-  const senaraiSekolahKajian = ["Sekolah A", "Sekolah B", "Sekolah C"];
+  // SENARAI NAMA 3 SEKOLAH KAJIAN 
+  const senaraiSekolahKajian = ["SMA Kota Gelanggi 3", "SMK Jerantut", "SMK Lepar Utara"];
 
   const [soalanList, setSoalanList] = useState<any[]>([]);
   const [loadingSoalan, setLoadingSoalan] = useState(true);
@@ -52,7 +52,7 @@ export default function GuruDashboard() {
   const [searchPemantauan, setSearchPemantauan] = useState("");
   const [filterTingkatanPemantauan, setFilterTingkatanPemantauan] = useState("Semua");
   const [filterKelasPemantauan, setFilterKelasPemantauan] = useState("Semua");
-  const [filterSekolahPemantauan, setFilterSekolahPemantauan] = useState("Semua"); // 🌟 Filter Sekolah utk Admin
+  const [filterSekolahPemantauan, setFilterSekolahPemantauan] = useState("Semua"); 
   
   const [searchSoalan, setSearchSoalan] = useState("");
   const [searchBahan, setSearchBahan] = useState("");
@@ -199,17 +199,16 @@ export default function GuruDashboard() {
   const tarikDataPenggunaFirebase = async () => {
     setLoadingPengguna(true);
     try {
-      // 🌟 DAPATKAN IDENTITI GURU YANG LOG MASUK
       const rawUser = localStorage.getItem("currentUser");
       let currentMyRole = "guru";
-      let currentMySekolah = "Sekolah A";
+      let currentMySekolah = senaraiSekolahKajian[0];
 
       if (rawUser) {
         const userMem = JSON.parse(rawUser);
         const myDoc = await getDoc(doc(db, "users", userMem.id));
         if (myDoc.exists()) {
           currentMyRole = myDoc.data().role || "guru";
-          currentMySekolah = myDoc.data().sekolah || "Sekolah A";
+          currentMySekolah = myDoc.data().sekolah || senaraiSekolahKajian[0];
           setMyRole(currentMyRole);
           setMySekolah(currentMySekolah);
         }
@@ -221,12 +220,9 @@ export default function GuruDashboard() {
       
       querySnapshot.forEach((doc) => {
         const user = { id: doc.id, ...doc.data() } as any;
-        
-        // 🌟 KUNCI SEKOLAH: Jika dia "guru", tapis sekolah yang sama sahaja!
         if (currentMyRole === "guru" && user.sekolah !== currentMySekolah) {
-            return; // Jangan masukkan murid sekolah lain ke dalam senarai
+            return; 
         }
-        
         data.push(user);
       });
 
@@ -311,7 +307,6 @@ export default function GuruDashboard() {
           awalan = `M${hurufK}${numTing}`; 
         } else if (uRole === "guru") awalan = "G"; else if (uRole === "admin") awalan = "A";
 
-        // Cari ID available (Sistem sedia ada)
         const qUsers = await getDocs(query(collection(db, "users")));
         let maxNumber = 0;
         qUsers.forEach(d => {
@@ -355,7 +350,7 @@ export default function GuruDashboard() {
   
   const setEditPengguna = (u: any) => { 
     setIsEditingUser(true); setEditUserId(u.id); setURole(u.role || "murid"); setUNama(u.nama || ""); setUKataLaluan(u.kataLaluan || ""); setUTingkatan(String(u.tingkatan || "4")); setUKelas(u.kelas || ""); setUTahapInkuiri(u.tahapInkuiri || "Rendah"); setUKumpulan(u.kumpulan || "Eksperimen"); 
-    setUSekolah(u.sekolah || senaraiSekolahKajian[0]); // 🌟 Set balik sekolah
+    setUSekolah(u.sekolah || senaraiSekolahKajian[0]); 
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   
@@ -438,27 +433,25 @@ export default function GuruDashboard() {
   const showToastMessage = (msg: string, type: 'success'|'error'|'info'='info') => { setToast({ message: msg, type }); setTimeout(() => setToast(null), 3000); };
   const handleLogout = () => { window.location.href = '/login'; };
 
-  // 🌟 PENGIRAAN STATISTIK PEMANTAUAN (Dinamik)
-  let statJumlah = 0; let statTinggi = 0; let statSederhana = 0; let statRendah = 0;
+  // PENGIRAAN STATISTIK PEMANTAUAN
+  const filteredPengguna = senaraiPengguna.filter(u => u.nama?.toLowerCase().includes(searchMurid.toLowerCase()) || u.idPengguna?.toLowerCase().includes(searchMurid.toLowerCase()) || u.kelas?.toLowerCase().includes(searchMurid.toLowerCase()));
+  
   const filteredPemantauan = senaraiPengguna.filter(u => {
     if (u.role !== "murid") return false;
     const matchSearch = u.nama?.toLowerCase().includes(searchPemantauan.toLowerCase()) || u.idPengguna?.toLowerCase().includes(searchPemantauan.toLowerCase());
     const matchTingkatan = filterTingkatanPemantauan === "Semua" || String(u.tingkatan) === filterTingkatanPemantauan;
     const matchKelas = filterKelasPemantauan === "Semua" || u.kelas === filterKelasPemantauan;
-    const matchSekolah = filterSekolahPemantauan === "Semua" || u.sekolah === filterSekolahPemantauan; // 🌟 Filter Sekolah Admin
-    
-    const valid = matchSearch && matchTingkatan && matchKelas && matchSekolah;
-    if (valid) {
-      statJumlah++;
-      if (u.tahapInkuiri === 'Tinggi') statTinggi++;
-      else if (u.tahapInkuiri === 'Sederhana') statSederhana++;
-      else statRendah++;
-    }
-    return valid;
+    const matchSekolah = filterSekolahPemantauan === "Semua" || u.sekolah === filterSekolahPemantauan; 
+    return matchSearch && matchTingkatan && matchKelas && matchSekolah;
   });
 
-  const filteredPengguna = senaraiPengguna.filter(u => u.nama?.toLowerCase().includes(searchMurid.toLowerCase()) || u.idPengguna?.toLowerCase().includes(searchMurid.toLowerCase()) || u.kelas?.toLowerCase().includes(searchMurid.toLowerCase()));
-  
+  const statPemantauan = {
+    jumlah: filteredPemantauan.length,
+    tinggi: filteredPemantauan.filter(u => u.tahapInkuiri === 'Tinggi').length,
+    sederhana: filteredPemantauan.filter(u => u.tahapInkuiri === 'Sederhana').length,
+    rendah: filteredPemantauan.filter(u => u.tahapInkuiri === 'Rendah').length,
+  };
+
   const soalanListFiltered = soalanList.filter((q) => {
     const matchTingkatan = filterTingkatan === "Semua" || q.tingkatan === filterTingkatan;
     const matchBab = filterBab === "Semua" || q.bab === filterBab;
@@ -475,10 +468,8 @@ export default function GuruDashboard() {
   });
 
   const filteredSemakan = senaraiSemakan.filter(s => {
-    // 🌟 KUNCI SEKOLAH (SEMAKAN)
     const realUser = senaraiPengguna.find(u => u.id === s.idMurid || u.idPengguna === s.idMurid);
     if (myRole === "guru" && realUser?.sekolah !== mySekolah) return false;
-    
     const paparNama = realUser?.nama || realUser?.name || s.namaMurid || "Pelajar";
     return paparNama.toLowerCase().includes(searchSemakan.toLowerCase()) || s.bab?.toLowerCase().includes(searchSemakan.toLowerCase());
   });
@@ -662,7 +653,7 @@ export default function GuruDashboard() {
           {/* TAB 2: PEMANTAUAN I-RAGS & DETAIL MURID */}
           {activeTab === "pemantauan" && ( 
              <div className="space-y-6 animate-in fade-in print:w-full">
-              {/* 🌟 HEADER CETAKAN KELAS KESELURUHAN */}
+              {/* HEADER CETAKAN KELAS KESELURUHAN */}
               <div className="hidden print:block text-black mb-8 border-b-2 border-black pb-4 text-center">
                  <h1 className="text-3xl font-black uppercase mb-1">Laporan Perkembangan Kelas (I-RAGs)</h1>
                  <p className="font-bold text-lg">Sekolah: {myRole === "admin" ? filterSekolahPemantauan : mySekolah} | Tingkatan: {filterTingkatanPemantauan} | Kelas: {filterKelasPemantauan}</p>
@@ -681,7 +672,7 @@ export default function GuruDashboard() {
                      <Printer size={16}/> Cetak Laporan Kelas
                    </button>
                    
-                   {/* 🌟 FILTER SEKOLAH UNTUK ADMIN */}
+                   {/* FILTER SEKOLAH UNTUK ADMIN */}
                    {myRole === "admin" && (
                      <select value={filterSekolahPemantauan} onChange={(e) => {setFilterSekolahPemantauan(e.target.value); setFilterKelasPemantauan("Semua");}} className="w-full sm:w-auto bg-purple-900/30 border border-purple-700 text-purple-300 font-bold px-4 py-2.5 rounded-xl text-sm focus:border-purple-500 outline-none shadow-inner">
                         <option className="bg-slate-900 text-white" value="Semua">Semua Sekolah</option>
@@ -694,7 +685,7 @@ export default function GuruDashboard() {
                       <option className="bg-slate-900" value="4">Tingkatan 4</option>
                       <option className="bg-slate-900" value="5">Tingkatan 5</option>
                    </select>
-                   <select value={filterKelasPemantauan} onChange={(e) => setFilterKelasPemantauan(e.target.value)} className="w-full sm:w-auto bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner max-w-xs truncate">
+                   <select value={filterKelasPemantauan} onChange={(e) => setFilterKelasPemantauan(e.target.value)} className="w-full sm:w-auto bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner truncate">
                       <option className="bg-slate-900" value="Semua">Semua Kelas</option>
                       {Array.from(new Set(senaraiPengguna.filter(u => u.role === "murid" && (filterTingkatanPemantauan === "Semua" || String(u.tingkatan) === filterTingkatanPemantauan) && (filterSekolahPemantauan === "Semua" || u.sekolah === filterSekolahPemantauan)).map(u => u.kelas))).filter(Boolean).sort().map((k, idx) => (
                         <option className="bg-slate-900" key={idx} value={k}>{k}</option>
@@ -850,17 +841,19 @@ export default function GuruDashboard() {
                     <div className="flex flex-col gap-6 pb-12">
                       {soalanListFiltered.length > 0 ? soalanListFiltered.map((q, i) => {
                         let kegunaanBadge = <></>;
-                        if (q.kegunaan === 'pre_test') kegunaanBadge = <span className="text-[10px] px-2.5 py-1 rounded-md bg-indigo-900/40 text-indigo-400 font-bold uppercase tracking-wider border border-indigo-800/50">PRE_TEST</span>;
-                        else if (q.kegunaan === 'post_test') kegunaanBadge = <span className="text-[10px] px-2.5 py-1 rounded-md bg-emerald-900/40 text-emerald-400 font-bold uppercase tracking-wider border border-emerald-800/50">POST_TEST</span>;
-                        else if (q.kegunaan === 'pemulihan') kegunaanBadge = <span className="text-[10px] px-2.5 py-1 rounded-md bg-orange-900/40 text-orange-400 font-bold uppercase tracking-wider border border-orange-800/50">PEMULIHAN</span>;
-                        else if (q.kegunaan === 'semua_ujian') kegunaanBadge = <span className="text-[10px] px-2.5 py-1 rounded-md bg-cyan-900/40 text-cyan-400 font-bold uppercase tracking-wider border border-cyan-800/50">SEMUA UJIAN</span>;
-                        else if (q.kegunaan === 'simpanan') kegunaanBadge = <span className="text-[10px] px-2.5 py-1 rounded-md bg-slate-700/40 text-slate-400 border border-slate-600 font-bold uppercase tracking-wider">SIMPANAN</span>;
-                        else kegunaanBadge = <span className="text-[10px] px-2.5 py-1 rounded-md bg-blue-900/40 text-blue-400 font-bold uppercase tracking-wider border border-blue-800/50">PRE & POST</span>;
+                        if (q.kegunaan === 'pre_test') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-indigo-900/40 text-indigo-400 font-bold uppercase tracking-wider border border-indigo-800/50 shadow-sm">PRE_TEST</span>;
+                        else if (q.kegunaan === 'post_test') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-emerald-900/40 text-emerald-400 font-bold uppercase tracking-wider border border-emerald-800/50 shadow-sm">POST_TEST</span>;
+                        else if (q.kegunaan === 'pemulihan') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-orange-900/40 text-orange-400 font-bold uppercase tracking-wider border border-orange-800/50 shadow-sm">PEMULIHAN</span>;
+                        else if (q.kegunaan === 'semua_ujian') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-cyan-900/40 text-cyan-400 font-bold uppercase tracking-wider border border-cyan-800/50 shadow-sm">SEMUA UJIAN</span>;
+                        else if (q.kegunaan === 'simpanan') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-slate-700/40 text-slate-400 border border-slate-600 font-bold uppercase tracking-wider shadow-sm">SIMPANAN</span>;
+                        else kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-900/40 text-blue-400 font-bold uppercase tracking-wider border border-blue-800/50 shadow-sm">PRE & POST</span>;
                         
                         let jenisBadge = q.jenis === 'objektif' 
-                          ? <span className="text-[10px] px-2.5 py-1 rounded-md bg-amber-900/40 text-amber-400 font-bold uppercase tracking-wider border border-amber-800/50">OBJEKTIF</span>
-                          : <span className="text-[10px] px-2.5 py-1 rounded-md bg-fuchsia-900/40 text-fuchsia-400 font-bold uppercase tracking-wider border border-fuchsia-800/50">STRUKTUR</span>;
+                          ? <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-amber-900/40 text-amber-400 font-bold uppercase tracking-wider border border-amber-800/50 shadow-sm">OBJEKTIF</span>
+                          : <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-fuchsia-900/40 text-fuchsia-400 font-bold uppercase tracking-wider border border-fuchsia-800/50 shadow-sm">STRUKTUR</span>;
                         
+                        let urutanAtauMarkah = q.jenis === 'objektif' ? "-" : (q.markah || "-");
+
                         return (
                           <div key={i} className="bg-slate-800/80 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-slate-700 shadow-xl relative group transition-all hover:border-slate-500">
                             
@@ -877,8 +870,8 @@ export default function GuruDashboard() {
                                   {jenisBadge}
                                   {q.urutan !== 999 && q.urutan && <span className="text-[10px] px-2 py-1 rounded-md bg-slate-700 text-slate-300 font-bold">SUSUNAN: {q.urutan}</span>}
                                   <div className="hidden md:block w-px h-6 bg-slate-600 mx-2"></div>
-                                  <button onClick={() => handleEditSoalan(q)} className="p-2 rounded-lg bg-slate-700/50 text-slate-300 hover:text-white hover:bg-amber-600 transition-colors shadow-sm" title="Edit Soalan"><Edit3 size={16} /></button>
-                                  <button onClick={() => handlePadamSoalan(q.id)} className="p-2 rounded-lg bg-slate-700/50 text-slate-300 hover:text-white hover:bg-red-600 transition-colors shadow-sm" title="Padam Soalan"><Trash2 size={16} /></button>
+                                  <button onClick={() => handleEditSoalan(q)} className="p-2.5 rounded-xl bg-slate-700/50 text-slate-300 hover:text-white hover:bg-amber-600 transition-colors shadow-sm" title="Edit Soalan"><Edit3 size={16} /></button>
+                                  <button onClick={() => handlePadamSoalan(q.id)} className="p-2.5 rounded-xl bg-slate-700/50 text-slate-300 hover:text-white hover:bg-red-600 transition-colors shadow-sm" title="Padam Soalan"><Trash2 size={16} /></button>
                                </div>
                             </div>
 
@@ -940,20 +933,20 @@ export default function GuruDashboard() {
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Tingkatan</label>
                       <select value={qTingkatan} onChange={e => setQTingkatan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        <option value="4">Tingkatan 4</option>
-                        <option value="5">Tingkatan 5</option>
+                        <option className="bg-slate-900 text-white" value="4">Tingkatan 4</option>
+                        <option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Bab</label>
                       <select value={qBab} onChange={e => setQBab(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        {[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}
+                        {[1,2,3,4,5,6,7,8,9,10].map(num => (<option className="bg-slate-900 text-white" key={num} value={`Bab ${num}`}>Bab {num}</option>))}
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Topik</label>
                       <select value={qTopik} onChange={e => setQTopik(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        {subtopikPilihan.map((sub: string, index: number) => (<option key={index} value={sub}>{sub}</option>))}
+                        {subtopikPilihan.map((sub: string, index: number) => (<option className="bg-slate-900 text-white" key={index} value={sub}>{sub}</option>))}
                       </select>
                     </div>
                   </div>
@@ -961,19 +954,19 @@ export default function GuruDashboard() {
                     <div>
                       <label className="block text-sm text-emerald-400 font-bold mb-2">Sasaran Ujian</label>
                       <select value={qKegunaan} onChange={e => setQKegunaan(e.target.value)} className="w-full bg-slate-900 border-2 border-emerald-800/50 rounded-xl p-3.5 text-emerald-400 font-bold outline-none text-sm focus:border-emerald-400 shadow-inner">
-                        <option value="semua_ujian">Semua (Pre, Post & Pemulihan)</option>
-                        <option value="semua">Pre-Test & Post-Test</option>
-                        <option value="pre_test">Khas Pre-Test Sahaja</option>
-                        <option value="post_test">Khas Post-Test Sahaja</option>
-                        <option value="pemulihan">Khas Pemulihan Sahaja</option>
-                        <option value="simpanan" className="text-slate-400">Simpanan Sahaja (Draf)</option>
+                        <option className="bg-slate-900 text-white font-normal" value="semua_ujian">Semua (Pre, Post & Pemulihan)</option>
+                        <option className="bg-slate-900 text-white font-normal" value="semua">Pre-Test & Post-Test</option>
+                        <option className="bg-slate-900 text-white font-normal" value="pre_test">Khas Pre-Test Sahaja</option>
+                        <option className="bg-slate-900 text-white font-normal" value="post_test">Khas Post-Test Sahaja</option>
+                        <option className="bg-slate-900 text-white font-normal" value="pemulihan">Khas Pemulihan Sahaja</option>
+                        <option className="bg-slate-900 text-slate-400 font-normal" value="simpanan">Simpanan Sahaja (Draf)</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Jenis Soalan</label>
                       <select value={qJenis} onChange={e => setQJenis(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        <option value="objektif">Objektif</option>
-                        <option value="struktur">Struktur / Esei</option>
+                        <option className="bg-slate-900 text-white font-normal" value="objektif">Objektif</option>
+                        <option className="bg-slate-900 text-white font-normal" value="struktur">Struktur / Esei</option>
                       </select>
                     </div>
                     <div><label className="block text-sm text-slate-400 mb-2 font-medium">Markah</label><input type="number" value={qMarkah} onChange={e => setQMarkah(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner"/></div>
