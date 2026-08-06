@@ -173,7 +173,7 @@ export default function GuruDashboard() {
     if (!isEditingSoalan) setQTopik(subtopikPilihan[0] || "");
   }, [qTingkatan, qBab, isEditingSoalan]);
 
-  // 🌟 FUNGSI TARIK DATA MURID (Diasingkan supaya mudah di-refresh)
+  // 🌟 FUNGSI TARIK DATA MURID 
   const tarikDetailMurid = async (murid: any) => {
     setLoadingStudentProgress(true);
     try {
@@ -205,7 +205,7 @@ export default function GuruDashboard() {
     }
   }, [selectedStudentDetail]);
 
-  // 🌟 FUNGSI BARU: DELETE REKOD MENGIKUT BAB (PRE, AI, POST)
+  // 🌟 FUNGSI BARU: DELETE REKOD MENGIKUT BAB 
   const handleResetBabMurid = async (murid: any, ting: string, num: number) => {
     const babName = `Bab ${num}`;
     const sah = window.confirm(`AMARAN: Adakah anda pasti mahu RESET semua data ${babName} (Tingkatan ${ting}) untuk pelajar ${murid.nama}?\n\nSemua markah Ujian Diagnostik, Bimbingan AI Tutor, dan Ujian Pasca untuk topik ini akan dipadam kekal.`);
@@ -213,12 +213,11 @@ export default function GuruDashboard() {
     if (!sah) return;
 
     try {
-      setLoadingStudentProgress(true); // Tunjuk loading
+      setLoadingStudentProgress(true); 
       const targetIds = [murid.id];
       if (murid.idPengguna) targetIds.push(murid.idPengguna);
       const uniqueIds = [...new Set(targetIds)];
 
-      // 1. Padam rekod skor (Pre/Post test) from Firestore
       const qSkor = query(
         collection(db, "skor_murid"), 
         where("idMurid", "in", uniqueIds),
@@ -228,7 +227,6 @@ export default function GuruDashboard() {
       const snapSkor = await getDocs(qSkor);
       const deleteSkorPromises = snapSkor.docs.map(d => deleteDoc(doc(db, "skor_murid", d.id)));
 
-      // 2. Padam rekod perbualan AI dari Firestore
       const chatPrefix = `tingkatan${ting}_bab${num}_sub`;
       const qChat = query(collection(db, "chat_sessions"), where("studentId", "in", uniqueIds));
       const snapChat = await getDocs(qChat);
@@ -245,7 +243,6 @@ export default function GuruDashboard() {
       
       showToastMessage(`Berjaya reset data ${babName} untuk pelajar ini.`, "success");
 
-      // 3. Muat semula data di UI Profil Murid dan Semakan
       await tarikDetailMurid(murid);
       tarikDataSemakan(); 
       
@@ -424,8 +421,38 @@ export default function GuruDashboard() {
   
   const resetFormPengguna = () => { setIsEditingUser(false); setEditUserId(null); setURole("murid"); setUNama(""); setUKataLaluan(""); setUTingkatan("4"); setUKelas(""); setUTahapInkuiri("Rendah"); setUKumpulan("Eksperimen"); setUSekolah(senaraiSekolahKajian[0]); };
 
+  // 🌟 FUNGSI KEMAS KINI: ANTI-DUPLICATE SOALAN
   const handleSimpanSoalan = async () => {
     if (!qSoalan || !qTopik) return showToastMessage("Isi Soalan & Subtopik!", "error");
+
+    const isDuplicate = soalanList.some(existing => {
+      if (isEditingSoalan && existing.id === editSoalanId) return false;
+      
+      const sameTingkatan = existing.tingkatan === qTingkatan;
+      const sameBab = existing.bab === qBab;
+      const sameSoalanText = existing.soalan?.trim().toLowerCase() === qSoalan.trim().toLowerCase();
+      const sameJenis = existing.jenis === qJenis;
+
+      if (!sameTingkatan || !sameBab || !sameSoalanText || !sameJenis) return false;
+
+      if (qJenis === "objektif") {
+        const sameJawapan = existing.jawapan === qJawapanBetul;
+        const sameA = existing.pilihan?.A?.trim().toLowerCase() === qPilihanA.trim().toLowerCase();
+        const sameB = existing.pilihan?.B?.trim().toLowerCase() === qPilihanB.trim().toLowerCase();
+        const sameC = existing.pilihan?.C?.trim().toLowerCase() === qPilihanC.trim().toLowerCase();
+        const sameD = existing.pilihan?.D?.trim().toLowerCase() === qPilihanD.trim().toLowerCase();
+        
+        return sameJawapan && sameA && sameB && sameC && sameD;
+      } else {
+        const sameSkema = existing.skemaJawapan?.trim().toLowerCase() === qSkema.trim().toLowerCase();
+        return sameSkema;
+      }
+    });
+
+    if (isDuplicate) {
+      return showToastMessage("Gagal: Soalan dan jawapan yang 100% sama telah wujud dalam Bank Soalan!", "error");
+    }
+
     setUIsSubmitting(true);
     try {
       const dataSoalan: any = { tingkatan: qTingkatan, bab: qBab, topik: qTopik, jenis: qJenis, kegunaan: qKegunaan, soalan: qSoalan, markah: parseInt(qMarkah) || 1, urutan: qUrutan ? parseInt(qUrutan) : 999, imageUrl: qImageUrl };
@@ -448,7 +475,7 @@ export default function GuruDashboard() {
         await setDoc(doc(db, "questionBank", customIdSoalan), dataSoalan); showToastMessage(`Ditambah!`, "success");
       }
       resetFormSoalan(); tarikSoalanFirebase();
-    } catch (error) { showToastMessage("Ralat.", "error"); } finally { setUIsSubmitting(false); }
+    } catch (error) { showToastMessage("Ralat sistem.", "error"); } finally { setUIsSubmitting(false); }
   };
 
   const handleEditSoalan = (q: any) => { 
@@ -582,7 +609,7 @@ export default function GuruDashboard() {
       </div>
 
       {/* KANDUNGAN UTAMA */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-8 relative w-full bg-slate-900/40 backdrop-blur-sm print:bg-white print:p-0">
+      <div className="flex-1 overflow-y-auto print:overflow-visible print:block p-4 md:p-8 relative w-full bg-slate-900/40 backdrop-blur-sm print:bg-white print:p-0">
         
         {/* HEADER MUDAH ALIH */}
         <div className="md:hidden flex justify-between items-center mb-6 bg-slate-800/80 backdrop-blur-md p-4 rounded-xl border border-slate-700 shadow-md print:hidden">
