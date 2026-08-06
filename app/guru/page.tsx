@@ -557,8 +557,11 @@ export default function GuruDashboard() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 lg:col-span-1 h-fit shadow-xl order-last lg:order-first">
+              {/* 🌟 KEMAS KINI: GRID UNTUK "STICKY" FORM */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                
+                {/* 🌟 KOTAK BORANG (KIRI) - STICKY */}
+                <div className="lg:sticky lg:top-6 bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 lg:col-span-1 h-fit shadow-xl order-last lg:order-first z-10">
                   <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><Users className="text-blue-400" size={20}/> {isEditingUser ? "Kemas Kini Akaun" : "Daftar Akaun Baru"}</h4>
                   <form onSubmit={handleSimpanPengguna} className="space-y-4">
                     
@@ -617,6 +620,7 @@ export default function GuruDashboard() {
                   </form>
                 </div>
 
+                {/* 🌟 KOTAK JADUAL (KANAN) */}
                 <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 overflow-hidden lg:col-span-2 shadow-xl">
                   {loadingPengguna ? ( <div className="p-12 text-center text-slate-400 animate-pulse">Menarik data pengguna... ⏳</div> ) : (
                     <div className="overflow-x-auto">
@@ -835,95 +839,49 @@ export default function GuruDashboard() {
                      </div>
                   </div>
 
-                  {loadingSoalan ? ( 
-                    <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 p-12 text-center text-slate-400 animate-pulse shadow-xl">Memuat turun Bank Soalan... ⏳</div> 
-                  ) : (
-                    <div className="flex flex-col gap-6 pb-12">
-                      {soalanListFiltered.length > 0 ? soalanListFiltered.map((q, i) => {
-                        let kegunaanBadge = <></>;
-                        if (q.kegunaan === 'pre_test') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-indigo-900/40 text-indigo-400 font-bold uppercase tracking-wider border border-indigo-800/50 shadow-sm">PRE_TEST</span>;
-                        else if (q.kegunaan === 'post_test') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-emerald-900/40 text-emerald-400 font-bold uppercase tracking-wider border border-emerald-800/50 shadow-sm">POST_TEST</span>;
-                        else if (q.kegunaan === 'pemulihan') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-orange-900/40 text-orange-400 font-bold uppercase tracking-wider border border-orange-800/50 shadow-sm">PEMULIHAN</span>;
-                        else if (q.kegunaan === 'semua_ujian') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-cyan-900/40 text-cyan-400 font-bold uppercase tracking-wider border border-cyan-800/50 shadow-sm">SEMUA UJIAN</span>;
-                        else if (q.kegunaan === 'simpanan') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-slate-700/40 text-slate-400 border border-slate-600 font-bold uppercase tracking-wider shadow-sm">SIMPANAN</span>;
-                        else kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-900/40 text-blue-400 font-bold uppercase tracking-wider border border-blue-800/50 shadow-sm">PRE & POST</span>;
-                        
-                        let jenisBadge = q.jenis === 'objektif' 
-                          ? <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-amber-900/40 text-amber-400 font-bold uppercase tracking-wider border border-amber-800/50 shadow-sm">OBJEKTIF</span>
-                          : <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-fuchsia-900/40 text-fuchsia-400 font-bold uppercase tracking-wider border border-fuchsia-800/50 shadow-sm">STRUKTUR</span>;
-                        
-                        let urutanAtauMarkah = q.jenis === 'objektif' ? "-" : (q.markah || "-");
+                  <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
+                    {loadingSoalan ? ( <div className="p-12 text-center text-slate-400 animate-pulse">Memuat turun Bank Soalan... ⏳</div> ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-max">
+                          <thead><tr className="border-b border-slate-700 bg-slate-900/50"><th className="p-5 font-semibold text-sm text-slate-300">ID</th><th className="p-5 font-semibold text-sm text-slate-300">Topik</th><th className="p-5 font-semibold text-sm text-slate-300">Kegunaan</th><th className="p-5 font-semibold text-sm text-slate-300">Jenis</th><th className="p-5 font-semibold text-sm text-slate-300 text-center">Susunan / Markah</th><th className="p-5 font-semibold text-sm text-slate-300 max-w-sm">Soalan</th><th className="p-5 font-semibold text-sm text-slate-300 text-right">Tindakan</th></tr></thead>
+                          <tbody>
+                            {soalanListFiltered.length > 0 ? soalanListFiltered.map((q, i) => {
+                              let kegunaanBadge = <></>;
+                              if (q.kegunaan === 'pre_test') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-indigo-900/40 text-indigo-400 font-bold uppercase tracking-wider border border-indigo-800/50 shadow-sm">PRE_TEST</span>;
+                              else if (q.kegunaan === 'post_test') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-emerald-900/40 text-emerald-400 font-bold uppercase tracking-wider border border-emerald-800/50 shadow-sm">POST_TEST</span>;
+                              else if (q.kegunaan === 'pemulihan') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-orange-900/40 text-orange-400 font-bold uppercase tracking-wider border border-orange-800/50 shadow-sm">PEMULIHAN</span>;
+                              else if (q.kegunaan === 'semua_ujian') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-cyan-900/40 text-cyan-400 font-bold uppercase tracking-wider border border-cyan-800/50 shadow-sm">SEMUA UJIAN</span>;
+                              else if (q.kegunaan === 'simpanan') kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-slate-700/40 text-slate-400 border border-slate-600 font-bold uppercase tracking-wider shadow-sm">SIMPANAN</span>;
+                              else kegunaanBadge = <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-900/40 text-blue-400 font-bold uppercase tracking-wider border border-blue-800/50 shadow-sm">PRE & POST</span>;
+                              
+                              let jenisBadge = q.jenis === 'objektif' 
+                                ? <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-amber-900/40 text-amber-400 font-bold uppercase tracking-wider border border-amber-800/50 shadow-sm">OBJEKTIF</span>
+                                : <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-fuchsia-900/40 text-fuchsia-400 font-bold uppercase tracking-wider border border-fuchsia-800/50 shadow-sm">STRUKTUR</span>;
+                              
+                              let urutanAtauMarkah = q.jenis === 'objektif' ? "-" : (q.markah || "-");
 
-                        return (
-                          <div key={i} className="bg-slate-800/80 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-slate-700 shadow-xl relative group transition-all hover:border-slate-500">
-                            
-                            {/* HEADER CARD SOALAN */}
-                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-slate-700/50 pb-4 gap-4">
-                               <div className="flex flex-col gap-1">
-                                  <div className="flex items-center gap-3">
-                                    <span className="font-mono text-amber-500 font-bold text-sm bg-slate-900 px-2 py-1 rounded-md">{q.id}</span>
-                                    <span className="text-slate-200 text-sm font-bold">{q.topik}</span>
-                                  </div>
-                               </div>
-                               <div className="flex items-center gap-2 flex-wrap">
-                                  {kegunaanBadge}
-                                  {jenisBadge}
-                                  {q.urutan !== 999 && q.urutan && <span className="text-[10px] px-2 py-1 rounded-md bg-slate-700 text-slate-300 font-bold">SUSUNAN: {q.urutan}</span>}
-                                  <div className="hidden md:block w-px h-6 bg-slate-600 mx-2"></div>
-                                  <button onClick={() => handleEditSoalan(q)} className="p-2.5 rounded-xl bg-slate-700/50 text-slate-300 hover:text-white hover:bg-amber-600 transition-colors shadow-sm" title="Edit Soalan"><Edit3 size={16} /></button>
-                                  <button onClick={() => handlePadamSoalan(q.id)} className="p-2.5 rounded-xl bg-slate-700/50 text-slate-300 hover:text-white hover:bg-red-600 transition-colors shadow-sm" title="Padam Soalan"><Trash2 size={16} /></button>
-                               </div>
-                            </div>
-
-                            {/* BODY SOALAN */}
-                            <div className="flex gap-4">
-                               <div className="text-slate-400 font-bold mt-0.5">{q.urutan !== 999 && q.urutan ? `${q.urutan}.` : "-"}</div>
-                               <div className="flex-1">
-                                  <div className="text-slate-200 text-[15px] whitespace-pre-wrap leading-relaxed mb-6 font-medium">
-                                    {q.soalan}
-                                  </div>
-
-                                  {/* GAMBAR SOALAN */}
-                                  {q.imageUrl && q.imageUrl.trim() !== "" && (
-                                    <div className="mb-6 p-2 bg-slate-900/50 inline-block rounded-xl border border-slate-700">
-                                      <img src={q.imageUrl} alt="Rajah Soalan" className="max-w-md w-full object-contain rounded-lg" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                              return (
+                                <tr key={i} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
+                                  <td className="p-5 text-sm font-bold text-amber-500 font-mono">{q.id}</td>
+                                  <td className="p-5 text-slate-200 text-sm font-medium">{q.topik}</td>
+                                  <td className="p-5">{kegunaanBadge}</td>
+                                  <td className="p-5">{jenisBadge}</td>
+                                  <td className="p-5 text-slate-300 text-sm font-bold text-center">{urutanAtauMarkah}</td>
+                                  <td className="p-5 text-slate-300 text-xs truncate max-w-xs" title={q.soalan}>{q.soalan}</td>
+                                  <td className="p-5 text-right align-middle">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button onClick={() => handleEditSoalan(q)} className="bg-slate-700/50 p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-amber-600 transition-colors shadow-sm" title="Edit Soalan"><Edit3 size={16} /></button>
+                                      <button onClick={() => handlePadamSoalan(q.id)} className="bg-slate-700/50 p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-red-600 transition-colors shadow-sm" title="Padam Soalan"><Trash2 size={16} /></button>
                                     </div>
-                                  )}
-
-                                  {/* PILIHAN JAWAPAN / SKEMA */}
-                                  {q.jenis === 'objektif' ? (
-                                     <div className="flex flex-col gap-3">
-                                        {['A', 'B', 'C', 'D'].map(opt => {
-                                           const isCorrect = q.jawapan === opt;
-                                           const optText = q.pilihan?.[opt] || "";
-                                           return (
-                                             <div key={opt} className={`flex items-start gap-4 p-3 rounded-xl transition-colors ${isCorrect ? 'bg-yellow-400 border-yellow-500 shadow-md shadow-yellow-500/20' : 'bg-slate-900 border-slate-700'} border`}>
-                                                <span className={`font-black w-6 h-6 flex items-center justify-center rounded-md shrink-0 ${isCorrect ? 'text-yellow-900 bg-yellow-500/20' : 'text-slate-500 bg-slate-800'}`}>{opt}</span>
-                                                <span className={`${isCorrect ? 'text-yellow-900 font-bold' : 'text-slate-300'} text-sm leading-relaxed`}>{optText}</span>
-                                                {isCorrect && <span className="ml-auto flex items-center justify-center shrink-0 w-6 h-6 bg-yellow-500 text-yellow-900 rounded-full"><Check size={14} strokeWidth={3}/></span>}
-                                             </div>
-                                           )
-                                        })}
-                                     </div>
-                                  ) : (
-                                     <div className="mt-2">
-                                        <p className="text-xs text-purple-400 font-bold mb-2 uppercase tracking-wider flex items-center gap-1.5"><Sparkles size={14}/> Skema Jawapan ({q.markah} Markah)</p>
-                                        <div className="bg-purple-900/20 border border-purple-800/30 p-5 rounded-xl text-purple-200 text-sm whitespace-pre-wrap leading-relaxed shadow-inner">
-                                           {q.skemaJawapan}
-                                        </div>
-                                     </div>
-                                  )}
-                               </div>
-                            </div>
-                          </div>
-                        )
-                      }) : (
-                        <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 p-12 text-center text-slate-500 shadow-xl">
-                          Tiada soalan yang sepadan dengan tapisan ini.
-                        </div>
-                      )}
-                    </div>
-                  )}
+                                  </td>
+                                </tr>
+                              )
+                            }) : <tr><td colSpan={7} className="p-12 text-center text-slate-500">Tiada soalan yang sepadan dengan tapisan ini.</td></tr>}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div className="bg-slate-800/90 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-cyan-800/50 shadow-2xl max-w-5xl relative overflow-hidden">
@@ -933,20 +891,20 @@ export default function GuruDashboard() {
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Tingkatan</label>
                       <select value={qTingkatan} onChange={e => setQTingkatan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        <option className="bg-slate-900 text-white" value="4">Tingkatan 4</option>
-                        <option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
+                        <option value="4">Tingkatan 4</option>
+                        <option value="5">Tingkatan 5</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Bab</label>
                       <select value={qBab} onChange={e => setQBab(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        {[1,2,3,4,5,6,7,8,9,10].map(num => (<option className="bg-slate-900 text-white" key={num} value={`Bab ${num}`}>Bab {num}</option>))}
+                        {[1,2,3,4,5,6,7,8,9,10].map(num => (<option key={num} value={`Bab ${num}`}>Bab {num}</option>))}
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Topik</label>
                       <select value={qTopik} onChange={e => setQTopik(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        {subtopikPilihan.map((sub: string, index: number) => (<option className="bg-slate-900 text-white" key={index} value={sub}>{sub}</option>))}
+                        {subtopikPilihan.map((sub: string, index: number) => (<option key={index} value={sub}>{sub}</option>))}
                       </select>
                     </div>
                   </div>
@@ -954,19 +912,19 @@ export default function GuruDashboard() {
                     <div>
                       <label className="block text-sm text-emerald-400 font-bold mb-2">Sasaran Ujian</label>
                       <select value={qKegunaan} onChange={e => setQKegunaan(e.target.value)} className="w-full bg-slate-900 border-2 border-emerald-800/50 rounded-xl p-3.5 text-emerald-400 font-bold outline-none text-sm focus:border-emerald-400 shadow-inner">
-                        <option className="bg-slate-900 text-white font-normal" value="semua_ujian">Semua (Pre, Post & Pemulihan)</option>
-                        <option className="bg-slate-900 text-white font-normal" value="semua">Pre-Test & Post-Test</option>
-                        <option className="bg-slate-900 text-white font-normal" value="pre_test">Khas Pre-Test Sahaja</option>
-                        <option className="bg-slate-900 text-white font-normal" value="post_test">Khas Post-Test Sahaja</option>
-                        <option className="bg-slate-900 text-white font-normal" value="pemulihan">Khas Pemulihan Sahaja</option>
-                        <option className="bg-slate-900 text-slate-400 font-normal" value="simpanan">Simpanan Sahaja (Draf)</option>
+                        <option value="semua_ujian">Semua (Pre, Post & Pemulihan)</option>
+                        <option value="semua">Pre-Test & Post-Test</option>
+                        <option value="pre_test">Khas Pre-Test Sahaja</option>
+                        <option value="post_test">Khas Post-Test Sahaja</option>
+                        <option value="pemulihan">Khas Pemulihan Sahaja</option>
+                        <option value="simpanan" className="text-slate-400">Simpanan Sahaja (Draf)</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-2 font-medium">Jenis Soalan</label>
                       <select value={qJenis} onChange={e => setQJenis(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold text-sm outline-none focus:border-cyan-500 shadow-inner">
-                        <option className="bg-slate-900 text-white font-normal" value="objektif">Objektif</option>
-                        <option className="bg-slate-900 text-white font-normal" value="struktur">Struktur / Esei</option>
+                        <option value="objektif">Objektif</option>
+                        <option value="struktur">Struktur / Esei</option>
                       </select>
                     </div>
                     <div><label className="block text-sm text-slate-400 mb-2 font-medium">Markah</label><input type="number" value={qMarkah} onChange={e => setQMarkah(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white text-sm outline-none focus:border-cyan-500 shadow-inner"/></div>
