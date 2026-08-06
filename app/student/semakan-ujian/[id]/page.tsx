@@ -28,7 +28,7 @@ interface SkorMuridData {
   jawapanStruktur: Record<string, string>; 
   ulasanAI: Record<string, UlasanDetail>;
   markahGuru?: Record<string, number>;
-  susunanSoalan?: any[]; // 🌟 TAMBAHAN: Untuk tarik soalan sebenar yang dijawab
+  susunanSoalan?: any[];
 }
 
 export default function SemakanUjianMurid() {
@@ -64,11 +64,12 @@ export default function SemakanUjianMurid() {
 
           setData({ ...resultData, namaMurid: namaTerkini });
 
-          // 🌟 KEMAS KINI UTAMA: Guna susunanSoalan yang disimpan semasa ujian
+          // JIKA UJIAN BARU (ADA SUSUNAN SOALAN YANG TEPAT)
           if (resultData.susunanSoalan && resultData.susunanSoalan.length > 0) {
             setSoalanBank(resultData.susunanSoalan);
-          } else {
-            // (Fallback) Jika ini adalah rekod ujian lama yang tiada susunanSoalan
+          } 
+          // JIKA UJIAN LAMA (TARIK SEMULA DARI DATABASE)
+          else {
             const jenisUjianMurid = resultData.jenisUjian || "pre_test"; 
             const q = query(
               collection(db, "questionBank"), 
@@ -76,25 +77,41 @@ export default function SemakanUjianMurid() {
               where("bab", "==", resultData.bab)
             );
             const qSnap = await getDocs(q);
+            
             const qListObj: any[] = [];
             const qListStr: any[] = [];
             
             qSnap.forEach((d) => {
               const soalanData = d.data();
               const kegunaan = soalanData.kegunaan || "semua";
+
               if (kegunaan === "simpanan") return;
-              if (kegunaan !== "semua" && kegunaan !== jenisUjianMurid) return;
+
+              // Logik kelayakan soalan dilonggarkan supaya sama dengan ujian asal
+              let layak = false;
+              if (kegunaan === "semua" || kegunaan === "semua_ujian" || kegunaan === "pre_post") layak = true;
+              else if (jenisUjianMurid === "pre_test" && kegunaan === "pre_test") layak = true;
+              else if (jenisUjianMurid === "post_test") {
+                 if (kegunaan === "post_test" || kegunaan === "pemulihan") layak = true;
+              }
+
+              if (!layak) return;
 
               if (soalanData.jenis === "objektif") {
                   qListObj.push({ id: d.id, ...soalanData });
               } else {
-                  const urutan = Number(soalanData.urutan);
-                  if (!isNaN(urutan) && urutan > 0 && urutan !== 999) {
-                     qListStr.push({ id: d.id, ...soalanData });
-                  }
+                  // Dibuang had urutan !== 999 supaya semua struktur keluar
+                  qListStr.push({ id: d.id, ...soalanData });
               }
             });
-            qListStr.sort((a, b) => Number(a.urutan) - Number(b.urutan));
+            
+            // Susun struktur jika ada urutan
+            qListStr.sort((a, b) => {
+               const uA = Number(a.urutan); const uB = Number(b.urutan);
+               if(isNaN(uA)) return 1; if(isNaN(uB)) return -1;
+               return uA - uB;
+            });
+
             setSoalanBank([...qListObj, ...qListStr]);
           }
 
