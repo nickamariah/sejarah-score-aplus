@@ -577,16 +577,18 @@ function KomponenPembelajaran() {
             ) : (
               <form onSubmit={sendMessage} className="p-2 lg:p-3 flex gap-2 items-end relative">
                 
-                <textarea 
-                  ref={inputRef}
-                  value={input} 
-                  onChange={handleInput}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                  placeholder={isListening ? "Sedang mendengar suara anda..." : "Taip di sini..."} 
-                  className={`flex-1 bg-white/80 text-slate-900 placeholder-slate-500 border border-white/60 rounded-xl px-3 py-2.5 text-[13px] md:text-sm focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none min-w-45 max-h-30 overflow-y-auto shadow-inner ${isListening ? 'border-red-400 ring-2 ring-red-400/50 bg-red-50/90' : ''}`} 
-                  disabled={isLoading}
-                  rows={1}
-                />
+                <textarea
+  // ... kod sedia ada (value, onChange, dll) ...
+  
+  // 🌟 LAPISAN KESELAMATAN KOGNITIF (ANTI-PASTE)
+  onPaste={(e) => {
+    e.preventDefault();
+    alert("💡 CIKGU AI PESAN:\n\nFungsi 'Paste' (Tampal) ditutup ya. \n\nCikgu nak awak taip jawapan tu sendiri atau guna butang Suara (Mic). Bila kita taip atau sebut sendiri, otak kita akan lebih cepat ingat fakta Sejarah tau. Jom cuba! 💪");
+  }}
+  onDrop={(e) => e.preventDefault()} // Halang murid 'drag and drop' teks dari nota ke chat
+  
+  // ... kelas CSS sedia ada ...
+/>
                 
                 <button 
                   type="button" 
