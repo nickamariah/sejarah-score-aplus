@@ -33,7 +33,6 @@ function KandunganUjian() {
   const [isClient, setIsClient] = useState(false);
   useEffect(() => { setIsClient(true); }, []);
 
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const tingkatan = searchParams?.get("tingkatan") || "4";
@@ -100,7 +99,7 @@ function KandunganUjian() {
   const keluarKuiz = () => {
     const sahkan = window.confirm("Anda pasti mahu keluar?\nJawapan ujian ini TIDAK akan disimpan jika anda keluar sebelum tamat.");
     if (sahkan) {
-      window.location.href = '/murid';
+      window.location.href = '/murid'; // 🌟 FIX: PAKSA REFRESH SEMASA KELUAR
     }
   };
 
@@ -145,7 +144,7 @@ function KandunganUjian() {
   };
 
   // ==========================================
-  // 🌟 LOGIK PINTAR: CABUTAN SOALAN ADAPTIF (TERMASUK KUMPULAN KAWALAN)
+  // 🌟 LOGIK PINTAR: CABUTAN SOALAN ADAPTIF
   // ==========================================
   useEffect(() => {
     if (!isClient) return;
@@ -157,16 +156,13 @@ function KandunganUjian() {
       const user = JSON.parse(rawUser);
       let currentAttempt = 0;
       let currentTahap = "Sederhana"; 
-      let kumpulanMurid = "Eksperimen";
 
       try {
         const userSnap = await getDoc(doc(db, "users", user.id));
         if (userSnap.exists()) {
           const data = userSnap.data();
           currentTahap = data.tahapInkuiri || "Sederhana";
-          kumpulanMurid = data.kumpulan || "Eksperimen";
           setTahapMurid(currentTahap);
-          
           if (currentTahap === "Tinggi" || currentTahap === "Sederhana") setMarkahLulus(70);
           else setMarkahLulus(50); 
         }
@@ -180,20 +176,15 @@ function KandunganUjian() {
            }
         }
 
-        // 🌟 KAWALAN SASARAN MARKAH (ADAPTIVE ALGORITHM BERDASARKAN TESIS)
+        // KAWALAN SASARAN MARKAH
         let sasaranMarkahObjektif = 30; let sasaranMarkahStruktur = 30;  
         let isPemulihan = currentAttempt > 0 && jenisUjian === "post_test";
 
         if (jenisUjian === "pre_test") {
             sasaranMarkahObjektif = 40; sasaranMarkahStruktur = 40;
         } else if (jenisUjian === "post_test") {
-            // JIKA MURID KAWALAN: Ujian Pasca sentiasa diskalakan ke aras rendah (30 Obj, 10 Str)
-            if (kumpulanMurid === "Kawalan") {
-                sasaranMarkahObjektif = 30; 
-                sasaranMarkahStruktur = 10;
-            } else if (!isPemulihan) { 
-                sasaranMarkahObjektif = 30; sasaranMarkahStruktur = 30; 
-            } else { 
+            if (!isPemulihan) { sasaranMarkahObjektif = 30; sasaranMarkahStruktur = 30; } 
+            else { 
                 sasaranMarkahObjektif = 30; 
                 if (currentTahap === "Rendah") sasaranMarkahStruktur = 10; 
                 else sasaranMarkahStruktur = 20; 
@@ -215,10 +206,8 @@ function KandunganUjian() {
           if (kegunaan === "semua" || kegunaan === "semua_ujian" || kegunaan === "pre_post") layak = true;
           else if (jenisUjian === "pre_test" && kegunaan === "pre_test") layak = true;
           else if (jenisUjian === "post_test") {
-             // PENAPISAN KUMPULAN KAWALAN
-             if (kumpulanMurid === "Kawalan" && (kegunaan === "post_test" || kegunaan === "pemulihan")) layak = true;
-             else if (!isPemulihan && kegunaan === "post_test") layak = true;
-             else if (isPemulihan && (kegunaan === "pemulihan" || kegunaan === "post_test")) layak = true; 
+             if (!isPemulihan && kegunaan === "post_test") layak = true;
+             if (isPemulihan && (kegunaan === "pemulihan" || kegunaan === "post_test")) layak = true; 
           }
 
           if (!layak) return;
@@ -228,7 +217,7 @@ function KandunganUjian() {
             soalanObjektif.push({ id: docSnap.id, ...data });
           } else {
             const markahSoalan = parseInt(data.markah) || 0;
-            if (jenisUjian === "pre_test" && markahSoalan <= 2) return; // Syarat Pre-Test Ketat
+            if (jenisUjian === "pre_test" && markahSoalan <= 2) return; 
             soalanStruktur.push({ id: docSnap.id, ...data });
           }
         });
@@ -522,7 +511,8 @@ function KandunganUjian() {
           <div className={`p-6 rounded-xl mb-8 relative z-10 ${isLulus || jenisUjian === "pre_test" ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-amber-50 text-amber-800 border border-amber-100'}`}>
             {isLulus || jenisUjian === "pre_test" ? "🎉" : "⚠️"} <span className="font-bold text-lg">Skor: {peratusAkhir}%</span>
           </div>
-          <button onClick={() => router.push('/murid')} className="w-full bg-slate-800 hover:bg-slate-700 text-white px-8 py-3 rounded-xl font-bold relative z-10 shadow-lg transition-transform hover:scale-[1.02]">Kembali ke Dashboard</button>
+          {/* 🌟 FIX REFRESH: window.location.href diguna di sini */}
+          <button onClick={() => window.location.href = '/murid'} className="w-full bg-slate-800 hover:bg-slate-700 text-white px-8 py-3 rounded-xl font-bold relative z-10 shadow-lg transition-transform hover:scale-[1.02]">Kembali ke Dashboard</button>
         </div>
       </div>
     );
