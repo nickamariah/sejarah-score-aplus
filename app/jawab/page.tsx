@@ -33,6 +33,7 @@ function KandunganUjian() {
   const [isClient, setIsClient] = useState(false);
   useEffect(() => { setIsClient(true); }, []);
 
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const tingkatan = searchParams?.get("tingkatan") || "4";
@@ -78,20 +79,16 @@ function KandunganUjian() {
   ];
   const [selectedTheme, setSelectedTheme] = useState(senaraiTheme[0].class);
 
-  // 🌟 LAPISAN KESELAMATAN 1: PENGESAN TUKAR TAB (ANTI-GOOGLE)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      // Jika murid pergi ke tab/window lain, dan ujian belum tamat
       if (document.hidden && !tamat && !soalanSelesai) {
         alert(
           "⚠️ AMARAN INTEGRITI (SISTEM I-RAGS)\n\n" +
           "Sistem mengesan anda meninggalkan halaman ujian ini (membuka tab/aplikasi lain).\n\n" +
-          "Sila jujur dengan diri sendiri! Markah Ujian ini TIDAK MENGHUKUM anda. Jika anda meniru dari internet, Cikgu AI tidak dapat mengenal pasti tahap sebenar anda dan gagal membantu anda nanti.\n\n" +
-          "Sila jawab menggunakan ingatan dan kefahaman anda sendiri."
+          "Sila jujur dengan diri sendiri! Markah Ujian ini TIDAK MENGHUKUM anda. Jika anda meniru dari internet, Cikgu AI tidak dapat mengenal pasti tahap sebenar anda dan gagal membantu anda nanti."
         );
       }
     };
-
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [tamat, soalanSelesai]);
@@ -99,7 +96,7 @@ function KandunganUjian() {
   const keluarKuiz = () => {
     const sahkan = window.confirm("Anda pasti mahu keluar?\nJawapan ujian ini TIDAK akan disimpan jika anda keluar sebelum tamat.");
     if (sahkan) {
-      window.location.href = '/murid'; // 🌟 FIX: PAKSA REFRESH SEMASA KELUAR
+      window.location.href = '/murid'; 
     }
   };
 
@@ -143,9 +140,7 @@ function KandunganUjian() {
     return shuffled;
   };
 
-  // ==========================================
   // 🌟 LOGIK PINTAR: CABUTAN SOALAN ADAPTIF
-  // ==========================================
   useEffect(() => {
     if (!isClient) return;
 
@@ -156,12 +151,14 @@ function KandunganUjian() {
       const user = JSON.parse(rawUser);
       let currentAttempt = 0;
       let currentTahap = "Sederhana"; 
+      let kumpulanMurid = "Eksperimen";
 
       try {
         const userSnap = await getDoc(doc(db, "users", user.id));
         if (userSnap.exists()) {
           const data = userSnap.data();
           currentTahap = data.tahapInkuiri || "Sederhana";
+          kumpulanMurid = data.kumpulan || "Eksperimen";
           setTahapMurid(currentTahap);
           if (currentTahap === "Tinggi" || currentTahap === "Sederhana") setMarkahLulus(70);
           else setMarkahLulus(50); 
@@ -176,15 +173,18 @@ function KandunganUjian() {
            }
         }
 
-        // KAWALAN SASARAN MARKAH
         let sasaranMarkahObjektif = 30; let sasaranMarkahStruktur = 30;  
         let isPemulihan = currentAttempt > 0 && jenisUjian === "post_test";
 
         if (jenisUjian === "pre_test") {
             sasaranMarkahObjektif = 40; sasaranMarkahStruktur = 40;
         } else if (jenisUjian === "post_test") {
-            if (!isPemulihan) { sasaranMarkahObjektif = 30; sasaranMarkahStruktur = 30; } 
-            else { 
+            if (kumpulanMurid === "Kawalan") {
+                sasaranMarkahObjektif = 30; 
+                sasaranMarkahStruktur = 10;
+            } else if (!isPemulihan) { 
+                sasaranMarkahObjektif = 30; sasaranMarkahStruktur = 30; 
+            } else { 
                 sasaranMarkahObjektif = 30; 
                 if (currentTahap === "Rendah") sasaranMarkahStruktur = 10; 
                 else sasaranMarkahStruktur = 20; 
@@ -206,8 +206,9 @@ function KandunganUjian() {
           if (kegunaan === "semua" || kegunaan === "semua_ujian" || kegunaan === "pre_post") layak = true;
           else if (jenisUjian === "pre_test" && kegunaan === "pre_test") layak = true;
           else if (jenisUjian === "post_test") {
-             if (!isPemulihan && kegunaan === "post_test") layak = true;
-             if (isPemulihan && (kegunaan === "pemulihan" || kegunaan === "post_test")) layak = true; 
+             if (kumpulanMurid === "Kawalan" && (kegunaan === "post_test" || kegunaan === "pemulihan")) layak = true;
+             else if (!isPemulihan && kegunaan === "post_test") layak = true;
+             else if (isPemulihan && (kegunaan === "pemulihan" || kegunaan === "post_test")) layak = true; 
           }
 
           if (!layak) return;
@@ -216,13 +217,10 @@ function KandunganUjian() {
             if (data.pilihan) data.shuffledPilihan = shuffleArray(Object.entries(data.pilihan)); 
             soalanObjektif.push({ id: docSnap.id, ...data });
           } else {
-            const markahSoalan = parseInt(data.markah) || 0;
-            if (jenisUjian === "pre_test" && markahSoalan <= 2) return; 
-            soalanStruktur.push({ id: docSnap.id, ...data });
+            soalanStruktur.push({ id: docSnap.id, ...data }); // KEBAL: Tarik SEMUA jenis struktur tanpa buang markah <2
           }
         });
 
-        // 🌟 FUNGSI 1: CABUTAN OBJEKTIF (ROUND-ROBIN SEMUA SUBTOPIK)
         const pilihObjektifSeimbang = (senarai: any[], sasaran: number) => {
             const groups: Record<string, any[]> = {};
             senarai.forEach(s => {
@@ -261,7 +259,6 @@ function KandunganUjian() {
             return shuffleArray(senaraiAkhir); 
         };
 
-        // 🌟 FUNGSI 2: CABUTAN STRUKTUR (PRIORITY KEPADA SOALAN SPM SEBENAR/KBAT)
         const pilihStrukturFokusSPM = (senarai: any[], sasaran: number) => {
             const scoredSenarai = senarai.map(s => {
                 let priority = 0;
@@ -309,7 +306,7 @@ function KandunganUjian() {
     initializeExam();
   }, [isClient, tingkatan, bab, jenisUjian]);
 
-  // LOGIK HANTAR MARKAH AKHIR
+  // 🌟 LOGIK HANTAR MARKAH AKHIR (KEBAL DARI ERROR FIREBASE)
   useEffect(() => {
     if (!isClient) return;
     const simpanMarkahFirebase = async () => {
@@ -375,12 +372,11 @@ function KandunganUjian() {
             const peratus = markahPenuhUjian > 0 ? Math.round((skorKeseluruhan / markahPenuhUjian) * 100) : 0;
             const percubaanBaru = jenisUjian === "post_test" ? percubaanTerkini + 1 : 1;
             
-            setPeratusAkhir(peratus); setPercubaanTerkini(percubaanBaru);
-
+            // 🌟 SANITASI DATA FIREBASE (ELAK UNDEFINED CRASH)
             const susunanData = soalanSenarai.map((s) => ({
-                id: s.id,
-                soalan: s.soalan,
-                jenis: s.jenis,
+                id: s.id || "tiada_id",
+                soalan: s.soalan || "Tiada Soalan",
+                jenis: s.jenis || "objektif",
                 markah: parseInt(s.markah) || (s.jenis === 'objektif' ? 1 : 0),
                 pilihan: s.pilihan || null,
                 shuffledPilihan: s.shuffledPilihan || null,
@@ -389,14 +385,32 @@ function KandunganUjian() {
                 imageUrl: s.imageUrl || ""
             }));
 
-            await setDoc(doc(db, "skor_murid", docId), {
-              idMurid: user.id, namaMurid: user.name || user.nama, tingkatan, bab,
-              skorObjektif: skorObjektifAkhir, jawapanObjektif: jawapanObjektifBersih, skor: peratus, markahPenuhUjian,
-              jawapanStruktur: jawapanStrukturBersih, ulasanAI: ulasanAIPenuh, markahStruktur: jumlahMarkahStrukturAI, skorAkhir: skorKeseluruhan,
+            const payloadRekod = {
+              idMurid: user.id || "tiada_id", 
+              namaMurid: user.nama || user.name || "Pelajar", 
+              tingkatan: tingkatan || "4", 
+              bab: bab || "Bab 1",
+              skorObjektif: skorObjektifAkhir || 0, 
+              jawapanObjektif: jawapanObjektifBersih, 
+              skor: peratus || 0, 
+              markahPenuhUjian: markahPenuhUjian || 1,
+              jawapanStruktur: jawapanStrukturBersih, 
+              ulasanAI: ulasanAIPenuh, 
+              markahStruktur: jumlahMarkahStrukturAI || 0, 
+              skorAkhir: skorKeseluruhan || 0,
               statusPermarkahanEsei: adaSoalanStruktur ? "disemak_oleh_AI" : "tiada_esei",
-              tarikh: new Date().toISOString(), jenisUjian, percubaan: percubaanBaru,
+              tarikh: new Date().toISOString(), 
+              jenisUjian: jenisUjian || "pre_test", 
+              percubaan: percubaanBaru || 1, 
               susunanSoalan: susunanData
-            });
+            };
+
+            // Simpan ke pangkalan data
+            await setDoc(doc(db, "skor_murid", docId), payloadRekod);
+
+            // JIKA BERJAYA SIMPAN SKOR, BARU UPDATE UI PERATUS & KOSONGKAN CACHE
+            setPeratusAkhir(peratus); 
+            setPercubaanTerkini(percubaanBaru);
 
             localStorage.removeItem(`auto_obj_${tingkatan}_${bab}_${jenisUjian}`);
             localStorage.removeItem(`auto_str_${tingkatan}_${bab}_${jenisUjian}`);
@@ -424,7 +438,10 @@ function KandunganUjian() {
                 await updateDoc(doc(db, "users", user.id), { markahPostTestTerkini: peratus, statusBabTerkini: "Ulang Bimbingan" });
               }
             }
-          } catch (error) { console.error("Ralat simpan data:", error); }
+          } catch (error) { 
+            console.error("Ralat kritikal simpan data:", error); 
+            alert("Ralat Pangkalan Data: Gagal menyimpan jawapan. Sila pastikan talian internet anda stabil dan laporkan kepada guru.");
+          }
         }
         setMenganalisisAI(false);
       }
@@ -511,7 +528,6 @@ function KandunganUjian() {
           <div className={`p-6 rounded-xl mb-8 relative z-10 ${isLulus || jenisUjian === "pre_test" ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-amber-50 text-amber-800 border border-amber-100'}`}>
             {isLulus || jenisUjian === "pre_test" ? "🎉" : "⚠️"} <span className="font-bold text-lg">Skor: {peratusAkhir}%</span>
           </div>
-          {/* 🌟 FIX REFRESH: window.location.href diguna di sini */}
           <button onClick={() => window.location.href = '/murid'} className="w-full bg-slate-800 hover:bg-slate-700 text-white px-8 py-3 rounded-xl font-bold relative z-10 shadow-lg transition-transform hover:scale-[1.02]">Kembali ke Dashboard</button>
         </div>
       </div>
@@ -528,7 +544,6 @@ function KandunganUjian() {
 
   return (
     <div 
-      // 🌟 LAPISAN KESELAMATAN 2: HALANG HIGHLIGHT TEKS (select-none)
       className={`min-h-screen pb-28 pt-20 transition-colors duration-700 select-none ${selectedTheme}`}
       onContextMenu={(e) => { 
         e.preventDefault(); 
