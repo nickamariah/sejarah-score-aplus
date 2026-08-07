@@ -100,7 +100,7 @@ function KandunganUjian() {
   const keluarKuiz = () => {
     const sahkan = window.confirm("Anda pasti mahu keluar?\nJawapan ujian ini TIDAK akan disimpan jika anda keluar sebelum tamat.");
     if (sahkan) {
-      router.push('/murid');
+      window.location.href = '/murid';
     }
   };
 
@@ -506,7 +506,7 @@ function KandunganUjian() {
 
   if (!isClient) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-sky-600">Memulakan Ujian...</div>;
   if (loading) return <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-sky-700 font-semibold"><Loader2 className="animate-spin w-10 h-10 mb-4 text-sky-500"/><p>Menjana Kertas Soalan Adaptif...</p><p className="text-xs text-slate-400 mt-2 font-normal">Sistem sedang memilih soalan yang sesuai dengan keupayaan anda.</p></div>;
-  if (soalanSenarai.length === 0) return <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4"><div className="p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center"><h2 className="text-xl font-bold">Soalan Belum Tersedia</h2><p className="text-slate-500 text-sm mt-2">Sila minta guru masukkan soalan ke dalam Bank Soalan terlebih dahulu.</p><button onClick={() => router.push('/murid')} className="mt-4 w-full bg-sky-600 text-white px-6 py-3 rounded-lg font-bold">Kembali ke Dashboard</button></div></div>;
+  if (soalanSenarai.length === 0) return <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4"><div className="p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center"><h2 className="text-xl font-bold">Soalan Belum Tersedia</h2><p className="text-slate-500 text-sm mt-2">Sila minta guru masukkan soalan ke dalam Bank Soalan terlebih dahulu.</p><button onClick={() => window.location.href = '/murid'} className="mt-4 w-full bg-sky-600 text-white px-6 py-3 rounded-lg font-bold">Kembali ke Dashboard</button></div></div>;
 
   if (tamat) {
     if (menganalisisAI || peratusAkhir === null) return (
