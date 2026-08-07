@@ -35,6 +35,7 @@ export default function GuruDashboard() {
   const [uKelas, setUKelas] = useState("");
   const [uTahapInkuiri, setUTahapInkuiri] = useState("Rendah");
   const [uKumpulan, setUKumpulan] = useState("Eksperimen");
+  const [uBukaPostTest, setUBukaPostTest] = useState(false); // 🌟 STATE BARU UNTUK KUMPULAN KAWALAN
   const [uSekolah, setUSekolah] = useState("SMA Kota Gelanggi 3"); 
   const [uIsSubmitting, setUIsSubmitting] = useState(false);
 
@@ -361,7 +362,14 @@ export default function GuruDashboard() {
     try {
       if (isEditingUser && editUserId) {
         const updateData: any = { nama: uNama, kataLaluan: uKataLaluan, role: uRole, sekolah: uSekolah };
-        if (uRole === "murid") { updateData.tingkatan = String(uTingkatan); updateData.kelas = uKelas; updateData.tahapInkuiri = uTahapInkuiri; updateData.kumpulan = uKumpulan; }
+        if (uRole === "murid") { 
+          updateData.tingkatan = String(uTingkatan); 
+          updateData.kelas = uKelas; 
+          updateData.tahapInkuiri = uTahapInkuiri; 
+          updateData.kumpulan = uKumpulan; 
+          // 🌟 JIKA MURID KAWALAN, SIMPAN DATA BUKA POST TEST
+          if (uKumpulan === "Kawalan") updateData.bukaPostTest = uBukaPostTest;
+        }
         await updateDoc(doc(db, "users", editUserId), updateData);
         showToastMessage("Akaun berjaya dikemas kini!", "success");
       } else {
@@ -404,7 +412,15 @@ export default function GuruDashboard() {
         }
 
         const newUserData: any = { nama: uNama, email: emailMaya, kataLaluan: uKataLaluan, role: uRole, idPengguna: newId, sekolah: uSekolah, tarikhDaftar: new Date().toISOString() };
-        if (uRole === "murid") { newUserData.tingkatan = String(uTingkatan); newUserData.kelas = uKelas; newUserData.tahapInkuiri = uTahapInkuiri; newUserData.kumpulan = uKumpulan; newUserData.markahTerkini = 0; }
+        if (uRole === "murid") { 
+          newUserData.tingkatan = String(uTingkatan); 
+          newUserData.kelas = uKelas; 
+          newUserData.tahapInkuiri = uTahapInkuiri; 
+          newUserData.kumpulan = uKumpulan; 
+          newUserData.markahTerkini = 0; 
+          // 🌟 JIKA MURID KAWALAN BARU, SIMPAN DATA BUKA POST TEST
+          if (uKumpulan === "Kawalan") newUserData.bukaPostTest = uBukaPostTest;
+        }
         await setDoc(doc(db, "users", newId), newUserData); showToastMessage("Akaun baru didaftar!", "success");
       }
       resetFormPengguna(); tarikDataPenggunaFirebase();
@@ -416,10 +432,16 @@ export default function GuruDashboard() {
   const setEditPengguna = (u: any) => { 
     setIsEditingUser(true); setEditUserId(u.id); setURole(u.role || "murid"); setUNama(u.nama || ""); setUKataLaluan(u.kataLaluan || ""); setUTingkatan(String(u.tingkatan || "4")); setUKelas(u.kelas || ""); setUTahapInkuiri(u.tahapInkuiri || "Rendah"); setUKumpulan(u.kumpulan || "Eksperimen"); 
     setUSekolah(u.sekolah || senaraiSekolahKajian[0]); 
+    // 🌟 PAPARKAN DATA LAMA
+    setUBukaPostTest(u.bukaPostTest || false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   
-  const resetFormPengguna = () => { setIsEditingUser(false); setEditUserId(null); setURole("murid"); setUNama(""); setUKataLaluan(""); setUTingkatan("4"); setUKelas(""); setUTahapInkuiri("Rendah"); setUKumpulan("Eksperimen"); setUSekolah(senaraiSekolahKajian[0]); };
+  const resetFormPengguna = () => { 
+    setIsEditingUser(false); setEditUserId(null); setURole("murid"); setUNama(""); setUKataLaluan(""); setUTingkatan("4"); setUKelas(""); setUTahapInkuiri("Rendah"); setUKumpulan("Eksperimen"); setUSekolah(senaraiSekolahKajian[0]); 
+    // 🌟 RESET SUIS
+    setUBukaPostTest(false);
+  };
 
   // 🌟 FUNGSI KEMAS KINI: ANTI-DUPLICATE SOALAN
   const handleSimpanSoalan = async () => {
@@ -716,6 +738,22 @@ export default function GuruDashboard() {
                             </select>
                           </div>
                         </div>
+                        {uKumpulan === "Kawalan" && (
+                          <div className="col-span-2 mt-3 p-4 bg-rose-900/20 border border-rose-800/50 rounded-xl animate-in fade-in">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={uBukaPostTest}
+                                onChange={(e) => setUBukaPostTest(e.target.checked)}
+                                className="w-5 h-5 accent-rose-500 rounded bg-slate-900 border-slate-700"
+                              />
+                              <span className="text-sm text-rose-300 font-bold">Buka Akses Ujian Pasca (Post-Test) untuk murid ini.</span>
+                            </label>
+                            <p className="text-[10px] text-rose-400/80 mt-1.5 ml-8 leading-tight">
+                              Jika ditandakan, murid kawalan ini boleh menduduki Ujian Pasca secara online di dashboard mereka.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                     <div className="flex gap-3 pt-4">

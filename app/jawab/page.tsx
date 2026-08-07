@@ -145,7 +145,7 @@ function KandunganUjian() {
   };
 
   // ==========================================
-  // 🌟 LOGIK PINTAR: CABUTAN SOALAN ADAPTIF
+  // 🌟 LOGIK PINTAR: CABUTAN SOALAN ADAPTIF (TERMASUK KUMPULAN KAWALAN)
   // ==========================================
   useEffect(() => {
     if (!isClient) return;
@@ -157,13 +157,16 @@ function KandunganUjian() {
       const user = JSON.parse(rawUser);
       let currentAttempt = 0;
       let currentTahap = "Sederhana"; 
+      let kumpulanMurid = "Eksperimen";
 
       try {
         const userSnap = await getDoc(doc(db, "users", user.id));
         if (userSnap.exists()) {
           const data = userSnap.data();
           currentTahap = data.tahapInkuiri || "Sederhana";
+          kumpulanMurid = data.kumpulan || "Eksperimen";
           setTahapMurid(currentTahap);
+          
           if (currentTahap === "Tinggi" || currentTahap === "Sederhana") setMarkahLulus(70);
           else setMarkahLulus(50); 
         }
@@ -177,15 +180,20 @@ function KandunganUjian() {
            }
         }
 
-        // KAWALAN SASARAN MARKAH
+        // 🌟 KAWALAN SASARAN MARKAH (ADAPTIVE ALGORITHM BERDASARKAN TESIS)
         let sasaranMarkahObjektif = 30; let sasaranMarkahStruktur = 30;  
         let isPemulihan = currentAttempt > 0 && jenisUjian === "post_test";
 
         if (jenisUjian === "pre_test") {
             sasaranMarkahObjektif = 40; sasaranMarkahStruktur = 40;
         } else if (jenisUjian === "post_test") {
-            if (!isPemulihan) { sasaranMarkahObjektif = 30; sasaranMarkahStruktur = 30; } 
-            else { 
+            // JIKA MURID KAWALAN: Ujian Pasca sentiasa diskalakan ke aras rendah (30 Obj, 10 Str)
+            if (kumpulanMurid === "Kawalan") {
+                sasaranMarkahObjektif = 30; 
+                sasaranMarkahStruktur = 10;
+            } else if (!isPemulihan) { 
+                sasaranMarkahObjektif = 30; sasaranMarkahStruktur = 30; 
+            } else { 
                 sasaranMarkahObjektif = 30; 
                 if (currentTahap === "Rendah") sasaranMarkahStruktur = 10; 
                 else sasaranMarkahStruktur = 20; 
@@ -207,8 +215,10 @@ function KandunganUjian() {
           if (kegunaan === "semua" || kegunaan === "semua_ujian" || kegunaan === "pre_post") layak = true;
           else if (jenisUjian === "pre_test" && kegunaan === "pre_test") layak = true;
           else if (jenisUjian === "post_test") {
-             if (!isPemulihan && kegunaan === "post_test") layak = true;
-             if (isPemulihan && (kegunaan === "pemulihan" || kegunaan === "post_test")) layak = true; 
+             // PENAPISAN KUMPULAN KAWALAN
+             if (kumpulanMurid === "Kawalan" && (kegunaan === "post_test" || kegunaan === "pemulihan")) layak = true;
+             else if (!isPemulihan && kegunaan === "post_test") layak = true;
+             else if (isPemulihan && (kegunaan === "pemulihan" || kegunaan === "post_test")) layak = true; 
           }
 
           if (!layak) return;
@@ -218,7 +228,7 @@ function KandunganUjian() {
             soalanObjektif.push({ id: docSnap.id, ...data });
           } else {
             const markahSoalan = parseInt(data.markah) || 0;
-            if (jenisUjian === "pre_test" && markahSoalan <= 2) return; 
+            if (jenisUjian === "pre_test" && markahSoalan <= 2) return; // Syarat Pre-Test Ketat
             soalanStruktur.push({ id: docSnap.id, ...data });
           }
         });
