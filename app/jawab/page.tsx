@@ -79,6 +79,7 @@ function KandunganUjian() {
   ];
   const [selectedTheme, setSelectedTheme] = useState(senaraiTheme[0].class);
 
+  // 🌟 PENGESAN TUKAR TAB (ANTI-GOOGLE)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden && !tamat && !soalanSelesai) {
@@ -140,7 +141,7 @@ function KandunganUjian() {
     return shuffled;
   };
 
-  // 🌟 LOGIK PINTAR: CABUTAN SOALAN ADAPTIF
+  // 🌟 LOGIK CABUTAN SOALAN ADAPTIF 
   useEffect(() => {
     if (!isClient) return;
 
@@ -165,7 +166,9 @@ function KandunganUjian() {
         }
 
         if (jenisUjian === "post_test") {
-           const docIdUjian = `${user.id}_t${tingkatan}_${bab}_${jenisUjian}`;
+           // Guna format ID yang selamat tanpa space
+           const safeBabID = bab.replace(/\s+/g, '_');
+           const docIdUjian = `${user.id}_t${tingkatan}_${safeBabID}_${jenisUjian}`;
            const skorSnap = await getDoc(doc(db, "skor_murid", docIdUjian));
            if (skorSnap.exists() && skorSnap.data().percubaan) {
               currentAttempt = skorSnap.data().percubaan;
@@ -217,7 +220,7 @@ function KandunganUjian() {
             if (data.pilihan) data.shuffledPilihan = shuffleArray(Object.entries(data.pilihan)); 
             soalanObjektif.push({ id: docSnap.id, ...data });
           } else {
-            soalanStruktur.push({ id: docSnap.id, ...data }); // KEBAL: Tarik SEMUA jenis struktur tanpa buang markah <2
+            soalanStruktur.push({ id: docSnap.id, ...data });
           }
         });
 
@@ -306,7 +309,7 @@ function KandunganUjian() {
     initializeExam();
   }, [isClient, tingkatan, bab, jenisUjian]);
 
-  // 🌟 LOGIK HANTAR MARKAH AKHIR (KEBAL DARI ERROR FIREBASE)
+  // 🌟 LOGIK HANTAR MARKAH AKHIR (KINI DIBERSIHKAN DARI UNDEFINED & SHUFFLEDPILIHAN)
   useEffect(() => {
     if (!isClient) return;
     const simpanMarkahFirebase = async () => {
@@ -366,27 +369,30 @@ function KandunganUjian() {
               }
             }
 
-            const docId = `${user.id}_t${tingkatan}_${bab}_${jenisUjian}`;
+            const userId = user.id || user.idPengguna || "tiada_id";
+            // Ganti space dengan underscore supaya ID document tak invalid
+            const safeBabStr = bab.replace(/\s+/g, '_');
+            const docId = `${userId}_t${tingkatan}_${safeBabStr}_${jenisUjian}`;
+            
             const adaSoalanStruktur = Object.keys(jawapanStrukturBersih).length > 0;
             const skorKeseluruhan = skorObjektifAkhir + jumlahMarkahStrukturAI;
             const peratus = markahPenuhUjian > 0 ? Math.round((skorKeseluruhan / markahPenuhUjian) * 100) : 0;
             const percubaanBaru = jenisUjian === "post_test" ? percubaanTerkini + 1 : 1;
             
-            // 🌟 SANITASI DATA FIREBASE (ELAK UNDEFINED CRASH)
+            // 🌟 CLEANER PAYLOAD: Buang shuffledPilihan dan guna objek default yang selamat
             const susunanData = soalanSenarai.map((s) => ({
-                id: s.id || "tiada_id",
-                soalan: s.soalan || "Tiada Soalan",
+                id: s.id || "tiada",
+                soalan: s.soalan || "Tiada soalan",
                 jenis: s.jenis || "objektif",
                 markah: parseInt(s.markah) || (s.jenis === 'objektif' ? 1 : 0),
-                pilihan: s.pilihan || null,
-                shuffledPilihan: s.shuffledPilihan || null,
-                jawapan: s.jawapan || null,
-                skemaJawapan: s.skemaJawapan || null,
+                pilihan: s.pilihan || {}, 
+                jawapan: s.jawapan || "",
+                skemaJawapan: s.skemaJawapan || "",
                 imageUrl: s.imageUrl || ""
             }));
 
             const payloadRekod = {
-              idMurid: user.id || "tiada_id", 
+              idMurid: userId, 
               namaMurid: user.nama || user.name || "Pelajar", 
               tingkatan: tingkatan || "4", 
               bab: bab || "Bab 1",
@@ -405,42 +411,45 @@ function KandunganUjian() {
               susunanSoalan: susunanData
             };
 
-            // Simpan ke pangkalan data
             await setDoc(doc(db, "skor_murid", docId), payloadRekod);
+            
+            // Update Profil User secara berasingan (Jika gagal, skor murid tetap selamat)
+            try {
+              const chapterId = bab.replace("Bab ", "");
+              const modKeyTest = `t${tingkatan}-ch${chapterId}-mod-${jenisUjian}`;
+              const modKeyBimbingan = `t${tingkatan}-ch${chapterId}-mod-bimbingan`; 
+              let completed = JSON.parse(localStorage.getItem("completedModules") || "[]");
 
-            // JIKA BERJAYA SIMPAN SKOR, BARU UPDATE UI PERATUS & KOSONGKAN CACHE
+              if (jenisUjian === "pre_test") {
+                let tahapBaru = "Rendah";
+                if (peratus >= 70) tahapBaru = "Tinggi"; 
+                else if (peratus >= 50) tahapBaru = "Sederhana";
+                if (!completed.includes(modKeyTest)) completed.push(modKeyTest);
+                localStorage.setItem("completedModules", JSON.stringify(completed));
+                await updateDoc(doc(db, "users", userId), { markahTerkini: peratus, tahapInkuiri: tahapBaru });
+              } else if (jenisUjian === "post_test") {
+                if (peratus >= markahLulus) {
+                  if (!completed.includes(modKeyTest)) completed.push(modKeyTest);
+                  localStorage.setItem("completedModules", JSON.stringify(completed));
+                  await updateDoc(doc(db, "users", userId), { markahPostTestTerkini: peratus, statusBabTerkini: "Lulus" });
+                } else {
+                  completed = completed.filter((mod: string) => mod !== modKeyBimbingan && mod !== modKeyTest);
+                  localStorage.setItem("completedModules", JSON.stringify(completed));
+                  await updateDoc(doc(db, "users", userId), { markahPostTestTerkini: peratus, statusBabTerkini: "Ulang Bimbingan" });
+                }
+              }
+            } catch (errUser) { console.log("Gagal update jadual profil user:", errUser); }
+
             setPeratusAkhir(peratus); 
             setPercubaanTerkini(percubaanBaru);
 
             localStorage.removeItem(`auto_obj_${tingkatan}_${bab}_${jenisUjian}`);
             localStorage.removeItem(`auto_str_${tingkatan}_${bab}_${jenisUjian}`);
 
-            const chapterId = bab.replace("Bab ", "");
-            const modKeyTest = `t${tingkatan}-ch${chapterId}-mod-${jenisUjian}`;
-            const modKeyBimbingan = `t${tingkatan}-ch${chapterId}-mod-bimbingan`; 
-            let completed = JSON.parse(localStorage.getItem("completedModules") || "[]");
-
-            if (jenisUjian === "pre_test") {
-              let tahapBaru = "Rendah";
-              if (peratus >= 70) tahapBaru = "Tinggi"; 
-              else if (peratus >= 50) tahapBaru = "Sederhana";
-              if (!completed.includes(modKeyTest)) completed.push(modKeyTest);
-              localStorage.setItem("completedModules", JSON.stringify(completed));
-              await updateDoc(doc(db, "users", user.id), { markahTerkini: peratus, tahapInkuiri: tahapBaru });
-            } else if (jenisUjian === "post_test") {
-              if (peratus >= markahLulus) {
-                if (!completed.includes(modKeyTest)) completed.push(modKeyTest);
-                localStorage.setItem("completedModules", JSON.stringify(completed));
-                await updateDoc(doc(db, "users", user.id), { markahPostTestTerkini: peratus, statusBabTerkini: "Lulus" });
-              } else {
-                completed = completed.filter((mod: string) => mod !== modKeyBimbingan && mod !== modKeyTest);
-                localStorage.setItem("completedModules", JSON.stringify(completed));
-                await updateDoc(doc(db, "users", user.id), { markahPostTestTerkini: peratus, statusBabTerkini: "Ulang Bimbingan" });
-              }
-            }
-          } catch (error) { 
+          } catch (error: any) { 
             console.error("Ralat kritikal simpan data:", error); 
-            alert("Ralat Pangkalan Data: Gagal menyimpan jawapan. Sila pastikan talian internet anda stabil dan laporkan kepada guru.");
+            // 🌟 TUNJUKKAN ERROR SEBENAR SUPAYA MUDAH DIKESAN JIKA BERLAKU LAGI
+            alert("Ralat Pangkalan Data: Gagal menyimpan jawapan. Sila hantar tangkapan skrin ini kepada guru:\n\n" + error.message);
           }
         }
         setMenganalisisAI(false);
@@ -512,7 +521,7 @@ function KandunganUjian() {
 
   if (!isClient) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-sky-600">Memulakan Ujian...</div>;
   if (loading) return <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-sky-700 font-semibold"><Loader2 className="animate-spin w-10 h-10 mb-4 text-sky-500"/><p>Menjana Kertas Soalan Adaptif...</p><p className="text-xs text-slate-400 mt-2 font-normal">Sistem sedang memilih soalan yang sesuai dengan keupayaan anda.</p></div>;
-  if (soalanSenarai.length === 0) return <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4"><div className="p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center"><h2 className="text-xl font-bold">Soalan Belum Tersedia</h2><p className="text-slate-500 text-sm mt-2">Sila minta guru masukkan soalan ke dalam Bank Soalan terlebih dahulu.</p><button onClick={() => window.location.href = '/murid'} className="mt-4 w-full bg-sky-600 text-white px-6 py-3 rounded-lg font-bold">Kembali ke Dashboard</button></div></div>;
+  if (soalanSenarai.length === 0) return <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4"><div className="p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center"><h2 className="text-xl font-bold">Soalan Belum Tersedia</h2><p className="text-slate-500 text-sm mt-2">Sila minta guru masukkan soalan ke dalam Bank Soalan terlebih dahulu.</p><button onClick={() => router.push('/murid')} className="mt-4 w-full bg-sky-600 text-white px-6 py-3 rounded-lg font-bold">Kembali ke Dashboard</button></div></div>;
 
   if (tamat) {
     if (menganalisisAI || peratusAkhir === null) return (
