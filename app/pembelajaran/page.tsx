@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation"; 
 import { db } from "@/lib/firebase"; 
-import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, getDocs } from "firebase/firestore";
+import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, where } from "firebase/firestore";
 // 🌟 KEMAS KINI: Tambah icon Printer
 import { Bot, Send, ArrowLeft, BookOpen, Video, Lightbulb, HelpCircle, CheckCircle2, Loader2, PlayCircle, X, Mic, Palette, Printer } from "lucide-react";
 
@@ -444,7 +444,7 @@ function KomponenPembelajaran() {
       <div className="w-full lg:flex-1 h-full bg-white/20 backdrop-blur-lg flex flex-col z-10 relative">
         
         {/* HEADER CHAT */}
-        <div className="bg-linear-to-r from-blue-600/90 to-indigo-700/90 backdrop-blur-md text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative border-b border-white/10">
+        <div className="bg-gradient-to-r from-blue-600/90 to-indigo-700/90 backdrop-blur-md text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative border-b border-white/10">
           <div className="flex justify-between items-center gap-2 mb-1.5">
             
             <div className="flex items-center gap-2">
@@ -499,7 +499,7 @@ function KomponenPembelajaran() {
               let style = "bg-white/10 text-white/50 border border-white/5"; 
               if (isPast) style = "bg-emerald-500 text-white border-emerald-400 font-bold shadow-sm"; 
               if (isActive) style = "bg-white/30 text-white font-bold border-white/50 shadow-sm ring-1 ring-white/30"; 
-              return <div key={sub.id} className={`flex-1 text-center py-1 rounded-sm text-[9px] lg:text-[10px] truncate px-1.5 transition-all min-w-11.25 ${style}`} title={sub.title}>{sub.id}</div>;
+              return <div key={sub.id} className={`flex-1 text-center py-1 rounded-sm text-[9px] lg:text-[10px] truncate px-1.5 transition-all min-w-[45px] ${style}`} title={sub.title}>{sub.id}</div>;
             }) : <div className="text-[10px] text-white/70 italic text-center w-full">Memuatkan...</div>}
           </div>
         </div>
@@ -577,18 +577,30 @@ function KomponenPembelajaran() {
             ) : (
               <form onSubmit={sendMessage} className="p-2 lg:p-3 flex gap-2 items-end relative">
                 
+                {/* 🌟 TEKS AREA DENGAN ANTI-PASTE */}
                 <textarea
-  // ... kod sedia ada (value, onChange, dll) ...
-  
-  // 🌟 LAPISAN KESELAMATAN KOGNITIF (ANTI-PASTE)
-  onPaste={(e) => {
-    e.preventDefault();
-    alert("💡 CIKGU AI PESAN:\n\nFungsi 'Paste' (Tampal) ditutup ya. \n\nCikgu nak awak taip jawapan tu sendiri atau guna butang Suara (Mic). Bila kita taip atau sebut sendiri, otak kita akan lebih cepat ingat fakta Sejarah tau. Jom cuba! 💪");
-  }}
-  onDrop={(e) => e.preventDefault()} // Halang murid 'drag and drop' teks dari nota ke chat
-  
-  // ... kelas CSS sedia ada ...
-/>
+                   ref={inputRef}
+                   value={input}
+                   onChange={handleInput}
+                   disabled={isLoading}
+                   onKeyDown={(e) => {
+                     if (e.key === 'Enter' && !e.shiftKey) {
+                       e.preventDefault();
+                       sendMessage();
+                     }
+                   }}
+                   
+                   // 🌟 LAPISAN KESELAMATAN KOGNITIF (ANTI-PASTE & DROP)
+                   onPaste={(e) => {
+                     e.preventDefault();
+                     alert("💡 CIKGU AI PESAN:\n\nFungsi 'Paste' (Tampal) ditutup ya. \n\nCikgu nak awak taip jawapan tu sendiri atau guna butang Suara (Mic). Bila kita taip atau sebut sendiri, otak kita akan lebih cepat ingat fakta Sejarah tau. Jom cuba! 💪");
+                   }}
+                   onDrop={(e) => e.preventDefault()}
+                   
+                   placeholder="Taip mesej di sini..."
+                   rows={1}
+                   className="w-full bg-white/70 backdrop-blur-sm border border-slate-300 text-sm lg:text-base text-slate-800 p-3 lg:p-3.5 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-inner resize-none max-h-32 transition-colors"
+                />
                 
                 <button 
                   type="button" 
