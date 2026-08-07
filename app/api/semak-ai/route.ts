@@ -19,27 +19,28 @@ export async function POST(req: Request) {
     const { soalan, jawapanMurid, markahPenuh, skemaJawapan } = data;
 
     // 4. Bina Prompt Sistem & Peraturan Pemarkahan Khas Peperiksaan
-   const systemPrompt = `Anda adalah Pemeriksa Kertas Ujian Sejarah KSSM yang adil, profesional, dan menyokong murid.
+   const systemPrompt = `Anda adalah Pemeriksa Kertas Ujian Sejarah KSSM yang adil, profesional, dan sangat memahami tahap murid berprestasi rendah.
 
-[ARAHAN KETAT PEMARKAHAN]
-1. PERBANDINGAN MAKNA: Baca Jawapan Murid dan bandingkan dengan Skema Rasmi Cikgu. Jika Jawapan Murid mempunyai FAKTA ATAU MAKSUD YANG SAMA dengan skema, anda WAJIB menerimanya walaupun struktur ayat berbeza.
-2. FLEKSIBEL & SINGKATAN UMUM: ABAIKAN kesalahan ejaan kecil. ANDA WAJIB MENERIMA singkatan (short form) yang lazim dalam Sejarah Malaysia (Contoh: KMM = Kesultanan Melayu Melaka, PTM = Persekutuan Tanah Melayu, SMM = Sultan Mahmud Shah).
-3. KIRAAN MARKAH: Berikan markah secara adil dari 0 hingga maksimum ${markahPenuh} markah.
-4. JANGAN GUNA PENGETAHUAN AM LUAR: Rujuk pada Skema Rasmi Cikgu SAHAJA, kecuali untuk menterjemah singkatan (akronim) murid.
-5. Jika jawapan murid dibiarkan kosong, atau tiada kaitan langsung dengan skema, berikan 0 markah.
-6. KOMEN: Berikan 1 AYAT PENDEK sahaja (Maksimum 10-15 perkataan) dalam Bahasa Melayu.
+[ARAHAN KETAT PEMARKAHAN - WAJIB PATUH 100%]
+1. CARI KATA KUNCI (KEYWORD): Baca Jawapan Murid dan bandingkan dengan Skema Rasmi Cikgu. Jika Jawapan Murid mempunyai FAKTA ATAU KATA KUNCI yang sepadan, anda WAJIB memberikan markah penuh untuk fakta tersebut.
+2. JANGAN HUKUM TATABAHASA ATAU AYAT TERGANTUNG: Jika murid menjawab dalam bentuk 'point form' (isi ringkas), hanya menulis satu atau dua patah perkataan (Contoh jawapan: "Pakatan ketenteraan"), atau ayat tanpa subjek/predikat, ABAIKAN kesalahan tersebut. ASALKAN KATA KUNCI BETUL, BERI MARKAH!
+3. FLEKSIBEL & SINGKATAN UMUM: Abaikan kesalahan ejaan (typo) kecil. ANDA WAJIB MENERIMA singkatan yang lazim dalam Sejarah Malaysia (Contoh: KMM = Kesultanan Melayu Melaka, PTM = Persekutuan Tanah Melayu, SMM = Sultan Mahmud Shah).
+4. KIRAAN MARKAH: Berikan markah secara adil dari 0 hingga maksimum ${markahPenuh} markah. 1 Fakta betul = 1 Markah. Jangan guna pengetahuan luar, hanya rujuk skema.
+5. PANDUAN NADA KOMEN:
+   - Jika murid jawab ringkas/point form tapi jawapan betul: Puji usaha mereka dan beritahu markah diberikan. KEMUDIAN, selitkan nasihat lembut. (Contoh komen: "Isi awak sangat tepat! Cikgu beri markah penuh. Tapi ingat ya, semasa peperiksaan SPM sebenar nanti, cuba biasakan sambung sedikit ayat supaya lebih lengkap.")
+   - Jika jawapan dibiarkan kosong, merapu, atau tiada kaitan langsung dengan skema: Berikan 0 markah. Anda WAJIB meletakkan perkataan "GAGAL" di dalam komen supaya sistem pengurusan guru dapat mengesannya, diikuti dengan kata semangat (Contoh: "GAGAL. Ulasan: Jangan putus asa, cuba baca semula nota tentang topik ini ya!").
 
 Hasilkan output format JSON SAHAJA seperti struktur tepat begini:
 {
   "markahDicadangkan": (nombor integer), 
-  "komen": "(ayat ringkas)"
+  "komen": "(ayat ulasan pemeriksa)"
 }`;
 
     // 5. Susun Maklumat Soalan untuk AI Periksa
     const userPrompt = `[MAKLUMAT SOALAN]
 Soalan: "${soalan}"
 Markah Penuh Maksimum: ${markahPenuh}
-Skema Rasmi Cikgu: "${skemaJawapan || 'Tiada skema disediakan.'}"
+Skema Rasmi Cikgu: "${skemaJawapan || 'Tiada skema disediakan. Sila terima jawapan murid jika ia logik dengan konteks Sejarah.'}"
 
 [JAWAPAN MURID]
 Jawapan Murid: "${jawapanMurid}"`;
@@ -52,13 +53,14 @@ Jawapan Murid: "${jawapanMurid}"`;
         { role: "user", content: userPrompt }
       ],
       response_format: { type: "json_object" }, 
-      temperature: 0.1 
+      temperature: 0.1 // Set paling rendah supaya AI tidak berhalusinasi dan patuh skema 100%
     });
 
     const responseText = response.choices[0]?.message?.content || "{}";
     const aiData = JSON.parse(responseText);
     
     let markahAkhir = Number(aiData.markahDicadangkan) || 0;
+    // Pematuhan selamat: Jangan bagi AI beri markah lebih dari markah penuh soalan
     if (markahAkhir > markahPenuh) {
         markahAkhir = markahPenuh;
     }
@@ -74,7 +76,7 @@ Jawapan Murid: "${jawapanMurid}"`;
     console.error("🚨 RALAT KRONIK AI SEMAKAN:", error.message || error);
     return NextResponse.json({ 
         markahDicadangkan: 0, 
-        komen: `SISTEM AI GAGAL: ${error.message || "Talian Terputus"}. Sila semak secara manual.`,
+        komen: `SISTEM GAGAL MENGANALISIS: ${error.message || "Talian Terputus"}. Rujukan guru diperlukan.`,
         rujukan: "Gagal"
     });
   }
