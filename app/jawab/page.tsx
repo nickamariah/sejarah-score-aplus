@@ -79,6 +79,24 @@ function KandunganUjian() {
   ];
   const [selectedTheme, setSelectedTheme] = useState(senaraiTheme[0].class);
 
+  // 🌟 LAPISAN KESELAMATAN 1: PENGESAN TUKAR TAB (ANTI-GOOGLE)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // Jika murid pergi ke tab/window lain, dan ujian belum tamat
+      if (document.hidden && !tamat && !soalanSelesai) {
+        alert(
+          "⚠️ AMARAN INTEGRITI (SISTEM I-RAGS)\n\n" +
+          "Sistem mengesan anda meninggalkan halaman ujian ini (membuka tab/aplikasi lain).\n\n" +
+          "Sila jujur dengan diri sendiri! Markah Ujian ini TIDAK MENGHUKUM anda. Jika anda meniru dari internet, Cikgu AI tidak dapat mengenal pasti tahap sebenar anda dan gagal membantu anda nanti.\n\n" +
+          "Sila jawab menggunakan ingatan dan kefahaman anda sendiri."
+        );
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [tamat, soalanSelesai]);
+
   const keluarKuiz = () => {
     const sahkan = window.confirm("Anda pasti mahu keluar?\nJawapan ujian ini TIDAK akan disimpan jika anda keluar sebelum tamat.");
     if (sahkan) {
@@ -200,7 +218,7 @@ function KandunganUjian() {
             soalanObjektif.push({ id: docSnap.id, ...data });
           } else {
             const markahSoalan = parseInt(data.markah) || 0;
-            if (jenisUjian === "pre_test" && markahSoalan <= 2) return; // Syarat Pre-Test Ketat
+            if (jenisUjian === "pre_test" && markahSoalan <= 2) return; 
             soalanStruktur.push({ id: docSnap.id, ...data });
           }
         });
@@ -208,13 +226,11 @@ function KandunganUjian() {
         // 🌟 FUNGSI 1: CABUTAN OBJEKTIF (ROUND-ROBIN SEMUA SUBTOPIK)
         const pilihObjektifSeimbang = (senarai: any[], sasaran: number) => {
             const groups: Record<string, any[]> = {};
-            // Kumpulkan ikut subtopik
             senarai.forEach(s => {
                 const t = s.topik || "Umum";
                 if (!groups[t]) groups[t] = [];
                 groups[t].push(s);
             });
-            // Shuffle setiap kumpulan
             for (let k in groups) groups[k] = shuffleArray(groups[k]);
 
             let senaraiAkhir = [];
@@ -243,7 +259,7 @@ function KandunganUjian() {
                 }
                 if (!addedThisRound) keepGoing = false;
             }
-            return shuffleArray(senaraiAkhir); // Shuffle sekali lagi supaya subtopik bercampur
+            return shuffleArray(senaraiAkhir); 
         };
 
         // 🌟 FUNGSI 2: CABUTAN STRUKTUR (PRIORITY KEPADA SOALAN SPM SEBENAR/KBAT)
@@ -251,16 +267,14 @@ function KandunganUjian() {
             const scoredSenarai = senarai.map(s => {
                 let priority = 0;
                 const textInfo = (s.soalan + " " + (s.topik || "")).toLowerCase();
-                // Jika cikgu letak tag ini, sistem beri keutamaan tertinggi!
                 if (textInfo.includes("spm") || textInfo.includes("ramalan") || textInfo.includes("kbat") || textInfo.includes("fokus")) {
                     priority += 100; 
                 }
-                priority += (parseInt(s.markah) || 0); // Soalan markah tinggi diutamakan
-                priority += Math.random(); // Tie-breaker rawak
+                priority += (parseInt(s.markah) || 0); 
+                priority += Math.random(); 
                 return { ...s, priority };
             });
 
-            // Susun dari priority tertinggi ke terendah
             scoredSenarai.sort((a, b) => b.priority - a.priority);
 
             let senaraiAkhir = [];
@@ -277,11 +291,9 @@ function KandunganUjian() {
                     break;
                 }
             }
-            // Shuffle supaya murid tak rasa soalan makin lama makin susah sentiasa
             return shuffleArray(senaraiAkhir); 
         };
 
-        // Eksekusi Algoritma
         let objektifAkhir = pilihObjektifSeimbang(soalanObjektif, sasaranMarkahObjektif);
         let strukturAkhir = pilihStrukturFokusSPM(soalanStruktur, sasaranMarkahStruktur);
 
@@ -515,7 +527,18 @@ function KandunganUjian() {
   const jawapanBetulTeks = jenisSoalan === "objektif" ? (senaraiPilihan.find((p: any[]) => p[0] === semasa.jawapan)?.[1] || semasa.jawapan) : "";
 
   return (
-    <div className={`min-h-screen pb-28 pt-20 transition-colors duration-700 ${selectedTheme}`}> 
+    <div 
+      // 🌟 LAPISAN KESELAMATAN 2: HALANG HIGHLIGHT TEKS (select-none)
+      className={`min-h-screen pb-28 pt-20 transition-colors duration-700 select-none ${selectedTheme}`}
+      onContextMenu={(e) => { 
+        e.preventDefault(); 
+        alert("⚠️ AMARAN: Fungsi 'Right-Click' ditutup untuk memelihara integriti ujian."); 
+      }}
+      onCopy={(e) => { 
+        e.preventDefault(); 
+        alert("⚠️ AMARAN INTEGRITI: Anda tidak dibenarkan menyalin (Copy) apa-apa soalan di dalam ujian ini."); 
+      }}
+    > 
       
       <audio ref={bgmRef} src={selectedTrack} loop />
 
@@ -660,15 +683,19 @@ function KandunganUjian() {
                    value={jawapanStruktur[semasa.id] || ""} 
                    onChange={(e) => handleInputStruktur(e, semasa.id)}
                    disabled={soalanSelesai}
+                   
+                   // 🌟 LAPISAN KESELAMATAN 3: HALANG PASTE, CUT & DRAG TEXT
                    onPaste={(e) => {
                      e.preventDefault();
-                     alert("⚠️ Amaran: Fungsi tampal (Paste) dinyahaktifkan. Sila taip jawapan menggunakan kefahaman anda sendiri.");
+                     alert("⚠️ AMARAN INTEGRITI\n\nFungsi 'Paste' (Tampal) ditutup sepenuhnya untuk soalan struktur!\n\nAnda mesti menaip jawapan anda sendiri. Jangan risau jika ejaan atau tatabahasa anda tidak sempurna, asalkan ia datang dari minda anda.");
                    }}
-                   onDrop={(e) => e.preventDefault()}
-                   onCopy={(e) => e.preventDefault()}
+                   onDrop={(e) => { e.preventDefault(); }}
+                   onDragOver={(e) => { e.preventDefault(); }}
+                   onCut={(e) => { e.preventDefault(); }}
+                   
                    autoComplete="off"
                    spellCheck="false"
-                   placeholder="Taip jawapan struktur/esei di sini..."
+                   placeholder="Taip jawapan struktur/esei di sini menggunakan tulisan anda sendiri..."
                    className={`w-full p-5 text-slate-900 border-2 rounded-2xl focus:ring-4 focus:ring-sky-500/20 resize-none min-h-40 max-h-96 overflow-y-auto text-sm md:text-base transition-all outline-none leading-relaxed shadow-inner ${soalanSelesai ? 'bg-slate-100 border-slate-300 opacity-80' : 'bg-slate-50 border-slate-300 focus:bg-white focus:border-sky-500'}`}
                  />
                  
