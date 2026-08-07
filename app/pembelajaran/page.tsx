@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation"; 
 import { db } from "@/lib/firebase"; 
 import { collection, doc, setDoc, getDoc, updateDoc, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs, where } from "firebase/firestore";
-// 🌟 KEMAS KINI: Tambah icon Printer
 import { Bot, Send, ArrowLeft, BookOpen, Video, Lightbulb, HelpCircle, CheckCircle2, Loader2, PlayCircle, X, Mic, Palette, Printer } from "lucide-react";
 
 function KomponenPembelajaran() {
@@ -128,48 +127,6 @@ function KomponenPembelajaran() {
     tarikSoalanPeperiksaan();
   }, [chapterId, currentSub]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false; 
-        recognition.interimResults = false;
-        recognition.lang = 'ms-MY'; 
-        
-        recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setInput((prev) => prev + (prev.trim() !== '' ? ' ' : '') + transcript);
-          setTimeout(() => {
-            if (inputRef.current) {
-              inputRef.current.style.height = 'auto';
-              inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
-            }
-          }, 50);
-        };
-        
-        recognition.onend = () => setIsListening(false);
-        
-        recognition.onerror = (event: any) => {
-          console.error("Ralat Suara:", event.error);
-          setIsListening(false);
-          
-          if (event.error === 'not-allowed') {
-            alert("Akses mikrofon disekat! Sila benarkan (Allow) akses mikrofon pada pelayar web (Chrome/Safari) telefon anda.");
-          } else if (event.error === 'network') {
-            alert("Ralat internet. Sila semak sambungan data/Wi-Fi anda.");
-          } else if (event.error === 'no-speech') {
-            // Biarkan kosong
-          } else {
-            alert("Mikrofon gagal dihidupkan. Sila pastikan anda membuka sistem ini menggunakan pelayar web (Chrome/Safari) utama. (Nota: Memerlukan sambungan HTTPS yang selamat)");
-          }
-        };
-        
-        recognitionRef.current = recognition;
-      }
-    }
-  }, []);
-
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
   useEffect(() => { if (!isLoading && inputRef.current && !isMastered) setTimeout(() => { inputRef.current?.focus(); }, 100); }, [isLoading, isMastered]);
 
@@ -278,20 +235,61 @@ function KomponenPembelajaran() {
     }
   };
 
+  // 🌟 LOGIK MIKROFON (SPEECH TO TEXT) YANG TELAH DIPERBAIKI
   const toggleListening = (e: React.MouseEvent) => {
     e.preventDefault(); 
-    if (!recognitionRef.current) {
-      alert("Maaf, telefon / pelayar web anda tidak menyokong fungsi pengecaman suara. Sila gunakan Google Chrome versi terkini.");
+    
+    // Semak sokongan pelayar
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Maaf, peranti atau pelayar web (browser) ini tidak menyokong fungsi suara. Sila gunakan Google Chrome terkini.");
       return;
     }
-    
+
     if (isListening) {
-      recognitionRef.current.stop();
+      // Tutup Mikrofon
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch(err) {}
+      }
       setIsListening(false);
     } else {
+      // Hidupkan Mikrofon (Bina instance baru setiap kali supaya tak crash)
       try {
-        recognitionRef.current.start();
-        setIsListening(true);
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ms-MY';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+          setIsListening(true);
+        };
+
+        recognition.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setInput((prev) => prev + (prev.trim() !== '' ? ' ' : '') + transcript);
+          setTimeout(() => {
+            if (inputRef.current) {
+              inputRef.current.style.height = 'auto';
+              inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
+            }
+          }, 50);
+        };
+
+        recognition.onerror = (event: any) => {
+          console.error("Ralat Suara:", event.error);
+          setIsListening(false);
+          if (event.error === 'not-allowed') {
+            alert("Akses mikrofon disekat! Sila klik ikon mangga (lock) di atas browser dan benarkan (Allow) akses mikrofon.");
+          }
+        };
+
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+
+        recognitionRef.current = recognition;
+        recognition.start();
+        
       } catch (err) {
         console.error("Mikrofon crash:", err);
         setIsListening(false);
@@ -399,7 +397,6 @@ function KomponenPembelajaran() {
               <PlayCircle size={14}/> Video
             </button>
             
-            {/* 🌟 KEMAS KINI: BUTANG CETAK NOTA */}
             <div className="w-px h-5 bg-white/20 mx-1 self-center"></div>
             <button
               onClick={() => window.open(getNotaUrl(), '_blank')}
@@ -444,7 +441,7 @@ function KomponenPembelajaran() {
       <div className="w-full lg:flex-1 h-full bg-white/20 backdrop-blur-lg flex flex-col z-10 relative">
         
         {/* HEADER CHAT */}
-        <div className="bg-gradient-to-r from-blue-600/90 to-indigo-700/90 backdrop-blur-md text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative border-b border-white/10">
+        <div className="bg-linear-to-r from-blue-600/90 to-indigo-700/90 backdrop-blur-md text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative border-b border-white/10">
           <div className="flex justify-between items-center gap-2 mb-1.5">
             
             <div className="flex items-center gap-2">
@@ -577,7 +574,7 @@ function KomponenPembelajaran() {
             ) : (
               <form onSubmit={sendMessage} className="p-2 lg:p-3 flex gap-2 items-end relative">
                 
-                {/* 🌟 TEKS AREA DENGAN ANTI-PASTE */}
+                {/* 🌟 KOTAK TEKS ANTI-PASTE (DIPERBAIKI) */}
                 <textarea
                    ref={inputRef}
                    value={input}
@@ -589,14 +586,11 @@ function KomponenPembelajaran() {
                        sendMessage();
                      }
                    }}
-                   
-                   // 🌟 LAPISAN KESELAMATAN KOGNITIF (ANTI-PASTE & DROP)
                    onPaste={(e) => {
                      e.preventDefault();
                      alert("💡 CIKGU AI PESAN:\n\nFungsi 'Paste' (Tampal) ditutup ya. \n\nCikgu nak awak taip jawapan tu sendiri atau guna butang Suara (Mic). Bila kita taip atau sebut sendiri, otak kita akan lebih cepat ingat fakta Sejarah tau. Jom cuba! 💪");
                    }}
                    onDrop={(e) => e.preventDefault()}
-                   
                    placeholder="Taip mesej di sini..."
                    rows={1}
                    className="w-full bg-white/70 backdrop-blur-sm border border-slate-300 text-sm lg:text-base text-slate-800 p-3 lg:p-3.5 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-inner resize-none max-h-32 transition-colors"
