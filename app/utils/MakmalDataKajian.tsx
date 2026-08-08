@@ -372,9 +372,11 @@ export default function MakmalDataKajian() {
       {/* 📝 TAB 3: PENGURUSAN ITEM SOALAN */}
       {/* ========================================== */}
       {activeSubTab === "soalan" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300 items-start">
-           <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 lg:col-span-1 lg:sticky lg:top-6 h-fit z-10 shadow-xl">
-            <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><Settings className="text-fuchsia-400"/> {isEditing ? "Kemaskini Item" : "Daftar Item Baharu"}</h4>
+        <div className="lg:col-span-1 relative h-full">
+           <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 lg:sticky lg:top-6 z-10 shadow-xl">
+           <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                 <Settings className="text-fuchsia-400"/> {isEditing ? "Kemaskini Item" : "Daftar Item Baharu"}
+              </h4>
             <form onSubmit={handleSimpanSoalan} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Kategori Utama</label>
