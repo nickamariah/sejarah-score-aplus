@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Calculator, BarChart3, TrendingUp, FileSpreadsheet, Database, CheckCircle, Activity, Download, Plus, Edit3, Trash2, CheckSquare, Save, X, FileText, Settings } from "lucide-react";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
-// 🌟 DIBETULKAN: Laluan path yang tepat ke Firebase
-import { db } from "../../lib/firebase";
+import { Calculator, BarChart3, TrendingUp, FileSpreadsheet, Database, CheckCircle, Activity, Download, Plus, Edit3, Trash2, CheckSquare, Save, X, FileText, Settings, GripVertical } from "lucide-react";
+// 🌟 TAMBAHAN BAHARU: Import "writeBatch" untuk kemas kini susunan Firebase secara pukal (serentak)
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, writeBatch } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export default function MakmalDataKajian() {
   const [loading, setLoading] = useState(true);
@@ -28,6 +28,10 @@ export default function MakmalDataKajian() {
   const [rawSkorData, setRawSkorData] = useState<any[]>([]);
   const [rawUsersData, setRawUsersData] = useState<any[]>([]);
   const [statsDeskriptif, setStatsDeskriptif] = useState<any>(null);
+
+  // 🌟 TAMBAHAN BAHARU: State untuk Drag & Drop
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
 
   // ==========================================
   // 1. DATA KAJIAN (MOCK DATA - FALLBACK)
@@ -54,7 +58,11 @@ export default function MakmalDataKajian() {
       // A. Tarik Data Item Soalan
       const qSoalan = query(collection(db, "bank_soalan_selidik"), orderBy("susunan", "asc"));
       const snapSoalan = await getDocs(qSoalan);
-      setSoalanList(snapSoalan.docs.map(d => ({ id: d.id, ...d.data() })));
+      const dataSoal = snapSoalan.docs.map(d => ({ id: d.id, ...d.data() }));
+      setSoalanList(dataSoal);
+      
+      // Auto-set nombor susunan baharu pada borang (Supaya sambung dari hujung)
+      if (!isEditing) setFormData(prev => ({ ...prev, susunan: dataSoal.length + 1 }));
 
       // B. Tarik Data Users (Untuk Ujian Kuasi & SPSS)
       const uSnap = await getDocs(collection(db, "users"));
@@ -180,11 +188,48 @@ export default function MakmalDataKajian() {
 
   const handlePadam = async (id: string) => { if (confirm("Pasti memadam soalan ini?")) { await deleteDoc(doc(db, "bank_soalan_selidik", id)); tarikSemuaData(); } };
 
-  // 🌟 DIBETULKAN: Fungsi Reset Form ditambah kembali
   const resetForm = () => {
     setIsEditing(false);
     setEditId(null);
-    setFormData({ kategori: "Motivasi", subKategori: "", soalan: "", susunan: 1, jenisSkala: 5, aktif: true });
+    setFormData({ kategori: "Motivasi", subKategori: "", soalan: "", susunan: soalanList.length + 1, jenisSkala: 5, aktif: true });
+  };
+
+  // 🌟 TAMBAHAN BAHARU: Logik Drag and Drop Auto-Susun 🌟
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.preventDefault(); // Membenarkan Drop
+  };
+
+  const handleDrop = async (index: number) => {
+    if (draggedIndex === null || draggedIndex === index) return;
+    
+    setIsUpdatingOrder(true);
+    const newList = [...soalanList];
+    const draggedItem = newList.splice(draggedIndex, 1)[0];
+    newList.splice(index, 0, draggedItem);
+    
+    // Auto-update nombor 1 hingga habis
+    const updatedList = newList.map((item, i) => ({ ...item, susunan: i + 1 }));
+    setSoalanList(updatedList); // Kemas kini UI serta merta
+    setDraggedIndex(null);
+
+    // Kemas kini ke Firebase secara pukal (Batch)
+    try {
+      const batch = writeBatch(db);
+      updatedList.forEach(item => {
+        const docRef = doc(db, "bank_soalan_selidik", item.id);
+        batch.update(docRef, { susunan: item.susunan });
+      });
+      await batch.commit();
+    } catch (error) {
+      alert("Gagal mengemaskini susunan di pangkalan data.");
+      tarikSemuaData(); // Undur balik jika gagal
+    } finally {
+      setIsUpdatingOrder(false);
+    }
   };
 
   const exportKajianKeCSV = () => {
@@ -261,7 +306,7 @@ export default function MakmalDataKajian() {
       </div>
 
       {/* ========================================== */}
-      {/* 📊 TAB 1: KUASI-EKSPERIMEN (SEDIA ADA) */}
+      {/* 📊 TAB 1: KUASI-EKSPERIMEN */}
       {/* ========================================== */}
       {activeSubTab === "kuasi" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-300">
@@ -303,7 +348,7 @@ export default function MakmalDataKajian() {
       )}
 
       {/* ========================================== */}
-      {/* 📈 TAB 2: ANALISIS SOAL SELIDIK (BAHARU) */}
+      {/* 📈 TAB 2: ANALISIS SOAL SELIDIK */}
       {/* ========================================== */}
       {activeSubTab === "spss" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
@@ -324,7 +369,7 @@ export default function MakmalDataKajian() {
       )}
 
       {/* ========================================== */}
-      {/* 📝 TAB 3: PENGURUSAN ITEM SOALAN (BAHARU) */}
+      {/* 📝 TAB 3: PENGURUSAN ITEM SOALAN */}
       {/* ========================================== */}
       {activeSubTab === "soalan" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300 items-start">
@@ -349,14 +394,33 @@ export default function MakmalDataKajian() {
               </div>
             </form>
           </div>
-          <div className="bg-slate-800/80 rounded-2xl border border-slate-700 overflow-hidden lg:col-span-2 shadow-xl">
+          
+          <div className="bg-slate-800/80 rounded-2xl border border-slate-700 overflow-hidden lg:col-span-2 shadow-xl relative">
+            {/* Overlay masa Drag Drop Loading */}
+            {isUpdatingOrder && (
+               <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-2 text-fuchsia-400"><Loader2 className="animate-spin" size={32}/><span className="font-bold">Menyusun Pangkalan Data...</span></div>
+               </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-max">
-                <thead><tr className="border-b border-slate-700 bg-slate-900/50"><th className="p-4 font-bold text-xs uppercase text-slate-400 w-16 text-center">No</th><th className="p-4 font-bold text-xs uppercase text-slate-400">Kategori & Item</th><th className="p-4 font-bold text-xs uppercase text-slate-400 text-right">Tindakan</th></tr></thead>
+                <thead><tr className="border-b border-slate-700 bg-slate-900/50"><th className="p-4 font-bold text-xs uppercase text-slate-400 w-20 text-center">No</th><th className="p-4 font-bold text-xs uppercase text-slate-400">Kategori & Item</th><th className="p-4 font-bold text-xs uppercase text-slate-400 text-right">Tindakan</th></tr></thead>
                 <tbody>
                   {soalanList.length > 0 ? soalanList.map((item, i) => (
-                    <tr key={i} className={`border-b border-slate-700/50 hover:bg-slate-700/30 ${!item.aktif && 'opacity-50'}`}>
-                      <td className="p-4 text-center font-bold text-slate-500 text-sm">{item.susunan}</td>
+                    <tr 
+                      key={item.id} 
+                      draggable={!isUpdatingOrder}
+                      onDragStart={() => handleDragStart(i)}
+                      onDragOver={handleDragOver}
+                      onDrop={() => handleDrop(i)}
+                      className={`border-b border-slate-700/50 transition-colors ${!item.aktif && 'opacity-50'} ${draggedIndex === i ? 'bg-fuchsia-900/40 border border-fuchsia-500 shadow-inner scale-[0.99]' : 'hover:bg-slate-700/30'}`}
+                    >
+                      <td className="p-4 text-center font-bold text-slate-400 text-sm">
+                        <div className="flex items-center justify-center gap-3 cursor-grab active:cursor-grabbing hover:text-white" title="Tarik untuk susun">
+                          <GripVertical size={16} className="text-slate-600"/>
+                          {item.susunan}
+                        </div>
+                      </td>
                       <td className="p-4">
                         <div className="flex flex-wrap items-center gap-2 mb-1.5"><span className="text-[10px] px-2.5 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>{item.subKategori && <span className="text-[10px] bg-slate-700/50 border border-slate-600 px-2 py-0.5 rounded-md text-slate-300 uppercase">{item.subKategori}</span>}{!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md ml-auto">Disembunyikan</span>}</div>
                         <div className="font-medium text-slate-200 text-sm leading-relaxed">{item.soalan}</div>
@@ -375,7 +439,7 @@ export default function MakmalDataKajian() {
       )}
 
       {/* ========================================== */}
-      {/* 📋 TAB 4: KESAHAN FDM (SEDIA ADA) */}
+      {/* 📋 TAB 4: KESAHAN FDM */}
       {/* ========================================== */}
       {activeSubTab === "fdm" && (
         <div className="bg-[#1e293b] p-6 lg:p-8 rounded-2xl border border-purple-900/50 shadow-xl animate-in fade-in duration-300">
@@ -394,7 +458,7 @@ export default function MakmalDataKajian() {
       )}
 
       {/* ========================================== */}
-      {/* 🌟 TAB 5: KEBOLEHGUNAAN SUS (SEDIA ADA) */}
+      {/* 🌟 TAB 5: KEBOLEHGUNAAN SUS */}
       {/* ========================================== */}
       {activeSubTab === "sus" && (
         <div className="bg-[#1e293b] p-6 lg:p-8 rounded-2xl border border-emerald-900/50 shadow-xl flex flex-col md:flex-row gap-8 items-center animate-in fade-in duration-300">
