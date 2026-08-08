@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Calculator, BarChart3, TrendingUp, FileSpreadsheet, Database, CheckCircle, Activity, Download, Plus, Edit3, Trash2, CheckSquare, Save, X, FileText, Settings } from "lucide-react";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
 // 🌟 DIBETULKAN: Laluan path yang tepat ke Firebase
-import { db } from "@/lib/firebase";
+import { db } from "../../lib/firebase";
 
 export default function MakmalDataKajian() {
   const [loading, setLoading] = useState(true);
