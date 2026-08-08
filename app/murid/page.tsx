@@ -66,7 +66,7 @@ export default function MuridDashboard() {
   const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, number>>({});
   const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false);
-  const [currentSurveyCategoryIndex, setCurrentSurveyCategoryIndex] = useState(0);
+  const [currentSurveyCategoryIndex, setCurrentSurveyCategoryIndex] = useState(-1); // -1 bermaksud Paparan Panduan
 
   // STATE UNTUK TEMA 
   const senaraiTheme = [
@@ -204,7 +204,9 @@ export default function MuridDashboard() {
       // Susun mengikut urutan 'susunan'
       data.sort((a, b) => (a.susunan || 0) - (b.susunan || 0));
       setSurveyQuestions(data);
-      setCurrentSurveyCategoryIndex(0);
+      
+      // Set Index ke -1 untuk tunjukkan "Panduan Ringkas" dahulu
+      setCurrentSurveyCategoryIndex(-1);
     } catch (error) {
       console.error("Gagal menarik soalan kajian:", error);
     } finally {
@@ -258,7 +260,7 @@ export default function MuridDashboard() {
       alert("Terima kasih! Maklum balas soal selidik anda telah berjaya direkodkan.");
       setShowSurvey(false);
       setSurveyAnswers({});
-      setCurrentSurveyCategoryIndex(0);
+      setCurrentSurveyCategoryIndex(-1);
     } catch (e) {
       console.error("Ralat menyimpan soal selidik:", e);
       alert("Ralat sistem. Gagal menghantar borang soal selidik.");
@@ -868,6 +870,31 @@ export default function MuridDashboard() {
                        <h4 className="text-lg font-bold text-slate-700 mb-2">Tiada Soal Selidik Aktif</h4>
                        <p>Penyelidik belum memuat naik atau mengaktifkan set soalan buat masa ini.</p>
                     </div>
+                 ) : currentSurveyCategoryIndex === -1 ? (
+                    // 🌟 PAPARAN PANDUAN RINGKAS SEBELUM MULA MENJAWAB 🌟
+                    <div className="space-y-6">
+                      <div className="bg-purple-50 p-6 rounded-2xl border border-purple-200 shadow-sm">
+                         <h4 className="text-xl font-black text-purple-800 mb-4 uppercase tracking-wider flex items-center gap-2">
+                           <Info className="w-6 h-6" /> Panduan Ringkas
+                         </h4>
+                         <ul className="list-disc ml-5 space-y-3 text-slate-700 text-sm md:text-base leading-relaxed">
+                           <li>Soal selidik ini menggunakan bahasa yang mudah dan terus merujuk kepada <strong>pengalaman sebenar</strong> anda menggunakan sistem ini.</li>
+                           <li>Setiap item hanya menanyakan satu perkara utama. <strong>Tiada jawapan yang betul atau salah.</strong></li>
+                           <li>Sila jawab dengan jujur untuk membantu guru menambah baik laman web pembelajaran ini.</li>
+                         </ul>
+                      </div>
+                      
+                      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                         <h4 className="font-bold text-slate-800 mb-4">Petunjuk Skala Jawapan:</h4>
+                         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"><span className="block text-2xl font-black text-purple-600 mb-1">1</span><span className="text-[10px] font-bold uppercase text-slate-600">Sangat Tidak Setuju</span></div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"><span className="block text-2xl font-black text-purple-600 mb-1">2</span><span className="text-[10px] font-bold uppercase text-slate-600">Tidak Setuju</span></div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"><span className="block text-2xl font-black text-purple-600 mb-1">3</span><span className="text-[10px] font-bold uppercase text-slate-600">Tidak Pasti</span></div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"><span className="block text-2xl font-black text-purple-600 mb-1">4</span><span className="text-[10px] font-bold uppercase text-slate-600">Setuju</span></div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center col-span-2 sm:col-span-1"><span className="block text-2xl font-black text-purple-600 mb-1">5</span><span className="text-[10px] font-bold uppercase text-slate-600">Sangat Setuju</span></div>
+                         </div>
+                      </div>
+                    </div>
                  ) : (
                     <div className="space-y-6">
                       
@@ -875,7 +902,7 @@ export default function MuridDashboard() {
                       <div className="mb-6 border-b border-slate-200 pb-4">
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="text-xl font-extrabold text-purple-800 uppercase tracking-wide">
-                            Bahagian: {currentSurveyCategory}
+                            Bahagian {currentSurveyCategoryIndex + 1}
                           </h4>
                           <span className="text-xs font-bold text-slate-400 bg-slate-200 px-3 py-1 rounded-full">
                              {currentSurveyCategoryIndex + 1} / {surveyCategories.length}
@@ -904,7 +931,7 @@ export default function MuridDashboard() {
                                     let label = "";
                                     if(score === 1) label = "Sangat Tidak Setuju";
                                     else if(score === 2) label = "Tidak Setuju";
-                                    else if(score === 3) label = "Kurang Pasti";
+                                    else if(score === 3) label = "Tidak Pasti"; // 🌟 Ditukar ke Tidak Pasti
                                     else if(score === 4) label = "Setuju";
                                     else label = "Sangat Setuju";
 
@@ -934,38 +961,50 @@ export default function MuridDashboard() {
               {/* Footer Modal (Butang Navigasi / Hantar) */}
               {surveyQuestions.length > 0 && !loadingSurvey && (
                 <div className="bg-white p-5 border-t border-slate-200 flex justify-between items-center shrink-0">
-                  <button 
-                    onClick={() => setCurrentSurveyCategoryIndex(prev => prev - 1)}
-                    disabled={currentSurveyCategoryIndex === 0}
-                    className={`px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all ${currentSurveyCategoryIndex === 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                  >
-                    <ArrowLeft className="w-4 h-4"/> Kembali
-                  </button>
-                  
-                  {currentSurveyCategoryIndex === surveyCategories.length - 1 ? (
+                  {currentSurveyCategoryIndex === -1 ? (
+                    // Butang Mula Menjawab (Di halaman Panduan)
                     <button 
-                      onClick={hantarSoalSelidik} 
-                      disabled={isSubmittingSurvey}
-                      className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md ${isSubmittingSurvey ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+                      onClick={() => setCurrentSurveyCategoryIndex(0)}
+                      className="w-full py-3.5 bg-purple-600 text-white hover:bg-purple-700 font-bold rounded-xl shadow-md transition-all text-center flex items-center justify-center gap-2"
                     >
-                      {isSubmittingSurvey ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5"/>}
-                      {isSubmittingSurvey ? 'Menyimpan...' : 'Hantar Kaji Selidik'}
+                      Faham & Mula Menjawab <ArrowRight className="w-5 h-5"/>
                     </button>
                   ) : (
-                    <button 
-                      onClick={() => {
-                        // Semak jika semua soalan dalam page ini dah dijawab sebelum move next
-                        const unanswered = questionsInCurrentCategory.filter(q => !surveyAnswers[q.id]);
-                        if(unanswered.length > 0) {
-                           alert(`Sila jawab baki ${unanswered.length} soalan dalam bahagian ini sebelum ke halaman seterusnya.`);
-                           return;
-                        }
-                        setCurrentSurveyCategoryIndex(prev => prev + 1);
-                      }}
-                      className="px-6 py-3 bg-purple-600 text-white hover:bg-purple-700 font-bold rounded-xl flex items-center gap-2 shadow-md transition-all"
-                    >
-                      Seterusnya <ArrowRight className="w-4 h-4"/>
-                    </button>
+                    <>
+                      {/* Butang Kembali */}
+                      <button 
+                        onClick={() => setCurrentSurveyCategoryIndex(prev => prev - 1)}
+                        className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      >
+                        <ArrowLeft className="w-4 h-4"/> Kembali
+                      </button>
+                      
+                      {/* Butang Seterusnya / Hantar */}
+                      {currentSurveyCategoryIndex === surveyCategories.length - 1 ? (
+                        <button 
+                          onClick={hantarSoalSelidik} 
+                          disabled={isSubmittingSurvey}
+                          className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md ${isSubmittingSurvey ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+                        >
+                          {isSubmittingSurvey ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5"/>}
+                          {isSubmittingSurvey ? 'Menyimpan...' : 'Hantar Kaji Selidik'}
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            const unanswered = questionsInCurrentCategory.filter(q => !surveyAnswers[q.id]);
+                            if(unanswered.length > 0) {
+                               alert(`Sila jawab baki ${unanswered.length} soalan dalam bahagian ini sebelum ke halaman seterusnya.`);
+                               return;
+                            }
+                            setCurrentSurveyCategoryIndex(prev => prev + 1);
+                          }}
+                          className="px-6 py-3 bg-purple-600 text-white hover:bg-purple-700 font-bold rounded-xl flex items-center gap-2 shadow-md transition-all"
+                        >
+                          Seterusnya <ArrowRight className="w-4 h-4"/>
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               )}
