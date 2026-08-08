@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, AlertTriangle, Clock, FileSearch, Award, MessageSquare, Send, X, Loader2, Palette, Brain, Compass, UsersRound, Rocket, Medal, RefreshCw
+  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, AlertTriangle, Clock, FileSearch, Award, MessageSquare, Send, X, Loader2, Palette, Brain, Compass, UsersRound, Rocket, Medal, RefreshCw, ClipboardList, ArrowRight, ArrowLeft
 } from "lucide-react";
 import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase"; 
@@ -59,6 +59,14 @@ export default function MuridDashboard() {
   const [feedbackJenis, setFeedbackJenis] = useState("Pujian");
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 🌟 STATE UNTUK SOAL SELIDIK KAJIAN (INSTRUMEN) 🌟
+  const [showSurvey, setShowSurvey] = useState(false);
+  const [loadingSurvey, setLoadingSurvey] = useState(false);
+  const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
+  const [surveyAnswers, setSurveyAnswers] = useState<Record<string, number>>({});
+  const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false);
+  const [currentSurveyCategoryIndex, setCurrentSurveyCategoryIndex] = useState(0);
 
   // STATE UNTUK TEMA 
   const senaraiTheme = [
@@ -183,6 +191,81 @@ export default function MuridDashboard() {
   useEffect(() => {
     tarikDataFirebase();
   }, [activeLevel]);
+
+  // 🌟 FUNGSI TARIK SOALAN KAJI SELIDIK DARI FIREBASE 🌟
+  const tarikSoalanSelidik = async () => {
+    setLoadingSurvey(true);
+    try {
+      const q = query(collection(db, "bank_soalan_selidik"), where("aktif", "==", true));
+      const snap = await getDocs(q);
+      const data: any[] = [];
+      snap.forEach(d => data.push({ id: d.id, ...d.data() }));
+      
+      // Susun mengikut urutan 'susunan'
+      data.sort((a, b) => (a.susunan || 0) - (b.susunan || 0));
+      setSurveyQuestions(data);
+      setCurrentSurveyCategoryIndex(0);
+    } catch (error) {
+      console.error("Gagal menarik soalan kajian:", error);
+    } finally {
+      setLoadingSurvey(false);
+    }
+  };
+
+  // 🌟 FUNGSI SIMPAN JAWAPAN SOAL SELIDIK 🌟
+  const hantarSoalSelidik = async () => {
+    if (Object.keys(surveyAnswers).length < surveyQuestions.length) {
+      alert("Sila jawab semua soalan yang disediakan sebelum menghantar.");
+      return;
+    }
+
+    setIsSubmittingSurvey(true);
+    try {
+      // Pengiraan Skor Min Secara Automatik Untuk Analisis Guru/Admin
+      const skorKeseluruhan: Record<string, { total: number, count: number }> = {};
+      const jawapanTerperinci: any[] = [];
+
+      surveyQuestions.forEach(q => {
+        const score = surveyAnswers[q.id];
+        if (!skorKeseluruhan[q.kategori]) skorKeseluruhan[q.kategori] = { total: 0, count: 0 };
+        skorKeseluruhan[q.kategori].total += score;
+        skorKeseluruhan[q.kategori].count += 1;
+
+        jawapanTerperinci.push({
+          soalanId: q.id,
+          kategori: q.kategori,
+          subKategori: q.subKategori || "Umum",
+          soalan: q.soalan,
+          skor: score
+        });
+      });
+
+      const purataKategori: Record<string, number> = {};
+      Object.keys(skorKeseluruhan).forEach(k => {
+        purataKategori[k] = parseFloat((skorKeseluruhan[k].total / skorKeseluruhan[k].count).toFixed(2));
+      });
+
+      await addDoc(collection(db, "soal_selidik_murid"), {
+        idMurid: userData?.idPengguna || userData?.id || "Tiada ID",
+        namaMurid: userData?.nama || userData?.name || "Pelajar",
+        kumpulan: userData?.kumpulan || "Eksperimen",
+        sekolah: userData?.sekolah || "Tiada Maklumat",
+        tarikhJawab: new Date().toISOString(),
+        skorKeseluruhan: purataKategori,
+        jawapanTerperinci: jawapanTerperinci
+      });
+
+      alert("Terima kasih! Maklum balas soal selidik anda telah berjaya direkodkan.");
+      setShowSurvey(false);
+      setSurveyAnswers({});
+      setCurrentSurveyCategoryIndex(0);
+    } catch (e) {
+      console.error("Ralat menyimpan soal selidik:", e);
+      alert("Ralat sistem. Gagal menghantar borang soal selidik.");
+    } finally {
+      setIsSubmittingSurvey(false);
+    }
+  };
 
   const handleLogout = () => { localStorage.removeItem("currentUser"); localStorage.removeItem("completedModules"); window.location.href = "/login"; };
   
@@ -323,6 +406,11 @@ export default function MuridDashboard() {
     return { label: "Bimbingan AI", color: "bg-amber-50 border-amber-200 text-amber-700", bar: "w-1/2 bg-amber-400 animate-pulse", icon: "⏳" };
   };
 
+  // 🌟 LOGIK PAGINATION KATEGORI SOAL SELIDIK
+  const surveyCategories = Array.from(new Set(surveyQuestions.map(q => q.kategori)));
+  const currentSurveyCategory = surveyCategories[currentSurveyCategoryIndex] || "";
+  const questionsInCurrentCategory = surveyQuestions.filter(q => q.kategori === currentSurveyCategory);
+
   if (loading) return ( <div className="flex h-screen items-center justify-center bg-slate-50"><div className="animate-spin w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full"></div></div> );
   const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
 
@@ -385,7 +473,7 @@ export default function MuridDashboard() {
         </motion.div>
 
         {/* ANALISIS PENGUASAAN BAB */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 shadow-md border border-white/40 mb-8">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 shadow-md border border-white/40 mb-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><BarChart3 className="w-6 h-6" /></div>
             <div>
@@ -412,6 +500,31 @@ export default function MuridDashboard() {
           </div>
         </motion.div>
 
+        {/* 🌟 BANNER SOAL SELIDIK KAJIAN (HANYA UNTUK EKSPERIMEN & ARAS RENDAH) 🌟 */}
+        {userData?.kumpulan === 'Eksperimen' && userData?.tahapInkuiri === 'Rendah' && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="mb-8 rounded-3xl bg-gradient-to-r from-purple-600 to-fuchsia-600 p-1 flex flex-col md:flex-row items-center justify-between shadow-xl shadow-purple-900/20">
+            <div className="p-5 md:p-6 flex items-center gap-4 text-white w-full">
+              <div className="bg-white/20 p-3 rounded-2xl shrink-0"><ClipboardList className="w-8 h-8" /></div>
+              <div className="flex-1">
+                <h3 className="font-bold text-lg md:text-xl flex items-center gap-2">Tugasan Kajian: Penilaian Sistem <Sparkles className="w-5 h-5 text-yellow-300"/></h3>
+                <p className="text-purple-100 text-xs md:text-sm mt-1 leading-relaxed">Luangkan masa 3 minit menjawab soal selidik ringkas ini bagi membantu mengukur tahap motivasi dan penglibatan anda.</p>
+              </div>
+              <button 
+                onClick={() => { tarikSoalanSelidik(); setShowSurvey(true); }} 
+                className="hidden md:flex px-6 py-3 bg-white text-purple-700 hover:bg-purple-50 font-bold rounded-xl items-center gap-2 shadow-md transition-transform hover:scale-105 shrink-0"
+              >
+                Mula Jawab <ArrowRight className="w-5 h-5"/>
+              </button>
+            </div>
+            <button 
+              onClick={() => { tarikSoalanSelidik(); setShowSurvey(true); }} 
+              className="md:hidden w-full px-6 py-4 bg-white text-purple-700 font-bold rounded-b-3xl flex items-center justify-center gap-2 shadow-inner"
+            >
+              Mula Jawab Sekarang <ArrowRight className="w-5 h-5"/>
+            </button>
+          </motion.div>
+        )}
+
         {/* TAB TINGKATAN */}
         <div className="mb-6 flex gap-3">
           {(userData?.tingkatan?.toString() === "5" ? ["t4", "t5"] : ["t4"]).map((level) => (
@@ -429,14 +542,14 @@ export default function MuridDashboard() {
            </div>
         )}
 
-        {/* 🌟 SENARAI BAB (SEQUENTIAL UNLOCKING) */}
+        {/* SENARAI BAB (SEQUENTIAL UNLOCKING) */}
         <div className="space-y-4">
           {currentChapters.map((chapter: any, index: number) => {
             const logic = getChapterLogic(chapter.id);
             const statusUI = getChapterStatusUI(chapter.id);
             const isKawalan = userData?.kumpulan === "Kawalan";
             
-            // 🌟 LOGIK KUNCI BERURUTAN
+            // LOGIK KUNCI BERURUTAN
             let isLocked = false;
             if (index > 0 && !isKawalan) {
                 const prevChapterId = currentChapters[index - 1].id;
@@ -473,7 +586,6 @@ export default function MuridDashboard() {
                     </div>
                   </div>
                   
-                  {/* 🌟 PEMBAIKAN: PAPAR LENCANA ATAU MARKAH PRE-TEST JIKA BELUM SIAP */}
                   <div className="flex items-center gap-4 shrink-0">
                     {!isLocked && logic.lencana ? (
                       <span className={`px-3.5 py-1.5 rounded-full text-xs font-bold border shadow-sm flex items-center gap-1.5 ${
@@ -505,7 +617,7 @@ export default function MuridDashboard() {
                   {expandedChapter === chapter.id && !isLocked && (
                     <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="border-t border-slate-200/50 bg-slate-50/50 p-6 overflow-hidden">
                       
-                      {/* 🌟 TAHNIAH BERSAMA LENCANA & SIJIL (GAMIFIKASI) */}
+                      {/* TAHNIAH BERSAMA LENCANA & SIJIL (GAMIFIKASI) */}
                       {(logic.isLulus || logic.post !== undefined) && !isKawalan && (
                         <div className={`mb-6 p-5 rounded-xl shadow-sm border flex flex-col md:flex-row items-center justify-between gap-4 ${
                           logic.lencana === 'emas' ? 'bg-yellow-50/80 border-yellow-200 text-yellow-800' :
@@ -728,7 +840,141 @@ export default function MuridDashboard() {
         </span>
       </button>
 
-      {/* MODAL FEEDBACK */}
+      {/* 🌟 MODAL SOAL SELIDIK KAJIAN 🌟 */}
+      <AnimatePresence>
+        {showSurvey && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm overflow-y-auto">
+            <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }} className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+              
+              {/* Header Modal */}
+              <div className="bg-gradient-to-r from-purple-700 to-fuchsia-700 p-5 md:p-6 text-white flex justify-between items-center shrink-0 shadow-md relative z-10">
+                <div>
+                  <h3 className="font-bold text-lg md:text-xl flex items-center gap-2"><ClipboardList className="w-6 h-6 text-fuchsia-200"/> Soal Selidik Penilaian Sistem</h3>
+                  <p className="text-purple-100 text-xs md:text-sm mt-1">Borang Kaji Selidik Murid (Skala 1 - 5)</p>
+                </div>
+                <button onClick={() => setShowSurvey(false)} className="bg-white/10 p-2 rounded-xl text-purple-100 hover:text-white hover:bg-rose-500 transition-colors"><X className="w-6 h-6" /></button>
+              </div>
+
+              {/* Kandungan Soalan */}
+              <div className="p-4 md:p-8 overflow-y-auto flex-1 bg-slate-50 custom-scrollbar">
+                 {loadingSurvey ? (
+                    <div className="text-center text-slate-500 py-20 flex flex-col items-center">
+                       <Loader2 className="animate-spin w-10 h-10 mb-4 text-purple-500" />
+                       <p className="font-bold">Memuat turun instrumen soal selidik...</p>
+                    </div>
+                 ) : surveyQuestions.length === 0 ? (
+                    <div className="text-center text-slate-500 py-20">
+                       <ClipboardList className="w-16 h-16 mx-auto mb-4 text-slate-300"/>
+                       <h4 className="text-lg font-bold text-slate-700 mb-2">Tiada Soal Selidik Aktif</h4>
+                       <p>Penyelidik belum memuat naik atau mengaktifkan set soalan buat masa ini.</p>
+                    </div>
+                 ) : (
+                    <div className="space-y-6">
+                      
+                      {/* Sub-Header Kategori (Pagination) */}
+                      <div className="mb-6 border-b border-slate-200 pb-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-xl font-extrabold text-purple-800 uppercase tracking-wide">
+                            Bahagian: {currentSurveyCategory}
+                          </h4>
+                          <span className="text-xs font-bold text-slate-400 bg-slate-200 px-3 py-1 rounded-full">
+                             {currentSurveyCategoryIndex + 1} / {surveyCategories.length}
+                          </span>
+                        </div>
+                        {/* Progress Bar Halaman */}
+                        <div className="h-2 bg-slate-200 rounded-full w-full overflow-hidden">
+                          <div className="h-full bg-purple-500 transition-all duration-300" style={{ width: `${((currentSurveyCategoryIndex + 1) / surveyCategories.length) * 100}%` }}></div>
+                        </div>
+                      </div>
+
+                      {/* Senarai Soalan Untuk Kategori Semasa */}
+                      {questionsInCurrentCategory.map((q, idx) => {
+                        // Kenal pasti indeks keseluruhan untuk paparan nombor
+                        const globalIndex = surveyQuestions.findIndex(sq => sq.id === q.id) + 1;
+
+                        return (
+                           <div key={q.id} className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-purple-300 transition-colors">
+                              <p className="font-semibold text-slate-800 mb-5 leading-relaxed text-sm md:text-base">
+                                <span className="text-purple-600 font-black mr-2 text-lg">{globalIndex}.</span> {q.soalan}
+                              </p>
+                              
+                              <div className="grid grid-cols-5 gap-2 md:gap-4">
+                                 {[1,2,3,4,5].map(score => {
+                                    const isSelected = surveyAnswers[q.id] === score;
+                                    let label = "";
+                                    if(score === 1) label = "Sangat Tidak Setuju";
+                                    else if(score === 2) label = "Tidak Setuju";
+                                    else if(score === 3) label = "Kurang Pasti";
+                                    else if(score === 4) label = "Setuju";
+                                    else label = "Sangat Setuju";
+
+                                    return (
+                                      <button 
+                                        key={score} 
+                                        onClick={() => setSurveyAnswers({...surveyAnswers, [q.id]: score})}
+                                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${
+                                          isSelected 
+                                          ? 'bg-purple-100 border-purple-500 text-purple-800 shadow-md transform scale-105' 
+                                          : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:border-slate-300'
+                                        }`}
+                                      >
+                                         <span className={`text-xl md:text-2xl font-black mb-1.5 ${isSelected ? 'text-purple-700' : 'text-slate-400'}`}>{score}</span>
+                                         <span className="text-[9px] md:text-[10px] text-center font-bold leading-tight h-6 flex items-center justify-center uppercase">{label}</span>
+                                      </button>
+                                    )
+                                 })}
+                              </div>
+                           </div>
+                        )
+                      })}
+                    </div>
+                 )}
+              </div>
+
+              {/* Footer Modal (Butang Navigasi / Hantar) */}
+              {surveyQuestions.length > 0 && !loadingSurvey && (
+                <div className="bg-white p-5 border-t border-slate-200 flex justify-between items-center shrink-0">
+                  <button 
+                    onClick={() => setCurrentSurveyCategoryIndex(prev => prev - 1)}
+                    disabled={currentSurveyCategoryIndex === 0}
+                    className={`px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all ${currentSurveyCategoryIndex === 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  >
+                    <ArrowLeft className="w-4 h-4"/> Kembali
+                  </button>
+                  
+                  {currentSurveyCategoryIndex === surveyCategories.length - 1 ? (
+                    <button 
+                      onClick={hantarSoalSelidik} 
+                      disabled={isSubmittingSurvey}
+                      className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md ${isSubmittingSurvey ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+                    >
+                      {isSubmittingSurvey ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5"/>}
+                      {isSubmittingSurvey ? 'Menyimpan...' : 'Hantar Kaji Selidik'}
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => {
+                        // Semak jika semua soalan dalam page ini dah dijawab sebelum move next
+                        const unanswered = questionsInCurrentCategory.filter(q => !surveyAnswers[q.id]);
+                        if(unanswered.length > 0) {
+                           alert(`Sila jawab baki ${unanswered.length} soalan dalam bahagian ini sebelum ke halaman seterusnya.`);
+                           return;
+                        }
+                        setCurrentSurveyCategoryIndex(prev => prev + 1);
+                      }}
+                      className="px-6 py-3 bg-purple-600 text-white hover:bg-purple-700 font-bold rounded-xl flex items-center gap-2 shadow-md transition-all"
+                    >
+                      Seterusnya <ArrowRight className="w-4 h-4"/>
+                    </button>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL FEEDBACK (Sedia Ada) */}
       <AnimatePresence>
         {showFeedback && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">

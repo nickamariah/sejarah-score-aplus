@@ -18,6 +18,7 @@ type TabKey = "murid" | "pemantauan" | "kandungan" | "upload" | "soalan" | "anal
 export default function GuruDashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>("murid");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); // 🌟 TOGGLE SIDEBAR BARU
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // PENGESAHAN IDENTITI (SEKOLAH & ROLE)
@@ -35,7 +36,7 @@ export default function GuruDashboard() {
   const [uKelas, setUKelas] = useState("");
   const [uTahapInkuiri, setUTahapInkuiri] = useState("Rendah");
   const [uKumpulan, setUKumpulan] = useState("Eksperimen");
-  const [uBukaPostTest, setUBukaPostTest] = useState(false); // 🌟 STATE BARU UNTUK KUMPULAN KAWALAN
+  const [uBukaPostTest, setUBukaPostTest] = useState(false); 
   const [uSekolah, setUSekolah] = useState("SMA Kota Gelanggi 3"); 
   const [uIsSubmitting, setUIsSubmitting] = useState(false);
 
@@ -198,7 +199,6 @@ export default function GuruDashboard() {
     }
   };
 
-  // PROGRESS MURID DETAIL DIKEMASKINI APABILA MODAL DIBUKA
   useEffect(() => {
     if (selectedStudentDetail) {
       setExpandedBabDetail(null); 
@@ -206,7 +206,6 @@ export default function GuruDashboard() {
     }
   }, [selectedStudentDetail]);
 
-  // 🌟 FUNGSI BARU: DELETE REKOD MENGIKUT BAB 
   const handleResetBabMurid = async (murid: any, ting: string, num: number) => {
     const babName = `Bab ${num}`;
     const sah = window.confirm(`AMARAN: Adakah anda pasti mahu RESET semua data ${babName} (Tingkatan ${ting}) untuk pelajar ${murid.nama}?\n\nSemua markah Ujian Diagnostik, Bimbingan AI Tutor, dan Ujian Pasca untuk topik ini akan dipadam kekal.`);
@@ -367,7 +366,6 @@ export default function GuruDashboard() {
           updateData.kelas = uKelas; 
           updateData.tahapInkuiri = uTahapInkuiri; 
           updateData.kumpulan = uKumpulan; 
-          // 🌟 JIKA MURID KAWALAN, SIMPAN DATA BUKA POST TEST
           if (uKumpulan === "Kawalan") updateData.bukaPostTest = uBukaPostTest;
         }
         await updateDoc(doc(db, "users", editUserId), updateData);
@@ -418,7 +416,6 @@ export default function GuruDashboard() {
           newUserData.tahapInkuiri = uTahapInkuiri; 
           newUserData.kumpulan = uKumpulan; 
           newUserData.markahTerkini = 0; 
-          // 🌟 JIKA MURID KAWALAN BARU, SIMPAN DATA BUKA POST TEST
           if (uKumpulan === "Kawalan") newUserData.bukaPostTest = uBukaPostTest;
         }
         await setDoc(doc(db, "users", newId), newUserData); showToastMessage("Akaun baru didaftar!", "success");
@@ -432,18 +429,15 @@ export default function GuruDashboard() {
   const setEditPengguna = (u: any) => { 
     setIsEditingUser(true); setEditUserId(u.id); setURole(u.role || "murid"); setUNama(u.nama || ""); setUKataLaluan(u.kataLaluan || ""); setUTingkatan(String(u.tingkatan || "4")); setUKelas(u.kelas || ""); setUTahapInkuiri(u.tahapInkuiri || "Rendah"); setUKumpulan(u.kumpulan || "Eksperimen"); 
     setUSekolah(u.sekolah || senaraiSekolahKajian[0]); 
-    // 🌟 PAPARKAN DATA LAMA
     setUBukaPostTest(u.bukaPostTest || false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   
   const resetFormPengguna = () => { 
     setIsEditingUser(false); setEditUserId(null); setURole("murid"); setUNama(""); setUKataLaluan(""); setUTingkatan("4"); setUKelas(""); setUTahapInkuiri("Rendah"); setUKumpulan("Eksperimen"); setUSekolah(senaraiSekolahKajian[0]); 
-    // 🌟 RESET SUIS
     setUBukaPostTest(false);
   };
 
-  // 🌟 FUNGSI KEMAS KINI: ANTI-DUPLICATE SOALAN
   const handleSimpanSoalan = async () => {
     if (!qSoalan || !qTopik) return showToastMessage("Isi Soalan & Subtopik!", "error");
 
@@ -600,34 +594,40 @@ export default function GuruDashboard() {
       {/* MOBILE OVERLAY */}
       {isMobileMenuOpen && ( <div className="fixed inset-0 bg-black/60 z-40 md:hidden print:hidden" onClick={() => setIsMobileMenuOpen(false)} /> )}
 
-      {/* SIDEBAR (Glassmorphism) */}
-      <div className={`fixed inset-y-0 left-0 w-72 bg-slate-900/80 backdrop-blur-xl border-r border-slate-700 p-6 flex flex-col justify-between z-50 transform transition-transform duration-300 md:relative md:translate-x-0 shrink-0 shadow-2xl print:hidden ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="overflow-y-auto pr-2 no-scrollbar">
-          <div className="mb-8 flex justify-between items-center">
-            <div>
-               <h1 className="text-2xl font-bold text-white mb-1 tracking-tight">I-RAGs<span className="text-cyan-400">.Admin</span></h1>
-               <p className="text-[11px] font-medium text-slate-400 uppercase tracking-widest">{myRole === "admin" ? "Makmal Utama (Semua Sekolah)" : `Makmal: ${mySekolah}`}</p>
+      {/* SIDEBAR (Glassmorphism + Toggle Feature) */}
+      <div className={`fixed inset-y-0 left-0 bg-slate-900/80 backdrop-blur-xl border-r border-slate-700 flex flex-col justify-between z-50 transform transition-all duration-300 shadow-2xl print:hidden shrink-0 
+          ${isMobileMenuOpen ? "translate-x-0 w-72" : "-translate-x-full w-72"} 
+          md:relative md:h-screen ${isDesktopSidebarOpen ? "md:translate-x-0 md:w-72" : "md:w-0 md:-translate-x-full md:opacity-0 md:border-none"} overflow-hidden`}>
+        
+        {/* Inner container to prevent text squishing when width transitions */}
+        <div className="p-6 w-72 h-full flex flex-col justify-between overflow-y-auto no-scrollbar">
+          <div>
+            <div className="mb-8 flex justify-between items-center">
+              <div>
+                 <h1 className="text-2xl font-bold text-white mb-1 tracking-tight">I-RAGs<span className="text-cyan-400">.Admin</span></h1>
+                 <p className="text-[11px] font-medium text-slate-400 uppercase tracking-widest">{myRole === "admin" ? "Makmal Utama (Semua)" : `Makmal: ${mySekolah}`}</p>
+              </div>
+              <button className="md:hidden text-slate-400 hover:text-white bg-white/10 p-1.5 rounded-lg" onClick={() => setIsMobileMenuOpen(false)}><X size={20}/></button>
             </div>
-            <button className="md:hidden text-slate-400 hover:text-white bg-white/10 p-1.5 rounded-lg" onClick={() => setIsMobileMenuOpen(false)}><X size={20}/></button>
+            <nav className="space-y-1.5">
+              {myRole === "admin" && (
+                <button onClick={() => {setActiveTab("murid"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "murid" ? "bg-blue-600/90 text-white shadow-lg shadow-blue-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><Users size={18} /> Pendaftaran Berpusat</button>
+              )}
+              <button onClick={() => {setActiveTab("pemantauan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "pemantauan" ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><Activity size={18} /> Pemantauan Murid</button>
+              <button onClick={() => {setActiveTab("semakan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "semakan" ? "bg-rose-600/90 text-white shadow-lg shadow-rose-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><CheckSquare size={18} /> Semakan Esei Ujian</button>
+              {myRole === "admin" && (
+                <>
+                  <button onClick={() => {setActiveTab("soalan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "soalan" ? "bg-cyan-600/90 text-white shadow-lg shadow-cyan-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><HelpCircle size={18} /> Bank Soalan Pusat</button>
+                  <button onClick={() => {setActiveTab("kandungan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "kandungan" ? "bg-indigo-600/90 text-white shadow-lg shadow-indigo-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><BookOpen size={18} /> Senarai Nota & Modul</button>
+                  <button onClick={() => {setActiveTab("upload"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "upload" ? "bg-amber-600/90 text-white shadow-lg shadow-amber-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><FileText size={18} /> Tambah Nota Baru</button>
+                  <button onClick={() => {setActiveTab("maklumbalas"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "maklumbalas" ? "bg-fuchsia-600/90 text-white shadow-lg shadow-fuchsia-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><MessageSquare size={18} /> Rekod Maklum Balas</button>
+                  <button onClick={() => {setActiveTab("analitik"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "analitik" ? "bg-purple-600/90 text-white shadow-lg shadow-purple-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><ChartBar size={18} /> Analitik / SPSS (Data)</button>
+                </>
+              )}
+            </nav>
           </div>
-          <nav className="space-y-1.5">
-            {myRole === "admin" && (
-              <button onClick={() => {setActiveTab("murid"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "murid" ? "bg-blue-600/90 text-white shadow-lg shadow-blue-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><Users size={18} /> Pendaftaran Berpusat</button>
-            )}
-            <button onClick={() => {setActiveTab("pemantauan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "pemantauan" ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><Activity size={18} /> Pemantauan Murid</button>
-            <button onClick={() => {setActiveTab("semakan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "semakan" ? "bg-rose-600/90 text-white shadow-lg shadow-rose-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><CheckSquare size={18} /> Semakan Esei Ujian</button>
-            {myRole === "admin" && (
-              <>
-                <button onClick={() => {setActiveTab("soalan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "soalan" ? "bg-cyan-600/90 text-white shadow-lg shadow-cyan-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><HelpCircle size={18} /> Bank Soalan Pusat</button>
-                <button onClick={() => {setActiveTab("kandungan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "kandungan" ? "bg-indigo-600/90 text-white shadow-lg shadow-indigo-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><BookOpen size={18} /> Senarai Nota & Modul</button>
-                <button onClick={() => {setActiveTab("upload"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "upload" ? "bg-amber-600/90 text-white shadow-lg shadow-amber-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><FileText size={18} /> Tambah Nota Baru</button>
-                <button onClick={() => {setActiveTab("maklumbalas"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "maklumbalas" ? "bg-fuchsia-600/90 text-white shadow-lg shadow-fuchsia-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><MessageSquare size={18} /> Rekod Maklum Balas</button>
-                <button onClick={() => {setActiveTab("analitik"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "analitik" ? "bg-purple-600/90 text-white shadow-lg shadow-purple-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><ChartBar size={18} /> Analitik / SPSS (Data)</button>
-              </>
-            )}
-          </nav>
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors mt-4 text-sm font-bold shadow-sm"><LogOut size={18} /> Log Keluar</button>
         </div>
-        <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors mt-4 text-sm font-bold shadow-sm"><LogOut size={18} /> Log Keluar</button>
       </div>
 
       {/* KANDUNGAN UTAMA */}
@@ -639,11 +639,20 @@ export default function GuruDashboard() {
           <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-slate-700 text-slate-200 rounded-lg hover:bg-slate-600"><Menu size={22}/></button>
         </div>
 
-        {/* HEADER TOP (Tema & Muzik) */}
+        {/* HEADER TOP (Desktop: Menu Toggle, Tema & Muzik) */}
         <header className="hidden md:flex mb-8 pb-6 border-b border-slate-700/50 justify-between items-end print:hidden">
-          <div>
-            <p className="text-cyan-400 text-xs font-bold tracking-widest uppercase mb-1 flex items-center gap-2"><Sparkles size={14}/> Sistem Pengurusan Maklumat</p>
-            <h2 className="text-3xl font-extrabold text-white tracking-tight">Dashboard Guru & Penyelidik</h2>
+          <div className="flex items-center gap-5">
+            <button 
+              onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)} 
+              className="p-2.5 bg-slate-800/80 text-slate-300 hover:text-white rounded-xl border border-slate-700 shadow-sm backdrop-blur-md transition-colors" 
+              title={isDesktopSidebarOpen ? "Tutup Menu Tepi" : "Buka Menu Tepi"}
+            >
+              <Menu size={22} />
+            </button>
+            <div>
+              <p className="text-cyan-400 text-xs font-bold tracking-widest uppercase mb-1 flex items-center gap-2"><Sparkles size={14}/> Sistem Pengurusan Maklumat</p>
+              <h2 className="text-3xl font-extrabold text-white tracking-tight">Dashboard Guru & Penyelidik</h2>
+            </div>
           </div>
           <div className="flex items-center gap-3">
              <div className="flex items-center bg-slate-800/80 p-1.5 rounded-xl border border-slate-700 shadow-sm backdrop-blur-md">
