@@ -235,11 +235,12 @@ function KomponenPembelajaran() {
     }
   };
 
-  // 🌟 LOGIK MIKROFON (SPEECH TO TEXT) YANG TELAH DIPERBAIKI
+  // =========================================================================
+  // 🌟 LOGIK MIKROFON (SPEECH TO TEXT) YANG TELAH DIMANTAPKAN (FRESH INSTANCE)
+  // =========================================================================
   const toggleListening = (e: React.MouseEvent) => {
     e.preventDefault(); 
     
-    // Semak sokongan pelayar
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert("Maaf, peranti atau pelayar web (browser) ini tidak menyokong fungsi suara. Sila gunakan Google Chrome terkini.");
@@ -247,16 +248,16 @@ function KomponenPembelajaran() {
     }
 
     if (isListening) {
-      // Tutup Mikrofon
+      // Jika tengah bercakap, hentikan secara paksa
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch(err) {}
       }
       setIsListening(false);
     } else {
-      // Hidupkan Mikrofon (Bina instance baru setiap kali supaya tak crash)
+      // Buka salur mikrofon baru setiap kali butang ditekan
       try {
         const recognition = new SpeechRecognition();
-        recognition.lang = 'ms-MY';
+        recognition.lang = 'ms-MY'; // Set Bahasa Melayu
         recognition.continuous = false;
         recognition.interimResults = false;
 
@@ -266,6 +267,7 @@ function KomponenPembelajaran() {
 
         recognition.onresult = (event: any) => {
           const transcript = event.results[0][0].transcript;
+          // Guna function (prev) supaya tak tarik data basi dari cache React
           setInput((prev) => prev + (prev.trim() !== '' ? ' ' : '') + transcript);
           setTimeout(() => {
             if (inputRef.current) {
@@ -279,7 +281,7 @@ function KomponenPembelajaran() {
           console.error("Ralat Suara:", event.error);
           setIsListening(false);
           if (event.error === 'not-allowed') {
-            alert("Akses mikrofon disekat! Sila klik ikon mangga (lock) di atas browser dan benarkan (Allow) akses mikrofon.");
+            alert("Akses mikrofon disekat! Sila pastikan anda menekan butang 'Allow' (Benarkan) di penjuru atas pelayar web anda.");
           }
         };
 
@@ -291,9 +293,8 @@ function KomponenPembelajaran() {
         recognition.start();
         
       } catch (err) {
-        console.error("Mikrofon crash:", err);
+        console.error("Mikrofon gagal dihidupkan:", err);
         setIsListening(false);
-        alert("Sistem suara sedang dimuat semula. Sila tekan butang sekali lagi.");
       }
     }
   };
@@ -441,7 +442,7 @@ function KomponenPembelajaran() {
       <div className="w-full lg:flex-1 h-full bg-white/20 backdrop-blur-lg flex flex-col z-10 relative">
         
         {/* HEADER CHAT */}
-        <div className="bg-linear-to-r from-blue-600/90 to-indigo-700/90 backdrop-blur-md text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative border-b border-white/10">
+        <div className="bg-gradient-to-r from-blue-600/90 to-indigo-700/90 backdrop-blur-md text-white p-2 lg:px-4 lg:py-2.5 shadow-md shrink-0 z-10 relative border-b border-white/10">
           <div className="flex justify-between items-center gap-2 mb-1.5">
             
             <div className="flex items-center gap-2">
@@ -574,7 +575,6 @@ function KomponenPembelajaran() {
             ) : (
               <form onSubmit={sendMessage} className="p-2 lg:p-3 flex gap-2 items-end relative">
                 
-                {/* 🌟 KOTAK TEKS ANTI-PASTE (DIPERBAIKI) */}
                 <textarea
                    ref={inputRef}
                    value={input}
