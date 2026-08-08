@@ -371,31 +371,58 @@ export default function MakmalDataKajian() {
       {/* ========================================== */}
       {/* 📝 TAB 3: PENGURUSAN ITEM SOALAN */}
       {/* ========================================== */}
-      {activeSubTab === "soalan" && (
-        <div className="lg:col-span-1 relative h-full">
-           <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 lg:sticky lg:top-6 z-10 shadow-xl">
-           <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                 <Settings className="text-fuchsia-400"/> {isEditing ? "Kemaskini Item" : "Daftar Item Baharu"}
-              </h4>
-            <form onSubmit={handleSimpanSoalan} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Kategori Utama</label>
-                <select value={formData.kategori} onChange={e => setFormData({...formData, kategori: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-fuchsia-500">
-                  <option value="Motivasi">Motivasi</option><option value="Penglibatan">Penglibatan</option><option value="Kebolehgunaan">Kebolehgunaan</option>
-                </select>
-              </div>
-              <div><label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Sub Kategori</label><input type="text" value={formData.subKategori} onChange={e => setFormData({...formData, subKategori: e.target.value})} placeholder="Cth: Relevansi" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none"/></div>
-              <div><label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Pernyataan</label><textarea rows={3} value={formData.soalan} onChange={e => setFormData({...formData, soalan: e.target.value})} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none resize-y"></textarea></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Susunan</label><input type="number" value={formData.susunan} onChange={e => setFormData({...formData, susunan: parseInt(e.target.value)})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none"/></div>
-                <div><label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Status</label><select value={formData.aktif ? "true" : "false"} onChange={e => setFormData({...formData, aktif: e.target.value === "true"})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-emerald-400 font-bold outline-none"><option value="true">Aktif</option><option value="false" className="text-rose-400">Sembunyi</option></select></div>
-              </div>
-              <div className="flex gap-2 pt-2">
-                {isEditing && <button type="button" onClick={resetForm} className="flex-1 bg-slate-700 text-white font-bold py-3 rounded-xl hover:bg-slate-600 text-sm">Batal</button>}
-                <button type="submit" className="flex-1 bg-fuchsia-600 text-white font-bold py-3 rounded-xl hover:bg-fuchsia-500 text-sm">{isEditing ? "Simpan" : "Tambah"}</button>
-              </div>
-            </form>
+   {activeSubTab === "soalan" && (
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300 relative">
+    
+    {/* ============================================================== */}
+    {/* KOTAK KIRI (BORANG) YANG TELAH DIBUNGKUS UNTUK EFEK STICKY */}
+    {/* ============================================================== */}
+    <div className="lg:col-span-1 relative h-full">
+      <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 lg:sticky lg:top-6 z-10 shadow-xl">
+        <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+          <Settings className="text-fuchsia-400"/> {isEditing ? "Kemaskini Item" : "Daftar Item Baharu"}
+        </h4>
+        <form onSubmit={handleSimpanSoalan} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Kategori Utama</label>
+            <select value={formData.kategori} onChange={e => setFormData({...formData, kategori: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-fuchsia-500">
+              <option value="Motivasi">Motivasi</option>
+              <option value="Penglibatan">Penglibatan</option>
+              <option value="Kebolehgunaan">Kebolehgunaan</option>
+            </select>
           </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Sub Kategori</label>
+            <input type="text" value={formData.subKategori} onChange={e => setFormData({...formData, subKategori: e.target.value})} placeholder="Cth: Relevansi" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none"/>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Pernyataan</label>
+            <textarea rows={3} value={formData.soalan} onChange={e => setFormData({...formData, soalan: e.target.value})} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none resize-y"></textarea>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Susunan</label>
+              <input type="number" value={formData.susunan} onChange={e => setFormData({...formData, susunan: parseInt(e.target.value)})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none"/>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Status</label>
+              <select value={formData.aktif ? "true" : "false"} onChange={e => setFormData({...formData, aktif: e.target.value === "true"})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-emerald-400 font-bold outline-none">
+                <option value="true">Aktif</option>
+                <option value="false" className="text-rose-400">Sembunyi</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2 pt-2">
+            {isEditing && <button type="button" onClick={resetForm} className="flex-1 bg-slate-700 text-white font-bold py-3 rounded-xl hover:bg-slate-600 text-sm">Batal</button>}
+            <button type="submit" className="flex-1 bg-fuchsia-600 text-white font-bold py-3 rounded-xl hover:bg-fuchsia-500 text-sm">{isEditing ? "Simpan" : "Tambah"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {/* ============================================================== */}
+
+    {/* (PASTIKAN KOD KOTAK JADUAL KANAN CIKGU BERMULA DI SINI SEPERTI BIASA) */}
+    {/* <div className="lg:col-span-2"> ... ... ... */}
           
           <div className="bg-slate-800/80 rounded-2xl border border-slate-700 overflow-hidden lg:col-span-2 shadow-xl relative">
             {/* Overlay masa Drag Drop Loading */}
