@@ -3,20 +3,21 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Calculator, BarChart3, TrendingUp, FileSpreadsheet, Database, CheckCircle, Activity, Download, Plus, Edit3, Trash2, CheckSquare, Save, X, FileText, Settings } from "lucide-react";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+// 🌟 DIBETULKAN: Laluan path yang tepat ke Firebase
+import { db } from "../../lib/firebase";
 
 export default function MakmalDataKajian() {
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<"kuasi" | "spss" | "soalan" | "fdm" | "sus">("kuasi");
   
   // ==========================================
-  // STATE: KUASI-EKSPERIMEN (SEDIA ADA)
+  // STATE: KUASI-EKSPERIMEN
   // ==========================================
   const [dataMentah, setDataMentah] = useState<any[]>([]);
   const [gunaDataSimulasi, setGunaDataSimulasi] = useState(false);
 
   // ==========================================
-  // STATE: PENGURUSAN ITEM SOALAN & SPSS (BAHARU)
+  // STATE: PENGURUSAN ITEM SOALAN & SPSS
   // ==========================================
   const [soalanList, setSoalanList] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -167,7 +168,7 @@ export default function MakmalDataKajian() {
     try {
       if (isEditing && editId) { await updateDoc(doc(db, "bank_soalan_selidik", editId), formData); alert("Soalan dikemas kini!"); } 
       else { await addDoc(collection(db, "bank_soalan_selidik"), formData); alert("Soalan ditambah!"); }
-      setIsEditing(false); setEditId(null); setFormData({ kategori: "Motivasi", subKategori: "", soalan: "", susunan: 1, jenisSkala: 5, aktif: true });
+      resetForm();
       tarikSemuaData();
     } catch (error) { alert("Ralat menyimpan soalan."); }
   };
@@ -178,6 +179,13 @@ export default function MakmalDataKajian() {
   };
 
   const handlePadam = async (id: string) => { if (confirm("Pasti memadam soalan ini?")) { await deleteDoc(doc(db, "bank_soalan_selidik", id)); tarikSemuaData(); } };
+
+  // 🌟 DIBETULKAN: Fungsi Reset Form ditambah kembali
+  const resetForm = () => {
+    setIsEditing(false);
+    setEditId(null);
+    setFormData({ kategori: "Motivasi", subKategori: "", soalan: "", susunan: 1, jenisSkala: 5, aktif: true });
+  };
 
   const exportKajianKeCSV = () => {
     if (rawUsersData.length === 0) return alert("Sila tunggu data selesai ditarik.");
@@ -222,7 +230,7 @@ export default function MakmalDataKajian() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full max-w-[100%] overflow-x-hidden">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full max-w-full overflow-x-hidden">
       
       {/* HEADER MAKMAL KAJIAN */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-gradient-to-r from-indigo-900/50 to-[#1e293b] p-6 lg:p-8 rounded-2xl border border-indigo-800/50 shadow-lg relative overflow-hidden gap-4">
@@ -401,7 +409,7 @@ export default function MakmalDataKajian() {
                <div className="w-full bg-slate-800 rounded-full h-3"><div className="bg-emerald-500 h-3 rounded-full relative" style={{ width: '92%' }}></div></div>
              </div>
           </div>
-          <div className="w-48 h-48 rounded-full border-[10px] border-slate-800 flex flex-col items-center justify-center shadow-2xl bg-slate-900 shrink-0">
+          <div className="w-48 h-48 rounded-full border-8 border-slate-800 flex flex-col items-center justify-center shadow-2xl bg-slate-900 shrink-0">
             <span className="text-xs text-slate-400 font-bold uppercase mb-1">Tahap</span><span className="text-3xl font-black text-emerald-400">Tinggi</span>
           </div>
         </div>
