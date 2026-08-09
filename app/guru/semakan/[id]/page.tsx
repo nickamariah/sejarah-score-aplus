@@ -19,6 +19,8 @@ export default function PemarkahanGuru() {
   
   // State untuk butang Refresh AI individu
   const [loadingAI, setLoadingAI] = useState<string | null>(null);
+  // 🌟 TAMBAHAN: Untuk sembunyikan butang lepas ditekan
+  const [soalanDisemakSemula, setSoalanDisemakSemula] = useState<string[]>([]);
 
   useEffect(() => {
     tarikData();
@@ -85,7 +87,6 @@ export default function PemarkahanGuru() {
     setMarkahGuru(prev => ({ ...prev, [soalanId]: num }));
   };
 
-  // 🌟 FUNGSI BAHARU YANG TELAH DISELARASKAN DENGAN API
   const semakSemulaGunaAI = async (soalan: any, teksJawapanMurid: string) => {
     setLoadingAI(soalan.id); 
     
@@ -103,7 +104,6 @@ export default function PemarkahanGuru() {
 
       const data = await res.json();
       
-      // Menggunakan key markahDicadangkan & komen mengikut API cikgu
       if (res.ok && data.markahDicadangkan !== undefined) {
         const ulasanTerkini = {
           ...dataMurid.ulasanAI,
@@ -117,8 +117,16 @@ export default function PemarkahanGuru() {
           ulasanAI: ulasanTerkini
         });
 
-        alert(`Berjaya disemak AI! Markah baharu: ${data.markahDicadangkan} M`);
-        tarikData(); // Refresh paparan dengan rekod baharu
+        // 🌟 Sembunyikan butang selepas siap supaya cikgu tak keliru
+        setSoalanDisemakSemula(prev => [...prev, soalan.id]);
+
+        if (data.markahDicadangkan === 0) {
+            alert(`Selesai disemak. Jawapan murid ini memang SALAH berdasarkan skema. AI beri 0 Markah.`);
+        } else {
+            alert(`Selesai disemak! Markah dinaikkan kepada: ${data.markahDicadangkan} M`);
+        }
+        
+        tarikData(); 
       } else {
         alert("Ralat dari API AI: " + (data.komen || "Sila cuba lagi."));
       }
@@ -231,6 +239,7 @@ export default function PemarkahanGuru() {
             const jawapanMurid = dataMurid.jawapanStruktur?.[soalan.id] || "";
             const ulasanAI = dataMurid.ulasanAI?.[soalan.id];
             const isAIGagal = ulasanAI?.komenAI?.includes("GAGAL");
+            const sudahDisemakSemula = soalanDisemakSemula.includes(soalan.id); // Check status
 
             return (
               <div key={soalan.id} className="bg-[#1e293b] rounded-3xl border border-slate-700 overflow-hidden shadow-2xl flex flex-col h-full">
@@ -269,8 +278,8 @@ export default function PemarkahanGuru() {
                         </p>
                       </div>
                       
-                      {/* 🌟 BUTANG SEMAK SEMULA AI (JIKA GAGAL/RALAT) */}
-                      {isAIGagal && jawapanMurid.length > 5 && (
+                      {/* 🌟 BUTANG HILANG LEPAS SEMAK */}
+                      {!sudahDisemakSemula && isAIGagal && jawapanMurid.length > 5 && (
                         <button 
                           onClick={() => semakSemulaGunaAI(soalan, jawapanMurid)}
                           disabled={loadingAI === soalan.id}
@@ -279,6 +288,9 @@ export default function PemarkahanGuru() {
                           {loadingAI === soalan.id ? <Loader2 size={14} className="animate-spin"/> : <RefreshCw size={14}/>}
                           Semak Semula AI
                         </button>
+                      )}
+                      {sudahDisemakSemula && (
+                        <span className="shrink-0 text-xs font-bold text-slate-500 border border-slate-600 px-3 py-1.5 rounded-lg flex items-center gap-1"><CheckCircle size={14}/> Disemak</span>
                       )}
                     </div>
                   )}
