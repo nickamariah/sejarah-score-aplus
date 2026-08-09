@@ -21,54 +21,45 @@ export default function MakmalDataKajian() {
   const [soalanList, setSoalanList] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ kategori: "Motivasi", subKategori: "", soalan: "", susunan: 1, jenisSkala: 5, aktif: true });
+  
+  // 🌟 TAMBAHAN: Fasa kajian dimasukkan dalam Borang
+  const [formData, setFormData] = useState({ 
+    fasa: "Pra", // Pra atau Pasca
+    kategori: "Motivasi", 
+    subKategori: "", 
+    soalan: "", 
+    susunan: 1, 
+    jenisSkala: 5, 
+    aktif: true 
+  });
 
   const [rawSurveyData, setRawSurveyData] = useState<any[]>([]);
   const [rawSkorData, setRawSkorData] = useState<any[]>([]);
   const [rawUsersData, setRawUsersData] = useState<any[]>([]);
   const [statsDeskriptif, setStatsDeskriptif] = useState<any>(null);
 
-  // 🌟 STATE: DRAG & DROP
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
 
-  // ==========================================
-  // 1. DATA KAJIAN (MOCK DATA - FALLBACK)
-  // ==========================================
   const mockData = [
     { id: "M4001", kumpulan: "Eksperimen", ujianPra: 45, ujianPasca: 85 },
     { id: "M4002", kumpulan: "Eksperimen", ujianPra: 50, ujianPasca: 88 },
-    { id: "M4003", kumpulan: "Eksperimen", ujianPra: 40, ujianPasca: 78 },
-    { id: "M4004", kumpulan: "Eksperimen", ujianPra: 55, ujianPasca: 92 },
-    { id: "M4005", kumpulan: "Eksperimen", ujianPra: 48, ujianPasca: 84 },
-    { id: "M4006", kumpulan: "Kawalan", ujianPra: 46, ujianPasca: 55 },
-    { id: "M4007", kumpulan: "Kawalan", ujianPra: 52, ujianPasca: 58 },
-    { id: "M4008", kumpulan: "Kawalan", ujianPra: 44, ujianPasca: 50 },
-    { id: "M4009", kumpulan: "Kawalan", ujianPra: 49, ujianPasca: 60 },
-    { id: "M4010", kumpulan: "Kawalan", ujianPra: 51, ujianPasca: 62 },
   ];
 
-  // ==========================================
-  // 2. FUNGSI TARIK DATA
-  // ==========================================
   const tarikSemuaData = async () => {
     setLoading(true);
     try {
-      // A. Tarik Data Item Soalan
       const qSoalan = query(collection(db, "bank_soalan_selidik"), orderBy("susunan", "asc"));
       const snapSoalan = await getDocs(qSoalan);
       const dataSoal = snapSoalan.docs.map(d => ({ id: d.id, ...d.data() }));
       setSoalanList(dataSoal);
       
-      // Auto-set nombor susunan baharu pada borang (Supaya sambung dari hujung)
       if (!isEditing) setFormData(prev => ({ ...prev, susunan: dataSoal.length + 1 }));
 
-      // B. Tarik Data Users (Untuk Ujian Kuasi & SPSS)
       const uSnap = await getDocs(collection(db, "users"));
       const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       setRawUsersData(uData);
 
-      // C. Sediakan Data Kuasi (Pra/Pasca Terkini)
       const dataDBKuasi: any[] = [];
       uData.forEach((user: any) => {
         if (user.role === "murid" && user.kumpulan) {
@@ -82,11 +73,9 @@ export default function MakmalDataKajian() {
       });
 
       const checkEks = dataDBKuasi.filter(d => d.kumpulan === "Eksperimen").length;
-      const checkKaw = dataDBKuasi.filter(d => d.kumpulan === "Kawalan").length;
-      if (checkEks >= 2 && checkKaw >= 2) { setDataMentah(dataDBKuasi); setGunaDataSimulasi(false); } 
+      if (checkEks >= 2) { setDataMentah(dataDBKuasi); setGunaDataSimulasi(false); } 
       else { setDataMentah(mockData); setGunaDataSimulasi(true); }
 
-      // D. Tarik Skor & Soal Selidik (Untuk SPSS)
       const sSnap = await getDocs(collection(db, "skor_murid"));
       setRawSkorData(sSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
@@ -94,13 +83,16 @@ export default function MakmalDataKajian() {
       const svData = svSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       setRawSurveyData(svData);
 
-      // Pengiraan Statistik Soal Selidik
+      // KIRA STATISTIK DESKRIPTIF PRA & PASCA (HANYA KUMPULAN EKSPERIMEN)
       const kategoriSkor: Record<string, number[]> = {};
       svData.forEach((res: any) => {
-        if (res.kumpulan === "Eksperimen" || res.kumpulan === "Kawalan") {
+        // 🌟 DIBETULKAN: Hanya kira data untuk murid Eksperimen sahaja
+        if (res.kumpulan === "Eksperimen") {
+          const fasaLabel = res.fasa || "Pra";
           res.jawapanTerperinci.forEach((ans: any) => {
-            if (!kategoriSkor[ans.kategori]) kategoriSkor[ans.kategori] = [];
-            kategoriSkor[ans.kategori].push(ans.skor);
+            const keyKat = `${ans.kategori} (${fasaLabel})`;
+            if (!kategoriSkor[keyKat]) kategoriSkor[keyKat] = [];
+            kategoriSkor[keyKat].push(ans.skor);
           });
         }
       });
@@ -120,7 +112,6 @@ export default function MakmalDataKajian() {
 
     } catch (error) {
       console.error("Ralat menarik data:", error);
-      setDataMentah(mockData); setGunaDataSimulasi(true);
     } finally {
       setLoading(false);
     }
@@ -128,9 +119,6 @@ export default function MakmalDataKajian() {
 
   useEffect(() => { tarikSemuaData(); }, []);
 
-  // ==========================================
-  // 3. FUNGSI PENGIRAAN MATEMATIK (KUASI)
-  // ==========================================
   const calculateStats = (data: number[]) => {
     const n = data.length;
     if (n <= 1) return { n, mean: n === 1 ? data[0].toFixed(2) : "0.00", sd: "0.00" };
@@ -167,9 +155,6 @@ export default function MakmalDataKajian() {
     return { deskriptifPra: calculateStats(pra), deskriptifPasca: calculateStats(pasca), tTest: calculatePairedTTest(pra, pasca) };
   }, [dataMentah]);
 
-  // ==========================================
-  // 4. FUNGSI PENGURUSAN ITEM SOALAN & SPSS EKSPORT
-  // ==========================================
   const handleSimpanSoalan = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -182,7 +167,7 @@ export default function MakmalDataKajian() {
 
   const handleEdit = (item: any) => {
     setIsEditing(true); setEditId(item.id);
-    setFormData({ kategori: item.kategori, subKategori: item.subKategori, soalan: item.soalan, susunan: item.susunan, jenisSkala: item.jenisSkala, aktif: item.aktif });
+    setFormData({ fasa: item.fasa || "Pra", kategori: item.kategori, subKategori: item.subKategori, soalan: item.soalan, susunan: item.susunan, jenisSkala: item.jenisSkala, aktif: item.aktif });
   };
 
   const handlePadam = async (id: string) => { if (confirm("Pasti memadam soalan ini?")) { await deleteDoc(doc(db, "bank_soalan_selidik", id)); tarikSemuaData(); } };
@@ -190,32 +175,23 @@ export default function MakmalDataKajian() {
   const resetForm = () => {
     setIsEditing(false);
     setEditId(null);
-    setFormData({ kategori: "Motivasi", subKategori: "", soalan: "", susunan: soalanList.length + 1, jenisSkala: 5, aktif: true });
+    setFormData({ fasa: "Pra", kategori: "Motivasi", subKategori: "", soalan: "", susunan: soalanList.length + 1, jenisSkala: 5, aktif: true });
   };
 
-  // 🌟 TAMBAHAN BAHARU: Logik Drag and Drop Auto-Susun 🌟
-  const handleDragStart = (index: number) => {
-    setDraggedIndex(index);
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.preventDefault(); // Membenarkan Drop
-  };
+  const handleDragStart = (index: number) => { setDraggedIndex(index); };
+  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => { e.preventDefault(); };
 
   const handleDrop = async (index: number) => {
     if (draggedIndex === null || draggedIndex === index) return;
-    
     setIsUpdatingOrder(true);
     const newList = [...soalanList];
     const draggedItem = newList.splice(draggedIndex, 1)[0];
     newList.splice(index, 0, draggedItem);
     
-    // Auto-update nombor 1 hingga habis
     const updatedList = newList.map((item, i) => ({ ...item, susunan: i + 1 }));
-    setSoalanList(updatedList); // Kemas kini UI serta merta
+    setSoalanList(updatedList); 
     setDraggedIndex(null);
 
-    // Kemas kini ke Firebase secara pukal (Batch)
     try {
       const batch = writeBatch(db);
       updatedList.forEach(item => {
@@ -223,37 +199,50 @@ export default function MakmalDataKajian() {
         batch.update(docRef, { susunan: item.susunan });
       });
       await batch.commit();
-    } catch (error) {
-      alert("Gagal mengemaskini susunan di pangkalan data.");
-      tarikSemuaData(); // Undur balik jika gagal
-    } finally {
-      setIsUpdatingOrder(false);
-    }
+    } catch (error) { alert("Gagal mengemaskini susunan."); tarikSemuaData(); } 
+    finally { setIsUpdatingOrder(false); }
   };
 
+  // 🌟 EKSPORT SPSS: Asingkan lajur PRA dan PASCA
   const exportKajianKeCSV = () => {
-    if (rawUsersData.length === 0) return alert("Sila tunggu data selesai ditarik.");
-    const setIDSoalan = new Set<string>();
-    rawSurveyData.forEach((sd: any) => { sd.jawapanTerperinci.forEach((ans: any) => setIDSoalan.add(ans.soalanId)); });
-    const lajurSoalan = Array.from(setIDSoalan).sort();
+    if (rawUsersData.length === 0) return alert("Sila tunggu data ditarik.");
+    
+    // Dapatkan soalan unik Pra dan Pasca
+    const soalanPra = soalanList.filter(q => q.fasa === "Pra").map(q => `PRA_Q${q.susunan}`);
+    const soalanPasca = soalanList.filter(q => q.fasa === "Pasca").map(q => `PASCA_Q${q.susunan}`);
 
-    let csvContent = "ID_Murid,Sekolah,Kumpulan,Tahap_Inkuiri,Pre_Bab1,Post_Bab1,Pre_Bab2,Post_Bab2,Motivasi_Min,Penglibatan_Min,Kebolehgunaan_Min,";
-    csvContent += lajurSoalan.join(",") + "\n";
+    let csvContent = "ID_Murid,Sekolah,Kumpulan,Tahap_Inkuiri,Pre_Bab1,Post_Bab1,Motivasi_PRA,Penglibatan_PRA,Motivasi_PASCA,Penglibatan_PASCA,Kebolehgunaan_PASCA,";
+    csvContent += [...soalanPra, ...soalanPasca].join(",") + "\n";
 
     rawUsersData.filter(u => u.role === "murid").forEach(murid => {
       const uid = murid.idPengguna || murid.id;
       const skorMurid = rawSkorData.filter(s => s.idMurid === uid);
       const preB1 = skorMurid.find(s => s.bab === "Bab 1" && (s.jenisUjian === "pre_test" || !s.jenisUjian))?.skor || "";
       const postB1 = skorMurid.find(s => s.bab === "Bab 1" && s.jenisUjian === "post_test")?.skor || "";
-      const preB2 = skorMurid.find(s => s.bab === "Bab 2" && (s.jenisUjian === "pre_test" || !s.jenisUjian))?.skor || "";
-      const postB2 = skorMurid.find(s => s.bab === "Bab 2" && s.jenisUjian === "post_test")?.skor || "";
 
-      const surveyMurid = rawSurveyData.find(sv => sv.idMurid === uid);
-      const skorItemMap: Record<string, string> = {}; lajurSoalan.forEach(qId => skorItemMap[qId] = "");
-      if (surveyMurid) surveyMurid.jawapanTerperinci.forEach((ans: any) => { skorItemMap[ans.soalanId] = ans.skor; });
+      // Rekod Survey Pra & Pasca Murid
+      const svPra = rawSurveyData.find(sv => sv.idMurid === uid && sv.fasa === "Pra");
+      const svPasca = rawSurveyData.find(sv => sv.idMurid === uid && sv.fasa === "Pasca");
 
-      let row = `${uid},${murid.sekolah || "Tiada"},${murid.kumpulan || "Eksperimen"},${murid.tahapInkuiri || "Rendah"},${preB1},${postB1},${preB2},${postB2},${surveyMurid?.skorKeseluruhan?.Motivasi || ""},${surveyMurid?.skorKeseluruhan?.Penglibatan || ""},${surveyMurid?.skorKeseluruhan?.Kebolehgunaan || ""},`;
-      row += lajurSoalan.map(qId => skorItemMap[qId]).join(",") + "\n";
+      // Set item skor (Tarik markah individu mengikut ID soalan)
+      const itemSkorList: string[] = [];
+      
+      // Isi markah Pra
+      soalanList.filter(q => q.fasa === "Pra").forEach(q => {
+         const ans = svPra?.jawapanTerperinci?.find((a:any) => a.soalanId === q.id);
+         itemSkorList.push(ans ? ans.skor : "");
+      });
+      // Isi markah Pasca
+      soalanList.filter(q => q.fasa === "Pasca").forEach(q => {
+         const ans = svPasca?.jawapanTerperinci?.find((a:any) => a.soalanId === q.id);
+         itemSkorList.push(ans ? ans.skor : "");
+      });
+
+      let row = `${uid},${murid.sekolah || "Tiada"},${murid.kumpulan || "Eksperimen"},${murid.tahapInkuiri || "Rendah"},${preB1},${postB1},`;
+      row += `${svPra?.skorKeseluruhan?.Motivasi || ""},${svPra?.skorKeseluruhan?.Penglibatan || ""},`;
+      row += `${svPasca?.skorKeseluruhan?.Motivasi || ""},${svPasca?.skorKeseluruhan?.Penglibatan || ""},${svPasca?.skorKeseluruhan?.Kebolehgunaan || ""},`;
+      row += itemSkorList.join(",") + "\n";
+      
       csvContent += row;
     });
 
@@ -264,20 +253,11 @@ export default function MakmalDataKajian() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-        <Database className="animate-bounce mb-4 text-indigo-500" size={40} />
-        <p className="animate-pulse font-medium">Sedang memproses algoritma analisis data...</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-500" size={40}/></div>;
 
   return (
-    // 🌟 PEMBAIKAN: Buang overflow-x-hidden di sini supaya ciri Sticky (Melekat) berfungsi
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full max-w-full">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full max-w-full overflow-x-hidden">
       
-      {/* HEADER MAKMAL KAJIAN */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-gradient-to-r from-indigo-900/50 to-[#1e293b] p-6 lg:p-8 rounded-2xl border border-indigo-800/50 shadow-lg relative overflow-hidden gap-4">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10">
@@ -296,56 +276,11 @@ export default function MakmalDataKajian() {
         </div>
       )}
 
-      {/* TABS SUB-ANALISIS */}
       <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
         <button onClick={() => setActiveSubTab("kuasi")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'kuasi' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>1. Kuasi-Eksperimen</button>
         <button onClick={() => setActiveSubTab("spss")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'spss' ? 'bg-blue-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>2. Analisis Soal Selidik</button>
         <button onClick={() => setActiveSubTab("soalan")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'soalan' ? 'bg-fuchsia-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>3. Item Soalan</button>
-        <button onClick={() => setActiveSubTab("fdm")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'fdm' ? 'bg-purple-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>4. Kesahan FDM</button>
-        <button onClick={() => setActiveSubTab("sus")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'sus' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>5. Skor SUS</button>
       </div>
-
-      {/* ========================================== */}
-      {/* 📊 TAB 1: KUASI-EKSPERIMEN */}
-      {/* ========================================== */}
-      {activeSubTab === "kuasi" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-300">
-          <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-xl lg:col-span-2">
-            <div className="p-5 border-b border-slate-800 bg-slate-900/30 flex items-center gap-3"><BarChart3 className="text-emerald-400"/><h3 className="text-lg font-bold text-white">Statistik Deskriptif (Pencapaian Ujian)</h3></div>
-            <div className="p-5 overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-max">
-                <thead>
-                  <tr className="border-b-2 border-slate-700">
-                    <th className="p-3 text-slate-400 font-semibold text-sm">Kumpulan</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Ujian</th>
-                    <th className="p-3 text-slate-400 font-semibold text-sm text-center">N</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Min</th>
-                    <th className="p-3 text-slate-400 font-semibold text-sm text-center">SD</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/50">
-                  <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-emerald-400" rowSpan={2}>Eksperimen</td><td className="p-3 text-slate-300 text-center">Pra</td><td className="p-3 text-slate-300 text-center">{analisisEksperimen.deskriptifPra.n}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisEksperimen.deskriptifPra.mean}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisEksperimen.deskriptifPra.sd}</td></tr>
-                  <tr className="hover:bg-slate-800/30 bg-slate-800/10"><td className="p-3 text-slate-300 text-center">Pasca</td><td className="p-3 text-slate-300 text-center">{analisisEksperimen.deskriptifPasca.n}</td><td className="p-3 font-mono font-bold text-emerald-400 text-center">{analisisEksperimen.deskriptifPasca.mean}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisEksperimen.deskriptifPasca.sd}</td></tr>
-                  <tr className="hover:bg-slate-800/30 border-t-2 border-slate-800"><td className="p-4 font-bold text-amber-400" rowSpan={2}>Kawalan</td><td className="p-3 text-slate-300 text-center">Pra</td><td className="p-3 text-slate-300 text-center">{analisisKawalan.deskriptifPra.n}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisKawalan.deskriptifPra.mean}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisKawalan.deskriptifPra.sd}</td></tr>
-                  <tr className="hover:bg-slate-800/30 bg-slate-800/10"><td className="p-3 text-slate-300 text-center">Pasca</td><td className="p-3 text-slate-300 text-center">{analisisKawalan.deskriptifPasca.n}</td><td className="p-3 font-mono font-bold text-amber-400 text-center">{analisisKawalan.deskriptifPasca.mean}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisKawalan.deskriptifPasca.sd}</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-xl lg:col-span-2">
-            <div className="p-5 border-b border-slate-800 bg-slate-900/30 flex items-center gap-3"><TrendingUp className="text-cyan-400"/><h3 className="text-lg font-bold text-white">Ujian-t Sampel Berpasangan</h3></div>
-            <div className="p-5 overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-max">
-                <thead>
-                  <tr className="border-b-2 border-slate-700"><th className="p-3 text-slate-400 font-semibold text-sm">Pasangan</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Perbezaan Min</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Nilai t</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Sig. (p-value)</th></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/50">
-                  <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-slate-300">Eksperimen</td><td className="p-4 font-mono text-emerald-400 text-center font-bold">+{analisisEksperimen.tTest.meanDiff}</td><td className="p-4 font-mono text-slate-200 text-center">{analisisEksperimen.tTest.tValue}</td><td className="p-4 text-center"><span className="bg-emerald-900/40 text-emerald-400 px-3 py-1 rounded-full text-xs font-bold border border-emerald-800/50">{analisisEksperimen.tTest.pValue} (Sig.)</span></td></tr>
-                  <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-slate-300">Kawalan</td><td className="p-4 font-mono text-amber-400 text-center font-bold">+{analisisKawalan.tTest.meanDiff}</td><td className="p-4 font-mono text-slate-200 text-center">{analisisKawalan.tTest.tValue}</td><td className="p-4 text-center"><span className="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-xs font-bold border border-slate-700">{analisisKawalan.tTest.pValue} (Sig.)</span></td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ========================================== */}
       {/* 📈 TAB 2: ANALISIS SOAL SELIDIK */}
@@ -353,15 +288,17 @@ export default function MakmalDataKajian() {
       {activeSubTab === "spss" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
            <div className="md:col-span-3 bg-slate-800/80 p-5 rounded-2xl border border-slate-700 flex justify-between items-center">
-              <div><h4 className="text-sm font-bold text-slate-200 flex items-center gap-2"><FileText className="text-blue-400"/> Analisis Deskriptif Soal Selidik (Skor Min)</h4><p className="text-xs text-slate-400">Data dikira berdasarkan sampel jawapan murid Eksperimen & Kawalan.</p></div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2"><FileText className="text-blue-400"/> Analisis Deskriptif Soal Selidik (Skor Min)</h4>
+                <p className="text-xs text-amber-400 mt-1">Data dikira berdasarkan sampel jawapan murid Kumpulan Eksperimen SAHAJA.</p>
+              </div>
            </div>
            {statsDeskriptif && Object.keys(statsDeskriptif).length > 0 ? (
              Object.keys(statsDeskriptif).map((kategori, idx) => (
                <div key={idx} className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700 shadow-md">
-                  <span className="text-xs font-bold text-blue-400 uppercase tracking-wider block mb-4 border-b border-slate-700 pb-2">{kategori}</span>
+                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block mb-4 border-b border-slate-700 pb-2">{kategori}</span>
                   <div className="flex justify-between items-end mb-3"><span className="text-slate-400 text-xs">Min (Purata)</span><span className="text-3xl font-black text-white">{statsDeskriptif[kategori].min}</span></div>
-                  <div className="flex justify-between items-end"><span className="text-slate-400 text-xs flex items-center gap-1"><Activity size={12}/> Sisihan Piawai (SD)</span><span className="text-lg font-bold text-slate-300">{statsDeskriptif[kategori].sd}</span></div>
-                  <div className="mt-4 text-[10px] text-slate-500 font-mono text-right">N = {statsDeskriptif[kategori].N} rekod jawapan</div>
+                  <div className="flex justify-between items-end"><span className="text-slate-400 text-xs">SD (Sisihan Piawai)</span><span className="text-lg font-bold text-slate-300">{statsDeskriptif[kategori].sd}</span></div>
                </div>
              ))
            ) : <div className="md:col-span-3 p-12 text-center text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-700 border-dashed">Tiada data soal selidik ditemui setakat ini.</div>}
@@ -374,14 +311,26 @@ export default function MakmalDataKajian() {
       {activeSubTab === "soalan" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300 items-start relative">
           
-          {/* KOTAK BORANG (KIRI) - DIBETULKAN UNTUK EFEK STICKY */}
-          <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 lg:col-span-1 lg:sticky lg:top-10 h-fit z-10 shadow-xl order-first">
+          <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 lg:col-span-1 lg:sticky lg:top-6 h-fit z-10 shadow-xl order-first">
             <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
               <Settings className="text-fuchsia-400" size={20}/> 
               {isEditing ? "Kemaskini Item" : "Daftar Item Baharu"}
             </h4>
             
             <form onSubmit={handleSimpanSoalan} className="space-y-5">
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Fasa Kajian</label>
+                <select 
+                  value={formData.fasa} 
+                  onChange={e => setFormData({...formData, fasa: e.target.value})} 
+                  className="w-full bg-indigo-900/30 border border-indigo-500/50 rounded-xl p-3.5 text-indigo-300 font-bold outline-none focus:border-indigo-400 shadow-inner transition-colors"
+                >
+                  <option value="Pra">Pra-Kajian (Sebelum Mula)</option>
+                  <option value="Pasca">Pasca-Kajian (Selepas Tamat)</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Kategori Utama</label>
                 <select 
@@ -465,7 +414,6 @@ export default function MakmalDataKajian() {
           
           {/* JADUAL SENARAI SOALAN (KANAN) */}
           <div className="bg-slate-800/80 rounded-2xl border border-slate-700 overflow-hidden lg:col-span-2 shadow-xl relative">
-            {/* Overlay masa Drag Drop Loading */}
             {isUpdatingOrder && (
                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center">
                   <div className="flex flex-col items-center gap-2 text-fuchsia-400"><Loader2 className="animate-spin" size={32}/><span className="font-bold">Menyusun Pangkalan Data...</span></div>
@@ -491,12 +439,17 @@ export default function MakmalDataKajian() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <div className="flex flex-wrap items-center gap-2 mb-1.5"><span className="text-[10px] px-2.5 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>{item.subKategori && <span className="text-[10px] bg-slate-700/50 border border-slate-600 px-2 py-0.5 rounded-md text-slate-300 uppercase">{item.subKategori}</span>}{!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md ml-auto">Disembunyikan</span>}</div>
+                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                          <span className={`text-[9px] px-2.5 py-0.5 rounded-md font-bold uppercase border ${item.fasa === "Pra" ? 'bg-indigo-900/40 text-indigo-400 border-indigo-800/50' : 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50'}`}>{item.fasa || "Pra"}</span>
+                          <span className="text-[10px] px-2.5 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>
+                          {item.subKategori && <span className="text-[10px] bg-slate-700/50 border border-slate-600 px-2 py-0.5 rounded-md text-slate-300 uppercase">{item.subKategori}</span>}
+                          {!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md ml-auto">Disembunyikan</span>}
+                        </div>
                         <div className="font-medium text-slate-200 text-sm leading-relaxed">{item.soalan}</div>
                       </td>
                       <td className="p-4 text-right">
-                        <button onClick={() => handleEdit(item)} className="bg-slate-700/50 p-2 rounded-lg text-slate-300 hover:text-white hover:bg-amber-500 mr-2"><Edit3 size={16} /></button>
-                        <button onClick={() => handlePadam(item.id)} className="bg-slate-700/50 p-2 rounded-lg text-slate-300 hover:text-white hover:bg-red-500"><Trash2 size={16} /></button>
+                        <button onClick={() => handleEdit(item)} className="bg-slate-700/50 p-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-amber-500 mr-2 transition-all"><Edit3 size={16} /></button>
+                        <button onClick={() => handlePadam(item.id)} className="bg-slate-700/50 p-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-red-500 transition-all"><Trash2 size={16} /></button>
                       </td>
                     </tr>
                   )) : <tr><td colSpan={3} className="p-10 text-center text-slate-500">Tiada item soalan dijumpai.</td></tr>}
@@ -506,48 +459,6 @@ export default function MakmalDataKajian() {
           </div>
         </div>
       )}
-
-      {/* ========================================== */}
-      {/* 📋 TAB 4: KESAHAN FDM */}
-      {/* ========================================== */}
-      {activeSubTab === "fdm" && (
-        <div className="bg-[#1e293b] p-6 lg:p-8 rounded-2xl border border-purple-900/50 shadow-xl animate-in fade-in duration-300">
-          <div className="flex items-center gap-4 mb-6"><div className="bg-purple-900/50 p-3 rounded-xl"><CheckCircle className="text-purple-400"/></div><div><h4 className="text-xl font-bold text-purple-300">Dapatan Fuzzy Delphi (FDM)</h4></div></div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse bg-slate-900/30 rounded-lg overflow-hidden border border-slate-800 min-w-max">
-              <thead><tr className="border-b border-slate-700 bg-slate-800/80 text-slate-300"><th className="p-4 font-semibold">Konstruk / Elemen</th><th className="p-4 text-center font-semibold">Nilai (d)</th><th className="p-4 text-center font-semibold">% Sepakat</th><th className="p-4 text-center font-semibold">Status</th></tr></thead>
-              <tbody className="text-slate-400">
-                <tr className="border-b border-slate-800 hover:bg-slate-800/50"><td className="p-4 font-medium text-slate-200">Reka Bentuk UI Skrin Terbahagi</td><td className="p-4 text-center text-emerald-400 font-mono">0.11</td><td className="p-4 text-center text-emerald-400 font-bold">94%</td><td className="p-4 text-center"><span className="bg-emerald-900/30 text-emerald-400 px-3 py-1 rounded-md text-xs font-bold border border-emerald-800/50">Diterima</span></td></tr>
-                <tr className="border-b border-slate-800 hover:bg-slate-800/50"><td className="p-4 font-medium text-slate-200">RAG & Prompt Scaffolding</td><td className="p-4 text-center text-emerald-400 font-mono">0.14</td><td className="p-4 text-center text-emerald-400 font-bold">88%</td><td className="p-4 text-center"><span className="bg-emerald-900/30 text-emerald-400 px-3 py-1 rounded-md text-xs font-bold border border-emerald-800/50">Diterima</span></td></tr>
-                <tr className="hover:bg-slate-800/50"><td className="p-4 font-medium text-slate-200">Automasi Penilaian DSKP</td><td className="p-4 text-center text-emerald-400 font-mono">0.16</td><td className="p-4 text-center text-emerald-400 font-bold">85%</td><td className="p-4 text-center"><span className="bg-emerald-900/30 text-emerald-400 px-3 py-1 rounded-md text-xs font-bold border border-emerald-800/50">Diterima</span></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================== */}
-      {/* 🌟 TAB 5: KEBOLEHGUNAAN SUS */}
-      {/* ========================================== */}
-      {activeSubTab === "sus" && (
-        <div className="bg-[#1e293b] p-6 lg:p-8 rounded-2xl border border-emerald-900/50 shadow-xl flex flex-col md:flex-row gap-8 items-center animate-in fade-in duration-300">
-          <div className="flex-1 space-y-6 w-full">
-             <div><h4 className="text-xl font-bold text-emerald-400 mb-2">Skor Kebolehgunaan Model (SUS)</h4><p className="text-slate-400 text-sm">Analisis instrumen soal selidik berskala Likert (Murid & Guru).</p></div>
-             <div className="bg-slate-900 p-5 rounded-xl border border-slate-700 shadow-inner">
-               <div className="flex justify-between text-sm mb-3"><span className="text-slate-300 font-medium">Min Persetujuan Murid</span><span className="font-bold text-emerald-400">4.35 / 5.00</span></div>
-               <div className="w-full bg-slate-800 rounded-full h-3"><div className="bg-emerald-500 h-3 rounded-full relative" style={{ width: '87%' }}></div></div>
-             </div>
-             <div className="bg-slate-900 p-5 rounded-xl border border-slate-700 shadow-inner">
-               <div className="flex justify-between text-sm mb-3"><span className="text-slate-300 font-medium">Min Persetujuan Guru</span><span className="font-bold text-emerald-400">4.62 / 5.00</span></div>
-               <div className="w-full bg-slate-800 rounded-full h-3"><div className="bg-emerald-500 h-3 rounded-full relative" style={{ width: '92%' }}></div></div>
-             </div>
-          </div>
-          <div className="w-48 h-48 rounded-full border-8 border-slate-800 flex flex-col items-center justify-center shadow-2xl bg-slate-900 shrink-0">
-            <span className="text-xs text-slate-400 font-bold uppercase mb-1">Tahap</span><span className="text-3xl font-black text-emerald-400">Tinggi</span>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
