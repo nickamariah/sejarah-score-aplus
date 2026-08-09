@@ -7,7 +7,7 @@ import { db } from "@/lib/firebase";
 
 export default function MakmalDataKajian() {
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState<"kuasi" | "spss" | "soalan" | "fdm" | "sus">("kuasi");
+  const [activeSubTab, setActiveSubTab] = useState<"kuasi" | "spss" | "soalan" | "fdm" | "sus">("soalan"); // Saya set default ke tab soalan untuk anda test
   
   // ==========================================
   // STATE: KUASI-EKSPERIMEN
@@ -269,7 +269,8 @@ export default function MakmalDataKajian() {
   if (loading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-500" size={40}/></div>;
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full max-w-full overflow-x-hidden">
+    // 💡 PEMBETULAN: Dibuang 'overflow-x-hidden' pada wrapper utama ini supaya fungsi lg:sticky dapat berfungsi
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full max-w-full">
       
       {/* HEADER MAKMAL KAJIAN */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-gradient-to-r from-indigo-900/50 to-[#1e293b] p-6 lg:p-8 rounded-2xl border border-indigo-800/50 shadow-lg relative overflow-hidden gap-4">
@@ -371,7 +372,8 @@ export default function MakmalDataKajian() {
         <div className="flex flex-col lg:flex-row gap-6 animate-in fade-in duration-300 items-start relative">
           
           {/* ================= KOTAK KIRI (BORANG STICKY) ================= */}
-          <div className="w-full lg:w-1/3 bg-slate-800/90 p-6 rounded-2xl border border-slate-700 lg:sticky lg:top-6 z-10 shadow-2xl order-first flex-shrink-0 max-h-[90vh] overflow-y-auto custom-scrollbar">
+          {/* 💡 Ditambah lg:top-8 dan lg:sticky */}
+          <div className="w-full lg:w-1/3 bg-slate-800/90 p-6 rounded-2xl border border-slate-700 lg:sticky lg:top-8 z-10 shadow-2xl order-first flex-shrink-0 max-h-[85vh] overflow-y-auto custom-scrollbar">
             <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
               <Settings className="text-fuchsia-400" size={20}/> 
               {isEditing ? "Kemaskini Item" : "Daftar Item Baharu"}
