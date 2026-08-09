@@ -312,6 +312,10 @@ export default function GuruDashboard() {
           currentMySekolah = myDoc.data().sekolah || senaraiSekolahKajian[0];
           setMyRole(currentMyRole);
           setMySekolah(currentMySekolah);
+
+          // 🌟 AUTO TAB NAVIGATION IKUT ROLE
+          if (currentMyRole === "guru") setActiveTab("pemantauan");
+          else if (currentMyRole === "pembantu") setActiveTab("soalan");
         }
       }
 
@@ -419,7 +423,9 @@ export default function GuruDashboard() {
           const numTing = String(uTingkatan).replace(/\D/g, "") || "4"; 
           const hurufK = uKumpulan === "Eksperimen" ? "E" : "K";
           awalan = `M${hurufK}${numTing}`; 
-        } else if (uRole === "guru") awalan = "G"; else if (uRole === "admin") awalan = "A";
+        } else if (uRole === "guru") awalan = "G"; 
+        else if (uRole === "admin") awalan = "A";
+        else if (uRole === "pembantu") awalan = "P"; // 🌟 PREFIX PEMBANTU SOALAN
 
         const qUsers = await getDocs(query(collection(db, "users")));
         let maxNumber = 0;
@@ -443,11 +449,8 @@ export default function GuruDashboard() {
           await signOut(secondaryAuth); 
         } catch (error: any) { 
           console.error("Firebase Auth Error Sebenar:", error);
-          if (error.code === 'auth/email-already-in-use') {
-             showToastMessage(`Ralat: E-mel ${emailMaya} sudah wujud di Firebase. Sila padam di Firebase Console.`, "error");
-          } else {
-             showToastMessage(`Ralat Pendaftaran: ${error.code || error.message}`, "error"); 
-          }
+          if (error.code === 'auth/email-already-in-use') showToastMessage(`Ralat: E-mel ${emailMaya} sudah wujud di Firebase. Sila padam di Firebase Console.`, "error");
+          else showToastMessage(`Ralat Pendaftaran: ${error.code || error.message}`, "error"); 
           setUIsSubmitting(false); 
           return; 
         }
@@ -486,21 +489,17 @@ export default function GuruDashboard() {
 
     const isDuplicate = soalanList.some(existing => {
       if (isEditingSoalan && existing.id === editSoalanId) return false;
-      
       const sameTingkatan = existing.tingkatan === qTingkatan;
       const sameBab = existing.bab === qBab;
       const sameSoalanText = existing.soalan?.trim().toLowerCase() === qSoalan.trim().toLowerCase();
       const sameJenis = existing.jenis === qJenis;
-
       if (!sameTingkatan || !sameBab || !sameSoalanText || !sameJenis) return false;
-
       if (qJenis === "objektif") {
         const sameJawapan = existing.jawapan === qJawapanBetul;
         const sameA = existing.pilihan?.A?.trim().toLowerCase() === qPilihanA.trim().toLowerCase();
         const sameB = existing.pilihan?.B?.trim().toLowerCase() === qPilihanB.trim().toLowerCase();
         const sameC = existing.pilihan?.C?.trim().toLowerCase() === qPilihanC.trim().toLowerCase();
         const sameD = existing.pilihan?.D?.trim().toLowerCase() === qPilihanD.trim().toLowerCase();
-        
         return sameJawapan && sameA && sameB && sameC && sameD;
       } else {
         const sameSkema = existing.skemaJawapan?.trim().toLowerCase() === qSkema.trim().toLowerCase();
@@ -508,9 +507,7 @@ export default function GuruDashboard() {
       }
     });
 
-    if (isDuplicate) {
-      return showToastMessage("Gagal: Soalan dan jawapan yang 100% sama telah wujud dalam Bank Soalan!", "error");
-    }
+    if (isDuplicate) return showToastMessage("Gagal: Soalan dan jawapan yang 100% sama telah wujud dalam Bank Soalan!", "error");
 
     setUIsSubmitting(true);
     try {
@@ -648,19 +645,33 @@ export default function GuruDashboard() {
             <div className="mb-8 flex justify-between items-center">
               <div>
                  <h1 className="text-2xl font-bold text-white mb-1 tracking-tight">I-RAGs<span className="text-cyan-400">.Admin</span></h1>
-                 <p className="text-[11px] font-medium text-slate-400 uppercase tracking-widest">{myRole === "admin" ? "Makmal Utama (Semua)" : `Makmal: ${mySekolah}`}</p>
+                 <p className="text-[11px] font-medium text-slate-400 uppercase tracking-widest">{myRole === "admin" ? "Makmal Utama (Semua)" : myRole === "pembantu" ? "Pembantu Soalan" : `Makmal: ${mySekolah}`}</p>
               </div>
               <button className="md:hidden text-slate-400 hover:text-white bg-white/10 p-1.5 rounded-lg" onClick={() => setIsMobileMenuOpen(false)}><X size={20}/></button>
             </div>
+            
+            {/* 🌟 KAWALAN PAPARAN MENU (ROLE-BASED ACCESS CONTROL) */}
             <nav className="space-y-1.5">
               {myRole === "admin" && (
                 <button onClick={() => {setActiveTab("murid"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "murid" ? "bg-blue-600/90 text-white shadow-lg shadow-blue-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><Users size={18} /> Pendaftaran Berpusat</button>
               )}
-              <button onClick={() => {setActiveTab("pemantauan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "pemantauan" ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><Activity size={18} /> Pemantauan Murid</button>
-              <button onClick={() => {setActiveTab("semakan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "semakan" ? "bg-rose-600/90 text-white shadow-lg shadow-rose-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><CheckSquare size={18} /> Semakan Esei Ujian</button>
+              
+              {/* Menu Guru & Admin Sahaja */}
+              {(myRole === "admin" || myRole === "guru") && (
+                <>
+                  <button onClick={() => {setActiveTab("pemantauan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "pemantauan" ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><Activity size={18} /> Pemantauan Murid</button>
+                  <button onClick={() => {setActiveTab("semakan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "semakan" ? "bg-rose-600/90 text-white shadow-lg shadow-rose-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><CheckSquare size={18} /> Semakan Esei Ujian</button>
+                </>
+              )}
+
+              {/* Menu Pembantu & Admin Sahaja */}
+              {(myRole === "admin" || myRole === "pembantu") && (
+                <button onClick={() => {setActiveTab("soalan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "soalan" ? "bg-cyan-600/90 text-white shadow-lg shadow-cyan-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><HelpCircle size={18} /> Bank Soalan Pusat</button>
+              )}
+
+              {/* Extra Admin Sahaja */}
               {myRole === "admin" && (
                 <>
-                  <button onClick={() => {setActiveTab("soalan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "soalan" ? "bg-cyan-600/90 text-white shadow-lg shadow-cyan-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><HelpCircle size={18} /> Bank Soalan Pusat</button>
                   <button onClick={() => {setActiveTab("kandungan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "kandungan" ? "bg-indigo-600/90 text-white shadow-lg shadow-indigo-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><BookOpen size={18} /> Senarai Nota & Modul</button>
                   <button onClick={() => {setActiveTab("upload"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "upload" ? "bg-amber-600/90 text-white shadow-lg shadow-amber-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><FileText size={18} /> Tambah Nota Baru</button>
                   <button onClick={() => {setActiveTab("maklumbalas"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "maklumbalas" ? "bg-fuchsia-600/90 text-white shadow-lg shadow-fuchsia-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><MessageSquare size={18} /> Rekod Maklum Balas</button>
@@ -753,16 +764,19 @@ export default function GuruDashboard() {
                         </select>
                       </div>
 
+                      {/* 🌟 PILIHAN PERANAN BAHARU: PEMBANTU SOALAN */}
                       <div>
                         <label className="block text-sm text-slate-400 mb-1.5 font-medium">Peranan (Role)</label>
                         <select value={uRole} onChange={e => setURole(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 shadow-inner">
                           <option className="bg-slate-900 text-white" value="murid">Murid</option>
                           <option className="bg-slate-900 text-white" value="guru">Guru Sekolah</option>
+                          <option className="bg-slate-900 text-cyan-400 font-bold" value="pembantu">Pembantu Soalan (Data Entry)</option>
                           <option className="bg-slate-900 text-white" value="admin">Penyelidik Utama (Admin)</option>
                         </select>
                       </div>
                       <div><label className="block text-sm text-slate-400 mb-1.5 font-medium">Nama Penuh</label><input type="text" value={uNama} onChange={e => setUNama(e.target.value)} required placeholder="Contoh: Ahmad" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none shadow-inner"/></div>
                       <div><label className="block text-sm text-slate-400 mb-1.5 font-medium">Kata Laluan</label><input type="text" value={uKataLaluan} onChange={e => setUKataLaluan(e.target.value)} required placeholder="123456" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none shadow-inner"/></div>
+                      
                       {uRole === "murid" && (
                         <div className="p-4 bg-blue-900/20 rounded-xl border border-blue-800/50 mt-4 space-y-4">
                           <div className="grid grid-cols-2 gap-4">
@@ -830,7 +844,8 @@ export default function GuruDashboard() {
                               <td className="p-4"><div className="font-bold text-slate-200">{u.nama}</div><div className="text-slate-500 text-xs mt-1">ID: <span className="text-amber-400 font-mono">{u.idPengguna || u.id}</span></div></td>
                               <td className="p-4">
                                 <div className="flex flex-col gap-1.5 items-start">
-                                  <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider ${u.role === 'admin' ? 'bg-purple-900/40 text-purple-400 border border-purple-800/50' : u.role === 'guru' ? 'bg-cyan-900/40 text-cyan-400 border border-cyan-800/50' : 'bg-blue-900/40 text-blue-400 border border-blue-800/50'}`}>{u.role}</span>
+                                  {/* 🌟 LENCANA UNTUK ROLE PEMBANTU */}
+                                  <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider ${u.role === 'admin' ? 'bg-purple-900/40 text-purple-400 border border-purple-800/50' : u.role === 'pembantu' ? 'bg-orange-900/40 text-orange-400 border border-orange-800/50' : u.role === 'guru' ? 'bg-cyan-900/40 text-cyan-400 border border-cyan-800/50' : 'bg-blue-900/40 text-blue-400 border border-blue-800/50'}`}>{u.role}</span>
                                   <span className="text-[9px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded uppercase">{u.sekolah || "Tiada Rekod"}</span>
                                 </div>
                               </td>
@@ -853,7 +868,7 @@ export default function GuruDashboard() {
           )}
 
           {/* TAB 2: PEMANTAUAN I-RAGS & DETAIL MURID */}
-          {activeTab === "pemantauan" && ( 
+          {activeTab === "pemantauan" && (myRole === "admin" || myRole === "guru") && ( 
              <div className="space-y-6 animate-in fade-in print:w-full">
               {/* HEADER CETAKAN KELAS KESELURUHAN */}
               <div className="hidden print:block text-black mb-8 border-b-2 border-black pb-4 text-center">
@@ -919,7 +934,7 @@ export default function GuruDashboard() {
                 </div>
               </div>
 
-                      {/* ========================================== */}
+              {/* ========================================== */}
               {/* 🚨 RADAR INTERVENSI GURU (EARLY WARNING SYSTEM) */}
               {/* ========================================== */}
               {(() => {
@@ -988,7 +1003,6 @@ export default function GuruDashboard() {
               })()}
               {/* ========================================== */}
 
-
               <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 overflow-hidden shadow-xl print:bg-white print:border-black print:shadow-none">
                 <div className="overflow-x-auto print:overflow-visible">
                   <table className="w-full text-left border-collapse min-w-max print:min-w-full">
@@ -1027,7 +1041,7 @@ export default function GuruDashboard() {
           )}
 
           {/* TAB SEMAKAN ESEI MURID (ADMIN / GURU) */}
-          {activeTab === "semakan" && ( 
+          {activeTab === "semakan" && (myRole === "admin" || myRole === "guru") && ( 
             <div className="space-y-6 animate-in fade-in print:hidden">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 shadow-xl gap-4">
                 <div>
@@ -1094,8 +1108,8 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 4: BANK SOALAN UJIAN (ADMIN SAHAJA) */}
-          {activeTab === "soalan" && myRole === "admin" && (
+          {/* TAB 4: BANK SOALAN UJIAN (ADMIN & PEMBANTU) */}
+          {activeTab === "soalan" && (myRole === "admin" || myRole === "pembantu") && (
             <div className="space-y-6 animate-in fade-in print:hidden">
               {!isCreatingSoalan ? (
                 <>
@@ -1135,7 +1149,6 @@ export default function GuruDashboard() {
                      </div>
                   </div>
 
-                  {/* 🌟 KOTAK ANALISIS JUMLAH SOALAN (TAMBAHAN BAHARU) 🌟 */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 mb-6">
                     {(() => {
                        // Kiraan dinamik berdasarkan filter semasa
@@ -1171,7 +1184,6 @@ export default function GuruDashboard() {
                        );
                     })()}
                   </div>
-                  {/* 🌟 TAMAT TAMBAHAN BAHARU 🌟 */}
 
                   <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
                     {loadingSoalan ? ( <div className="p-12 text-center text-slate-400 animate-pulse">Memuat turun Bank Soalan... ⏳</div> ) : (
