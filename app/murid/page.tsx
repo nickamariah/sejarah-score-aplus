@@ -13,28 +13,68 @@ type ChapterDef = { id: number; title: string; desc: string; subtopics?: Subtopi
 
 const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
   t4: [
-    { id: 1, title: "Bab 1: Warisan Negara Bangsa", desc: "Mengenal identiti dan nilai kebangsaan", subtopics: [{ id: "1.1", title: "Konsep Alam Melayu" }, { id: "1.2", title: "Ciri Kesultanan Melayu Melaka" }, { id: "1.3", title: "Keunggulan Sistem Pentadbiran" }, { id: "1.4", title: "Peranan Pemerintah & Rakyat" }] },
-    { id: 2, title: "Bab 2: Kebangkitan Nasionalisme", desc: "Asas kebangkitan dan semangat kebangsaan", subtopics: [{ id: "2.1", title: "Maksud Nasionalisme" }, { id: "2.2", title: "Perkembangan Idea Nasionalisme" }, { id: "2.3", title: "Nasionalisme di Asia Tenggara" }] },
-    { id: 3, title: "Bab 3: Konflik Dunia & Pendudukan Jepun", desc: "Perang Dunia dan pendudukan Jepun di negara kita" },
-    { id: 4, title: "Bab 4: Era Peralihan Kuasa British", desc: "Perubahan kuasa British dan kesannya" },
-    { id: 5, title: "Bab 5: Persekutuan Tanah Melayu 1948", desc: "Pembentukan PTM 1948" },
-    { id: 6, title: "Bab 6: Ancaman Komunis & Darurat", desc: "Perjuangan menentang ancaman komunis" },
-    { id: 7, title: "Bab 7: Usaha Ke Arah Kemerdekaan", desc: "Gerakan dan rundingan ke arah merdeka" },
-    { id: 8, title: "Bab 8: Pilihan Raya", desc: "Proses pilihan raya awal dan impaknya" },
-    { id: 9, title: "Bab 9: PTM 1957", desc: "Peristiwa penting PTM 1957" },
-    { id: 10, title: "Bab 10: Permasyuran Kemerdekaan", desc: "Upacara dan simbol permasyuran kemerdekaan" },
+    { id: 1, title: "Bab 1: Warisan Negara Bangsa", desc: "Mengenal identiti dan nilai kebangsaan", subtopics: [
+      { id: "1.1", title: "Warisan Negara Bangsa" }, { id: "1.2", title: "Ciri-ciri Negara Bangsa" }, { id: "1.3", title: "Keunggulan Sistem Pentadbiran" }, { id: "1.4", title: "Peranan Pemerintah dan Rakyat" }
+    ]},
+    { id: 2, title: "Bab 2: Kebangkitan Nasionalisme", desc: "Asas kebangkitan dan semangat kebangsaan", subtopics: [
+      { id: "2.1", title: "Maksud Nasionalisme" }, { id: "2.2", title: "Nasionalisme di Barat" }, { id: "2.3", title: "Nasionalisme di Asia" }, { id: "2.4", title: "Nasionalisme di Asia Tenggara" }, { id: "2.5", title: "Kesedaran Nasionalisme di Negara Kita" }, { id: "2.6", title: "Faktor Kemunculan Gerakan Nasionalisme" }, { id: "2.7", title: "Perkembangan Nasionalisme" }, { id: "2.8", title: "Kesan Perkembangan Nasionalisme" }
+    ]},
+    { id: 3, title: "Bab 3: Konflik Dunia & Pendudukan Jepun", desc: "Perang Dunia dan pendudukan Jepun di negara kita", subtopics: [
+      { id: "3.1", title: "Nasionalisme di Negara Kita Sebelum Perang Dunia" }, { id: "3.2", title: "Latar Belakang Perang Dunia" }, { id: "3.3", title: "Perang Dunia Kedua" }, { id: "3.4", title: "Perang Dunia Kedua di Asia Pasifik" }, { id: "3.5", title: "Faktor Kedatangan Jepun ke Negara Kita" }, { id: "3.6", title: "Dasar Pendudukan Jepun di Negara Kita" }, { id: "3.7", title: "Perjuangan Rakyat Menentang Pendudukan Jepun" }, { id: "3.8", title: "Perkembangan Gerakan Nasionalisme Tempatan dan Pendudukan Jepun" }, { id: "3.9", title: "Keadaan Negara Kita Selepas Kekalahan Jepun" }
+    ]},
+    { id: 4, title: "Bab 4: Era Peralihan Kuasa British", desc: "Perubahan kuasa British dan kesannya", subtopics: [
+      { id: "4.1", title: "British Military Administration" }, { id: "4.2", title: "Gagasan Malayan Union" }, { id: "4.3", title: "Reaksi Penduduk Tempatan terhadap Malayan Union" }, { id: "4.4", title: "Penyerahan Sarawak kepada Kerajaan British" }, { id: "4.5", title: "Reaksi Penduduk Tempatan terhadap Penyerahan Sarawak" }, { id: "4.6", title: "Penyerahan Sabah kepada Kerajaan British" }, { id: "4.7", title: "Reaksi Penduduk Tempatan terhadap Penyerahan Sabah" }
+    ]},
+    { id: 5, title: "Bab 5: Persekutuan Tanah Melayu 1948", desc: "Pembentukan PTM 1948", subtopics: [
+      { id: "5.1", title: "Latar Belakang Penubuhan Persekutuan Tanah Melayu 1948" }, { id: "5.2", title: "Faktor Penubuhan Persekutuan Tanah Melayu 1948" }, { id: "5.3", title: "Ciri-ciri Persekutuan Tanah Melayu 1948" }, { id: "5.4", title: "Kesan Penubuhan Persekutuan Tanah Melayu 1948" }
+    ]},
+    { id: 6, title: "Bab 6: Ancaman Komunis & Darurat", desc: "Perjuangan menentang ancaman komunis", subtopics: [
+      { id: "6.1", title: "Kemasukan Pengaruh Komunis di Negara Kita" }, { id: "6.2", title: "Ancaman Komunis di Negara Kita" }, { id: "6.3", title: "Usaha Menangani Ancaman Komunis" }, { id: "6.4", title: "Kesan Zaman Darurat terhadap Negara Kita" }
+    ]},
+    { id: 7, title: "Bab 7: Usaha Ke Arah Kemerdekaan", desc: "Gerakan dan rundingan ke arah merdeka", subtopics: [
+      { id: "7.1", title: "Latar Belakang Idea Negara Merdeka" }, { id: "7.2", title: "Jawatankuasa Hubungan Antara Kaum" }, { id: "7.3", title: "Sistem Ahli" }, { id: "7.4", title: "Sistem Pendidikan Kebangsaan" }, { id: "7.5", title: "Penubuhan Parti Politik" }
+    ]},
+    { id: 8, title: "Bab 8: Pilihan Raya", desc: "Proses pilihan raya awal dan impaknya", subtopics: [
+      { id: "8.1", title: "Perkembangan Pilihan Raya di Persekutuan Tanah Melayu" }, { id: "8.2", title: "Proses Pilihan Raya Umum Pertama" }, { id: "8.3", title: "Penubuhan Majlis Perundangan Persekutuan" }, { id: "8.4", title: "Peranan Kabinet Pertama Persekutuan Tanah Melayu" }
+    ]},
+    { id: 9, title: "Bab 9: PTM 1957", desc: "Peristiwa penting PTM 1957", subtopics: [
+      { id: "9.1", title: "Usaha Rundingan Kemerdekaan" }, { id: "9.2", title: "Peranan Suruhanjaya Perlembagaan Persekutuan Tanah Melayu" }, { id: "9.3", title: "Langkah Penggubalan Perlembagaan Persekutuan Tanah Melayu yang Merdeka" }, { id: "9.4", title: "Perjanjian Persekutuan Tanah Melayu" }
+    ]},
+    { id: 10, title: "Bab 10: Permasyuran Kemerdekaan", desc: "Upacara dan simbol permasyuran kemerdekaan", subtopics: [
+      { id: "10.1", title: "Pengertian Kemerdekaan" }, { id: "10.2", title: "Persediaan Menyambut Pemasyhuran Kemerdekaan Negara" }, { id: "10.3", title: "Detik Pemasyhuran Kemerdekaan Negara" }, { id: "10.4", title: "Kesan Kemerdekaan terhadap Negara Kita" }, { id: "10.5", title: "Prinsip Kedaulatan Persekutuan Tanah Melayu" }
+    ]}
   ],
   t5: [
-    { id: 1, title: "Bab 1: Kedaulatan Negara", desc: "Konsep dan kepentingan kedaulatan", subtopics: [] },
-    { id: 2, title: "Bab 2: Perlembagaan Persekutuan", desc: "Rangka perlembagaan dan hak" },
-    { id: 3, title: "Bab 3: Raja berperlembagaan & Demokrasi Berparlimen", desc: "Peranan Raja dan Parlimen" },
-    { id: 4, title: "Bab 4: Sistem Persekutuan", desc: "Susunan dan fungsi kerajaan persekutuan" },
-    { id: 5, title: "Bab 5: Pembentukan Malaysia", desc: "Proses dan isu pembentukan Malaysia" },
-    { id: 6, title: "Bab 6: Cabaran Selepas Pembentukaan Malaysia", desc: "Isu sosial dan politik pasca pembentukan" },
-    { id: 7, title: "Bab 7: Membina Kesejahteraan Negara", desc: "Dasar dan program membina kesejahteraan" },
-    { id: 8, title: "Bab 8: Membina Kemakmuran Negara", desc: "Strategi pembangunan ekonomi" },
-    { id: 9, title: "Bab 9: Dasar Luar Malaysia", desc: "Pendekatan dan kepentingan dasar luar" },
-    { id: 10, title: "Bab 10: Kecemerlangan Malaysia di Persada Dunia", desc: "Peranan Malaysia di pentas antarabangsa" },
+    { id: 1, title: "Bab 1: Kedaulatan Negara", desc: "Konsep dan kepentingan kedaulatan", subtopics: [
+      { id: "1.1", title: "Konsep Kedaulatan" }, { id: "1.2", title: "Ciri Negara yang Berdaulat" }, { id: "1.3", title: "Kepentingan Mewujudkan Negara Berdaulat" }, { id: "1.4", title: "Langkah Mempertahankan Kedaulatan" }
+    ]},
+    { id: 2, title: "Bab 2: Perlembagaan Persekutuan", desc: "Rangka perlembagaan dan hak", subtopics: [
+      { id: "2.1", title: "Latar Belakang Perlembagaan" }, { id: "2.2", title: "Sejarah Penggubalan Perlembagaan Persekutuan" }, { id: "2.3", title: "Ciri utama Perlembagaan Persekutuan" }, { id: "2.4", title: "Pindaan Perlembagaan Persekutuan 1963 dan 1965" }
+    ]},
+    { id: 3, title: "Bab 3: Raja berperlembagaan & Demokrasi Berparlimen", desc: "Peranan Raja dan Parlimen", subtopics: [
+      { id: "3.1", title: "Latar Belakang Pemerintahan Beraja dan Demokrasi Berparlimen" }, { id: "3.2", title: "Sejarah dan Kedudukan Institusi Majlis Raja-Raja" }, { id: "3.3", title: "Yang di-Pertuan Agong dan Raja dalam Perlembagaan Persekutuan" }, { id: "3.4", title: "Amalan Demokrasi dan Pengasingan Kuasa" }, { id: "3.5", title: "Keunikan amalan Demokrasi Berparlimen di negara kita" }
+    ]},
+    { id: 4, title: "Bab 4: Sistem Persekutuan", desc: "Susunan dan fungsi kerajaan persekutuan", subtopics: [
+      { id: "4.1", title: "Latar Belakang Sistem Persekutuan di Negara Kita" }, { id: "4.2", title: "Kuasa Kerajaan Persekutuan dan Kerajaan Negeri" }, { id: "4.3", title: "Kerjasama Kerajaan Persekutuan dan Kerajaan Negeri" }, { id: "4.4", title: "Faktor yang Mengukuhkan Sistem Persekutuan" }
+    ]},
+    { id: 5, title: "Bab 5: Pembentukan Malaysia", desc: "Proses dan isu pembentukan Malaysia", subtopics: [
+      { id: "5.1", title: "Konsep Gagasan Malaysia" }, { id: "5.2", title: "Perkembangan Idea dan Usaha Pembentukan Malaysia" }, { id: "5.3", title: "Reaksi Tempatan dan Negara Jiran terhadap Pembentukan Malaysia" }, { id: "5.4", title: "Langkah Pembentukan Malaysia" }, { id: "5.5", title: "Perjanjian Julai 1963 dan Peristiwa Pengisytiharan Malaysia" }, { id: "5.6", title: "Konfrontasi dan Usaha Menangani" }
+    ]},
+    { id: 6, title: "Bab 6: Cabaran Selepas Pembentukaan Malaysia", desc: "Isu sosial dan politik pasca pembentukan", subtopics: [
+      { id: "6.1", title: "Cabaran Dalaman Malaysia" }, { id: "6.2", title: "Pemisahan Singapura" }, { id: "6.3", title: "Menangani Ancaman Komunis" }, { id: "6.4", title: "Isu Pembangunan dan Ekonomi" }, { id: "6.5", title: "Tragedi Hubungan Antara Kaum" }
+    ]},
+    { id: 7, title: "Bab 7: Membina Kesejahteraan Negara", desc: "Dasar dan program membina kesejahteraan", subtopics: [
+      { id: "7.1", title: "Perpaduan dan Integrasi Nasional" }, { id: "7.2", title: "Dasar Pendidikan Kebangsaan" }, { id: "7.3", title: "Bahasa Melayu sebagai Bahasa Ilmu dan Bahasa Perpaduan" }, { id: "7.4", title: "Dasar Kebudayaan Kebangsaan" }, { id: "7.5", title: "Sukan sebagai Alat Perpaduan" }, { id: "7.6", title: "Rukun Negara sebagai Tonggak Kesejahteraan Negara" }
+    ]},
+    { id: 8, title: "Bab 8: Membina Kemakmuran Negara", desc: "Strategi pembangunan ekonomi", subtopics: [
+      { id: "8.1", title: "Pembentukan Dasar Ekonomi Baru (DEB)" }, { id: "8.2", title: "Pelaksanaan Dasar Ekonomi Baru (DEB)" }, { id: "8.3", title: "Pembentukan Dasar Pembangunan Nasional (DPN)" }, { id: "8.4", title: "Pelaksanaan Dasar Pembangunan Nasional (DPN)" }, { id: "8.5", title: "Pencapaian Dasar Ekonomi Baru (DEB) dan Dasar Pembangunan Nasional (DPN)" }
+    ]},
+    { id: 9, title: "Bab 9: Dasar Luar Malaysia", desc: "Pendekatan dan kepentingan dasar luar", subtopics: [
+      { id: "9.1", title: "Latar Belakang Dasar Luar" }, { id: "9.2", title: "Asas Penggubalan Dasar Luar" }, { id: "9.3", title: "Malaysia dalam Pertubuhan Bangsa-Bangsa Bersatu (PBB)" }, { id: "9.4", title: "Malaysia dalam Komanwel" }, { id: "9.5", title: "Cabaran Mengukuhkan Dasar Luar" }, { id: "9.6", title: "Malaysia dalam Persatuan Negara-Negara Asia Tenggara (ASEAN)" }, { id: "9.7", title: "Malaysia dalam Pergerakan Negara-Negara Tanpa Pihak (NAM)" }, { id: "9.8", title: "Malaysia dalam Pertubuhan Kerjasama Islam (OIC)" }
+    ]},
+    { id: 10, title: "Bab 10: Kecemerlangan Malaysia di Persada Dunia", desc: "Peranan Malaysia di pentas antarabangsa", subtopics: [
+      { id: "10.1", title: "Malaysia dalam Isu Global Kontemporari" }, { id: "10.2", title: "Peranan Malaysia dalam Hubungan Ekonomi Antarabangsa" }, { id: "10.3", title: "Pelibatan Rakyat dalam Isu Kemanusiaan dan Keamanan" }, { id: "10.4", title: "Usaha Mengekalkan Kelestarian Global" }, { id: "10.5", title: "Wawasan Malaysia Menuju Masa Hadapan" }
+    ]}
   ]
 };
 
@@ -60,7 +100,7 @@ export default function MuridDashboard() {
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🌟 STATE UNTUK SOAL SELIDIK KAJIAN (INSTRUMEN) 🌟
+  // 🌟 STATE UNTUK SOAL SELIDIK KAJIAN
   const [showSurvey, setShowSurvey] = useState(false);
   const [loadingSurvey, setLoadingSurvey] = useState(false);
   const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
@@ -68,7 +108,6 @@ export default function MuridDashboard() {
   const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false);
   const [currentSurveyCategoryIndex, setCurrentSurveyCategoryIndex] = useState(-1);
   
-  // STATUS SOAL SELIDIK MURID (PRE & POST)
   const [hasPreSurvey, setHasPreSurvey] = useState(false);
   const [hasPostSurvey, setHasPostSurvey] = useState(false);
   const [surveyType, setSurveyType] = useState<"pre" | "post">("pre");
@@ -104,8 +143,10 @@ export default function MuridDashboard() {
     }
   }, []);
 
-  const tarikDataFirebase = async () => {
-    setLoading(true);
+  // 🌟 PEMBAIKAN: Fungsi tarik data kini menerima parameter (isSilent)
+  const tarikDataFirebase = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    
     const rawUser = localStorage.getItem("currentUser");
     if (!rawUser) { window.location.href = "/login"; return; }
     const userLokal = JSON.parse(rawUser);
@@ -124,19 +165,19 @@ export default function MuridDashboard() {
       const uniqueIds = [...new Set(targetIds)];
       if (uniqueIds.length === 0) uniqueIds.push("kosong");
 
-      // 1. Tarik Status Soal Selidik (Pre/Post)
+      // Tarik Status Soal Selidik (Pre/Post)
       const qSurvey = query(collection(db, "soal_selidik_murid"), where("idMurid", "in", uniqueIds));
       const snapSurvey = await getDocs(qSurvey);
       let donePre = false, donePost = false;
       snapSurvey.forEach(d => {
          const data = d.data();
-         if(data.jenisSurvey === "pre" || !data.jenisSurvey) donePre = true; // backward compatibility
+         if(data.jenisSurvey === "pre" || !data.jenisSurvey) donePre = true; 
          if(data.jenisSurvey === "post") donePost = true;
       });
       setHasPreSurvey(donePre);
       setHasPostSurvey(donePost);
 
-      // 2. Tarik Rekod Markah
+      // Tarik Rekod Markah
       const qSkor = query(collection(db, "skor_murid"), where("idMurid", "in", uniqueIds));
       const snapSkor = await getDocs(qSkor);
       
@@ -162,20 +203,18 @@ export default function MuridDashboard() {
         
         if (String(data.tingkatan) !== tSemasa) return;
 
-        // 🌟 PEMBAIKAN BUG MARKAH: Cara ekstrak bab dengan lebih terperinci (Kalis ralat Tingkatan 4 Bab 2 -> 42)
         let babNum = NaN;
         const babStr = String(data.bab);
-        const babMatch = babStr.match(/bab\s*(\d+)/i); // Cari perkataan 'bab' diikuti nombor
+        const babMatch = babStr.match(/bab\s*(\d+)/i); 
         
         if (babMatch) {
             babNum = parseInt(babMatch[1]);
         } else {
-            // Jika struktur aneh, cuba tangkap digit paling terakhir
             const digits = babStr.match(/\d+/g);
             if(digits && digits.length > 0) babNum = parseInt(digits[digits.length - 1]);
         }
 
-        if (isNaN(babNum)) return; // Abai jika nombor gagal diekstrak
+        if (isNaN(babNum)) return; 
 
         if (!tempProgress[babNum]) tempProgress[babNum] = { jumlahCubaanPost: 0, aiSelesai: false, pemulihanSelesai: false, gameSelesai: false };
         
@@ -221,37 +260,55 @@ export default function MuridDashboard() {
 
       setProgressBab(tempProgress);
     } catch (error) { console.error("Ralat tarik data:", error); } 
-    finally { setLoading(false); }
+    finally { 
+      if (!isSilent) setLoading(false); 
+    }
   };
 
   useEffect(() => {
     tarikDataFirebase();
   }, [activeLevel]);
 
-  // 🌟 LOGIK AUTO POP-UP UNTUK SOAL SELIDIK AWAL (PRE-SURVEY) 🌟
+  // 🌟 LOGIK AUTO-REFRESH (SENYAP) JIKA ADA UJIAN MENUNGGU SEMAKAN 🌟
+  useEffect(() => {
+    const adaMenungguSemakan = Object.values(progressBab).some(p => p.adaRalatSemakanPre || p.adaRalatSemakanPost);
+    let intervalId: NodeJS.Timeout;
+    
+    if (adaMenungguSemakan) {
+      intervalId = setInterval(() => {
+        tarikDataFirebase(true); // true bermaksud tarik data senyap-senyap tanpa loading screen
+      }, 5000); // Semak setiap 5 saat
+    }
+    
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [progressBab, activeLevel]);
+
+  // LOGIK AUTO POP-UP UNTUK SOAL SELIDIK AWAL (PRE-SURVEY)
   useEffect(() => {
     if (!loading && userData?.kumpulan === 'Eksperimen' && !hasPreSurvey && !initialPopupShown) {
       setSurveyType("pre");
-      tarikSoalanSelidik();
+      tarikSoalanSelidik("Pra");
       setShowSurvey(true);
-      setInitialPopupShown(true); // Pastikan pop-up auto ini jalan sekali sahaja setiap sesi
+      setInitialPopupShown(true); 
     }
   }, [loading, userData, hasPreSurvey, initialPopupShown]);
 
-  // 🌟 FUNGSI TARIK SOALAN KAJI SELIDIK DARI FIREBASE 🌟
-  const tarikSoalanSelidik = async () => {
+  const tarikSoalanSelidik = async (fasa: "Pra" | "Pasca") => {
     setLoadingSurvey(true);
     try {
-      const q = query(collection(db, "bank_soalan_selidik"), where("aktif", "==", true));
+      const q = query(
+        collection(db, "bank_soalan_selidik"), 
+        where("aktif", "==", true),
+        where("fasa", "==", fasa)
+      );
       const snap = await getDocs(q);
       const data: any[] = [];
       snap.forEach(d => data.push({ id: d.id, ...d.data() }));
       
-      // Susun mengikut urutan 'susunan'
       data.sort((a, b) => (a.susunan || 0) - (b.susunan || 0));
       setSurveyQuestions(data);
-      
-      // Set Index ke -1 untuk tunjukkan "Panduan Ringkas" dahulu
       setCurrentSurveyCategoryIndex(-1);
     } catch (error) {
       console.error("Gagal menarik soalan kajian:", error);
@@ -260,7 +317,6 @@ export default function MuridDashboard() {
     }
   };
 
-  // 🌟 FUNGSI SIMPAN JAWAPAN SOAL SELIDIK 🌟
   const hantarSoalSelidik = async () => {
     if (Object.keys(surveyAnswers).length < surveyQuestions.length) {
       alert("Sila jawab semua soalan yang disediakan sebelum menghantar.");
@@ -269,7 +325,6 @@ export default function MuridDashboard() {
 
     setIsSubmittingSurvey(true);
     try {
-      // Pengiraan Skor Min Secara Automatik Untuk Analisis Guru/Admin
       const skorKeseluruhan: Record<string, { total: number, count: number }> = {};
       const jawapanTerperinci: any[] = [];
 
@@ -301,7 +356,8 @@ export default function MuridDashboard() {
         tarikhJawab: new Date().toISOString(),
         skorKeseluruhan: purataKategori,
         jawapanTerperinci: jawapanTerperinci,
-        jenisSurvey: surveyType // 🌟 Tentukan pre atau post survey
+        jenisSurvey: surveyType,
+        fasa: surveyType === "pre" ? "Pra" : "Pasca" // 🌟 Tambah label fasa
       });
 
       alert("Terima kasih! Maklum balas soal selidik anda telah berjaya direkodkan.");
@@ -309,7 +365,6 @@ export default function MuridDashboard() {
       setSurveyAnswers({});
       setCurrentSurveyCategoryIndex(-1);
       
-      // Update state supaya banner hilang
       if (surveyType === "pre") setHasPreSurvey(true);
       if (surveyType === "post") setHasPostSurvey(true);
       
@@ -460,12 +515,10 @@ export default function MuridDashboard() {
     return { label: "Bimbingan AI", color: "bg-amber-50 border-amber-200 text-amber-700", bar: "w-1/2 bg-amber-400 animate-pulse", icon: "⏳" };
   };
 
-  // 🌟 LOGIK KELAYAKAN SOAL SELIDIK (PASCA/POST)
-  const qualifiesForPostSurvey = Object.values(progressBab).some(p => p.preSkor !== undefined && p.preSkor < 50); // Aras Rendah
+  const qualifiesForPostSurvey = Object.values(progressBab).some(p => p.preSkor !== undefined && p.preSkor < 50); 
   const showPreSurveyBanner = userData?.kumpulan === 'Eksperimen' && !hasPreSurvey;
   const showPostSurveyBanner = userData?.kumpulan === 'Eksperimen' && hasPreSurvey && qualifiesForPostSurvey && !hasPostSurvey;
 
-  // 🌟 LOGIK PAGINATION KATEGORI SOAL SELIDIK
   const surveyCategories = Array.from(new Set(surveyQuestions.map(q => q.kategori)));
   const currentSurveyCategory = surveyCategories[currentSurveyCategoryIndex] || "";
   const questionsInCurrentCategory = surveyQuestions.filter(q => q.kategori === currentSurveyCategory);
@@ -505,7 +558,7 @@ export default function MuridDashboard() {
             
             <div className="flex items-center gap-2 md:gap-3 flex-wrap">
               <button 
-                onClick={tarikDataFirebase} 
+                onClick={() => tarikDataFirebase(false)} 
                 className="px-4 md:px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 font-bold border border-white/20 flex items-center gap-2 text-sm transition-all shadow-md"
                 title="Segar Semula Data"
               >
@@ -584,14 +637,14 @@ export default function MuridDashboard() {
                 </p>
               </div>
               <button 
-                onClick={() => { setSurveyType(showPreSurveyBanner ? "pre" : "post"); tarikSoalanSelidik(); setShowSurvey(true); }} 
+                onClick={() => { setSurveyType(showPreSurveyBanner ? "pre" : "post"); tarikSoalanSelidik(showPreSurveyBanner ? "Pra" : "Pasca"); setShowSurvey(true); }} 
                 className="hidden md:flex px-6 py-3 bg-white text-purple-700 hover:bg-purple-50 font-bold rounded-xl items-center gap-2 shadow-md transition-transform hover:scale-105 shrink-0"
               >
                 Mula Jawab <ArrowRight className="w-5 h-5"/>
               </button>
             </div>
             <button 
-              onClick={() => { setSurveyType(showPreSurveyBanner ? "pre" : "post"); tarikSoalanSelidik(); setShowSurvey(true); }} 
+              onClick={() => { setSurveyType(showPreSurveyBanner ? "pre" : "post"); tarikSoalanSelidik(showPreSurveyBanner ? "Pra" : "Pasca"); setShowSurvey(true); }} 
               className="md:hidden w-full px-6 py-4 bg-white text-purple-700 font-bold rounded-b-3xl flex items-center justify-center gap-2 shadow-inner"
             >
               Mula Jawab Sekarang <ArrowRight className="w-5 h-5"/>

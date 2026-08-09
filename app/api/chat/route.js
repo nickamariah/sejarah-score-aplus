@@ -31,6 +31,16 @@ export async function POST(req) {
       }), { status: 200, headers: { "Content-Type": "application/json" } });
     }
 
+    // 🌟🌟🌟 PENYELESAIAN ISU AI TAMAT AWAL (KIRAAN PUSINGAN) 🌟🌟🌟
+    const jumlahSembangAI = previousMessages ? previousMessages.filter(m => m.role === 'assistant').length : 0;
+    
+    let amaranPenamat = "";
+    if (jumlahSembangAI < 3) {
+      amaranPenamat = `[AMARAN KETAT SISTEM]: Anda baru membalas sebanyak ${jumlahSembangAI} kali dalam subtopik ini. ANDA DIHARAMKAN SAMA SEKALI UNTUK MENAMATKAN SESI. WAJIB set "isPhaseComplete": false. Teruskan menguji fakta yang lain dari nota.`;
+    } else {
+      amaranPenamat = `[STATUS SISTEM]: Anda telah menguji murid sebanyak ${jumlahSembangAI} kali. Jika murid sudah faham dan berjaya menjawab sekurang-kurangnya 2 fakta berbeza, anda kini DIBENARKAN tamat sesi (set "isPhaseComplete": true).`;
+    }
+
     // ==========================================
     // LOGIK FASA INKUIRI (PANDUAN AI)
     // ==========================================
@@ -76,26 +86,23 @@ export async function POST(req) {
       
       ${personaTutor}
 
+      ${amaranPenamat}
+
       [PERATURAN KETAT - WAJIB PATUH 100%]:
       1. KESAHAN FAKTA (ANTI-HALLUCINATION): Rujuk HANYA pada [NOTA RUJUKAN]. Dilarang mencipta fakta luar.
       2. PENILAIAN JAWAPAN: Rujuk [SKEMA JAWAPAN]. Terima jawapan asalkan maknanya atau kata kuncinya hampir sama dengan skema. Abaikan typo.
       
-      🚨 3. SAPAAN AWAL MURID (PENTING!): 
-      - Jika mesej pertama murid hanyalah "Hai", "Assalamualaikum", "Selamat Pagi", atau mesej yang pendek/tiada kaitan dengan sejarah:
-      - BALAS: Balas sapaan mereka secara ringkas.
-      - KEMUDIAN TERUS TANYA: Berikan soalan pertama berkaitan nota.
-      - WAJIB TETAPKAN "isPhaseComplete": false. Jangan sesekali tamatkan fasa pada waktu ini!
+      3. SAPAAN AWAL MURID: 
+      - Jika mesej pertama murid hanyalah "Hai" atau "Assalamualaikum": Balas salam dan TERUS berikan soalan fakta pertama.
       
-      🚨 4. SYARAT KELULUSAN FASA (isPhaseComplete) - SANGAT KETAT:
-      - SECARA LALAI (DEFAULT): Nilai "isPhaseComplete" mestilah "false".
-      - ANDA DILARANG SAMA SEKALI menetapkan "isPhaseComplete": true selagi murid BELUM menjawab SEKURANG-KURANGNYA DUA (2) SOALAN BERBEZA berkaitan komponen utama di dalam [NOTA RUJUKAN] dengan BETUL.
-      - Jika murid baru jawab 1 soalan dengan betul: Puji mereka, kemudian TANYA SOALAN KE-2 dari bahagian lain dalam nota. Tetapkan "isPhaseComplete": false.
-      - Hanya apabila murid telah berjaya menjawab 2 atau 3 maklumat penting, baru anda dibenarkan menetapkan "isPhaseComplete": true.
+      4. BANTUAN JIKA MURID GAGAL: Jika murid kata "Tak tahu", beri klu (hint) yang sangat mudah. Minta mereka cuba teka. Set "isPhaseComplete": false.
+      
+      5. SATU SOALAN SAHAJA: Setiap kali anda membalas, HANYA SATU SOALAN dibenarkan di hujung mesej (Elakkan lambakan kognitif).
+      
+      6. FORMAT PENYAMPAIAN FAKTA (POINT FORM & EMOJI):
+      - WAJIB gunakan bentuk "Point Form" (Senarai pendek) dengan emoji (Contoh: 👑, ⚔️, 📜) jika menerangkan fakta.
+      - Pastikan ayat bagi setiap poin SANGAT RINGKAS. ELAKKAN perenggan meleret.
 
-      5. BANTUAN JIKA MURID GAGAL: Jika murid kata "Tak tahu", beri klu (hint) yang sangat mudah. Minta mereka cuba teka. Set "isPhaseComplete": false.
-      
-      6. SATU SOALAN SAHAJA: Setiap kali anda membalas, HANYA SATU SOALAN dibenarkan di hujung mesej (Elakkan lambakan kognitif).
-      
       [SUMBER PENGETAHUAN (RAG DATA)]:
       📌 NOTA RUJUKAN:
       ${teksRujukanAI || "Tiada nota khusus, gunakan pengetahuan asas silibus KSSM."}
@@ -106,8 +113,8 @@ export async function POST(req) {
       [FORMAT BALASAN (WAJIB JSON)]:
       Anda mesti membalas dalam format JSON tulen seperti di bawah:
       {
-        "analisis_dalaman": "Adakah mesej ini sekadar sapaan? Berapa soalan fakta dah disoal? Jika baru 1, wajib letak isPhaseComplete false.",
-        "reply": "Teks balasan anda (Pujian + Bimbingan + SATU Soalan seterusnya)...",
+        "analisis_dalaman": "Berapa kali saya dah chat? Adakah lebih 3 kali? Adakah dia dah jawab 2 soalan?",
+        "reply": "Teks balasan anda (Pujian + Point Form + 1 Soalan Baru)...",
         "isPhaseComplete": true atau false
       }`
     };
@@ -127,9 +134,16 @@ export async function POST(req) {
 
     const aiOutput = JSON.parse(response.choices[0].message.content);
 
+    // 🌟 KAWALAN KOD TERAKHIR (OVERRIDE): 
+    // Sekiranya AI masih "degil" nak hantar True, kod ini akan paksa tukar ke False!
+    let finalPhaseComplete = aiOutput.isPhaseComplete;
+    if (jumlahSembangAI < 3) {
+      finalPhaseComplete = false;
+    }
+
     return new Response(JSON.stringify({
       reply: aiOutput.reply,
-      isPhaseComplete: aiOutput.isPhaseComplete
+      isPhaseComplete: finalPhaseComplete
     }), { status: 200, headers: { "Content-Type": "application/json" } });
 
   } catch (error) {
