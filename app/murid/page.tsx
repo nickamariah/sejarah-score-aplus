@@ -66,7 +66,7 @@ export default function MuridDashboard() {
   const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, number>>({});
   const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false);
-  const [currentSurveyCategoryIndex, setCurrentSurveyCategoryIndex] = useState(-1); // -1 bermaksud Paparan Panduan
+  const [currentSurveyCategoryIndex, setCurrentSurveyCategoryIndex] = useState(-1);
 
   // STATE UNTUK TEMA 
   const senaraiTheme = [
@@ -118,7 +118,8 @@ export default function MuridDashboard() {
       const uniqueIds = [...new Set(targetIds)];
       if (uniqueIds.length === 0) uniqueIds.push("kosong");
 
-      const qSkor = query(collection(db, "skor_murid"), where("idMurid", "in", uniqueIds), where("tingkatan", "==", tSemasa));
+      // 🌟 PEMBAIKAN: Buang tapisan "where(tingkatan)" dari query untuk tarik semua data skor murid ini
+      const qSkor = query(collection(db, "skor_murid"), where("idMurid", "in", uniqueIds));
       const snapSkor = await getDocs(qSkor);
       
       const qChat = query(collection(db, "chat_sessions"), where("studentId", "in", uniqueIds), where("status", "==", "completed"));
@@ -140,7 +141,14 @@ export default function MuridDashboard() {
       
       snapSkor.forEach((docSnap) => {
         const data = docSnap.data();
-        const babNum = parseInt(data.bab.replace("Bab ", ""));
+        
+        // 🌟 PEMBAIKAN: Tapis Tingkatan guna JavaScript (Kalis Ralat String/Nombor)
+        if (String(data.tingkatan) !== tSemasa) return;
+
+        // 🌟 PEMBAIKAN: Ekstrak nombor bab dengan selamat (Hanya baca angka)
+        const babNum = parseInt(String(data.bab).replace(/\D/g, ""));
+        if (isNaN(babNum)) return;
+
         if (!tempProgress[babNum]) tempProgress[babNum] = { jumlahCubaanPost: 0, aiSelesai: false, pemulihanSelesai: false, gameSelesai: false };
         
         let adaRalat = false;
