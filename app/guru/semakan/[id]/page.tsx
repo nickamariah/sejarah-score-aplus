@@ -85,46 +85,42 @@ export default function PemarkahanGuru() {
     setMarkahGuru(prev => ({ ...prev, [soalanId]: num }));
   };
 
-  // 🌟 FUNGSI BAHARU: MINTA AI SEMAK SEMULA SATU SOALAN
-  const semakSemulaGunaAI = async (soalan: any, jawapanPelajar: string) => {
-    setLoadingAI(soalan.id); // Tunjukkan loader pada butang soalan ini
+  // 🌟 FUNGSI BAHARU YANG TELAH DISELARASKAN DENGAN API
+  const semakSemulaGunaAI = async (soalan: any, teksJawapanMurid: string) => {
+    setLoadingAI(soalan.id); 
     
     try {
-      // Panggil API Semakan AI (Google Gemini / OpenAI)
       const res = await fetch("/api/semak-ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           soalan: soalan.soalan,
-          skema: soalan.skemaJawapan,
+          skemaJawapan: soalan.skemaJawapan || "Tiada skema khusus.", 
           markahPenuh: soalan.markah,
-          jawapanPelajar: jawapanPelajar || "Tiada jawapan diberikan."
+          jawapanMurid: teksJawapanMurid || "Tiada jawapan diberikan."
         })
       });
 
       const data = await res.json();
       
-      if (res.ok && data.markah !== undefined) {
-        // Gabungkan ulasan lama dan baru untuk disimpan
+      // Menggunakan key markahDicadangkan & komen mengikut API cikgu
+      if (res.ok && data.markahDicadangkan !== undefined) {
         const ulasanTerkini = {
           ...dataMurid.ulasanAI,
           [soalan.id]: {
-            komenAI: data.ulasan,
-            markahAI: data.markah
+            komenAI: data.komen,
+            markahAI: data.markahDicadangkan
           }
         };
 
-        // Kemas kini ke Firebase
         await updateDoc(doc(db, "skor_murid", documentId), {
           ulasanAI: ulasanTerkini
         });
 
-        alert(`Berjaya disemak AI! Markah baharu: ${data.markah}`);
-        
-        // Tarik semula data untuk refresh paparan
-        tarikData();
+        alert(`Berjaya disemak AI! Markah baharu: ${data.markahDicadangkan} M`);
+        tarikData(); // Refresh paparan dengan rekod baharu
       } else {
-        alert("Ralat dari API AI: " + (data.error || "Sila cuba lagi."));
+        alert("Ralat dari API AI: " + (data.komen || "Sila cuba lagi."));
       }
     } catch (error) {
       console.error("Ralat Semakan AI:", error);
