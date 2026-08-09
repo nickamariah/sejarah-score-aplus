@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Calculator, BarChart3, TrendingUp, FileSpreadsheet, Database, CheckCircle, Activity, Download, Plus, Edit3, Trash2, CheckSquare, Save, X, FileText, Settings, GripVertical, Loader2, Info, ChevronDown, Eye } from "lucide-react";
+import { Calculator, BarChart3, TrendingUp, FileSpreadsheet, Database, CheckCircle, Activity, Download, Plus, Edit3, Trash2, CheckSquare, Save, X, FileText, Settings, GripVertical, Loader2, Info, ChevronDown, Eye, Users } from "lucide-react";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { motion, AnimatePresence } from "framer-motion";
