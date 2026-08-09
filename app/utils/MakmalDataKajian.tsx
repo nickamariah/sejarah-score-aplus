@@ -1,19 +1,21 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Calculator, BarChart3, TrendingUp, FileSpreadsheet, Database, CheckCircle, Activity, Download, Plus, Edit3, Trash2, CheckSquare, Save, X, FileText, Settings, GripVertical, Loader2 } from "lucide-react";
+import { Calculator, BarChart3, TrendingUp, FileSpreadsheet, Database, CheckCircle, Activity, Download, Plus, Edit3, Trash2, CheckSquare, Save, X, FileText, Settings, GripVertical, Loader2, Info, ChevronDown, Eye } from "lucide-react";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function MakmalDataKajian() {
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState<"kuasi" | "spss" | "soalan" | "fdm" | "sus">("soalan"); // Saya set default ke tab soalan untuk anda test
+  const [activeSubTab, setActiveSubTab] = useState<"kuasi" | "spss" | "soalan" | "fdm" | "sus">("kuasi");
   
   // ==========================================
   // STATE: KUASI-EKSPERIMEN
   // ==========================================
   const [dataMentah, setDataMentah] = useState<any[]>([]);
   const [gunaDataSimulasi, setGunaDataSimulasi] = useState(false);
+  const [showMathInfo, setShowMathInfo] = useState(false); // 🌟 Tunjuk formula Matematik
 
   // ==========================================
   // STATE: PENGURUSAN ITEM SOALAN & SPSS
@@ -23,7 +25,7 @@ export default function MakmalDataKajian() {
   const [editId, setEditId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({ 
-    fasa: "Pra", // Pra atau Pasca
+    fasa: "Pra", 
     kategori: "Motivasi", 
     subKategori: "", 
     soalan: "", 
@@ -37,11 +39,12 @@ export default function MakmalDataKajian() {
   const [rawUsersData, setRawUsersData] = useState<any[]>([]);
   const [statsDeskriptif, setStatsDeskriptif] = useState<any>(null);
 
-  // Drag and Drop (Dinaik taraf untuk fasa berasingan)
   const [draggedItemInfo, setDraggedItemInfo] = useState<{fasa: string, index: number} | null>(null);
   const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
 
-  // Data Mock Jika DB kosong
+  // 🌟 STATE: PAPARAN JAWAPAN INDIVIDU
+  const [selectedSurveyDetail, setSelectedSurveyDetail] = useState<any | null>(null);
+
   const mockData = [
     { id: "M4001", kumpulan: "Eksperimen", ujianPra: 45, ujianPasca: 85 },
     { id: "M4002", kumpulan: "Eksperimen", ujianPra: 50, ujianPasca: 88 },
@@ -116,11 +119,9 @@ export default function MakmalDataKajian() {
 
   useEffect(() => { tarikSemuaData(); }, []);
 
-  // Membahagikan Soalan kepada dua kumpulan (Pra & Pasca) dan menyusun mengikut susunan
   const soalanPra = soalanList.filter(s => s.fasa === "Pra").sort((a,b) => a.susunan - b.susunan);
   const soalanPasca = soalanList.filter(s => s.fasa === "Pasca").sort((a,b) => a.susunan - b.susunan);
 
-  // Auto set nombor susunan baharu bila fasa ditukar (Pra / Pasca)
   useEffect(() => {
     if (!isEditing) {
       const p = formData.fasa === "Pra" ? soalanPra.length + 1 : soalanPasca.length + 1;
@@ -188,7 +189,6 @@ export default function MakmalDataKajian() {
     setFormData({ fasa: formData.fasa, kategori: "Motivasi", subKategori: "", soalan: "", susunan: targetLength + 1, jenisSkala: 5, aktif: true });
   };
 
-  // Drag and Drop (Untuk Dua Kumpulan Berbeza)
   const handleDragStartPhase = (fasa: string, index: number) => { setDraggedItemInfo({ fasa, index }); };
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); };
 
@@ -200,17 +200,14 @@ export default function MakmalDataKajian() {
     const draggedItem = currentList.splice(draggedItemInfo.index, 1)[0];
     currentList.splice(targetIndex, 0, draggedItem);
     
-    // Susun Semula Nombor (1, 2, 3...)
     const updatedList = currentList.map((item, i) => ({ ...item, susunan: i + 1 }));
 
-    // Kemaskini Local State Serta Merta Untuk Paparan Lancar
     setSoalanList(prev => prev.map(oldItem => {
         const found = updatedList.find(u => u.id === oldItem.id);
         return found ? { ...oldItem, susunan: found.susunan } : oldItem;
     }));
     setDraggedItemInfo(null);
 
-    // Hantar ke Database
     try {
       const batch = writeBatch(db);
       updatedList.forEach(item => {
@@ -269,7 +266,6 @@ export default function MakmalDataKajian() {
   if (loading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-500" size={40}/></div>;
 
   return (
-    // 💡 PEMBETULAN: Dibuang 'overflow-x-hidden' pada wrapper utama ini supaya fungsi lg:sticky dapat berfungsi
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full max-w-full">
       
       {/* HEADER MAKMAL KAJIAN */}
@@ -283,13 +279,6 @@ export default function MakmalDataKajian() {
           <Download size={18} className="mr-2"/> Eksport Data (CSV)
         </button>
       </div>
-
-      {gunaDataSimulasi && activeSubTab === "kuasi" && (
-        <div className="bg-amber-900/30 border border-amber-800/50 p-4 rounded-xl flex items-start gap-3 text-amber-400 shadow-inner">
-          <Activity size={20} className="shrink-0 mt-0.5" />
-          <p className="text-sm"><strong>Nota Pembangun:</strong> Data pelajar tidak mencukupi. Analisis di bawah menggunakan Data Simulasi (Mock Data).</p>
-        </div>
-      )}
 
       {/* TABS SUB-ANALISIS */}
       <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
@@ -305,6 +294,8 @@ export default function MakmalDataKajian() {
       {/* ========================================== */}
       {activeSubTab === "kuasi" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-300">
+          
+          {/* STATISTIK DESKRIPTIF */}
           <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-xl lg:col-span-2">
             <div className="p-5 border-b border-slate-800 bg-slate-900/30 flex items-center gap-3"><BarChart3 className="text-emerald-400"/><h3 className="text-lg font-bold text-white">Statistik Deskriptif (Pencapaian Ujian)</h3></div>
             <div className="p-5 overflow-x-auto">
@@ -312,8 +303,8 @@ export default function MakmalDataKajian() {
                 <thead>
                   <tr className="border-b-2 border-slate-700">
                     <th className="p-3 text-slate-400 font-semibold text-sm">Kumpulan</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Ujian</th>
-                    <th className="p-3 text-slate-400 font-semibold text-sm text-center">N</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Min</th>
-                    <th className="p-3 text-slate-400 font-semibold text-sm text-center">SD</th>
+                    <th className="p-3 text-slate-400 font-semibold text-sm text-center">N</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Min (Purata)</th>
+                    <th className="p-3 text-slate-400 font-semibold text-sm text-center">Sisihan Piawai (SD)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
@@ -325,8 +316,51 @@ export default function MakmalDataKajian() {
               </table>
             </div>
           </div>
+
+          {/* UJIAN-T */}
           <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-xl lg:col-span-2">
-            <div className="p-5 border-b border-slate-800 bg-slate-900/30 flex items-center gap-3"><TrendingUp className="text-cyan-400"/><h3 className="text-lg font-bold text-white">Ujian-t Sampel Berpasangan</h3></div>
+            <div className="p-5 border-b border-slate-800 bg-slate-900/30 flex justify-between items-center">
+               <div className="flex items-center gap-3"><TrendingUp className="text-cyan-400"/><h3 className="text-lg font-bold text-white">Ujian-t Sampel Berpasangan</h3></div>
+               {/* 🌟 BUTANG TONJOL INFO MATEMATIK */}
+               <button onClick={() => setShowMathInfo(!showMathInfo)} className="flex items-center gap-2 text-xs bg-slate-800 hover:bg-slate-700 text-cyan-400 px-4 py-2 rounded-lg border border-slate-700 transition-colors font-bold">
+                 <Info size={14}/> {showMathInfo ? "Tutup Formula" : "Lihat Cara Pengiraan Sistem"} <ChevronDown size={14} className={`transition-transform ${showMathInfo ? 'rotate-180' : ''}`}/>
+               </button>
+            </div>
+
+            {/* 🌟 KOTAK INFO MATEMATIK (EXPANDABLE) */}
+            <AnimatePresence>
+               {showMathInfo && (
+                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                   <div className="bg-slate-900 border-b border-slate-800 p-6 space-y-4">
+                     <p className="text-sm text-slate-300 leading-relaxed mb-4">Sistem I-RAGS menggunakan formula statistik matematik sebenar yang diprogramkan secara terbina (built-in). Berikut adalah cara nilai di atas dikira:</p>
+                     
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                       <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                         <h5 className="font-bold text-emerald-400 text-sm mb-2">1. Min (Purata)</h5>
+                         <p className="text-xs text-slate-400 mb-2">Mengira purata markah murid.</p>
+                         <code className="text-emerald-200 text-[11px] block bg-slate-900 p-2 rounded">Min = Σx / n</code>
+                         <p className="text-[10px] text-slate-500 mt-1">Σx = Jumlah semua markah<br/>n = Bilangan murid</p>
+                       </div>
+
+                       <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                         <h5 className="font-bold text-amber-400 text-sm mb-2">2. Sisihan Piawai (SD)</h5>
+                         <p className="text-xs text-slate-400 mb-2">Melihat sejauh mana markah berterabur (taburan data).</p>
+                         <code className="text-amber-200 text-[11px] block bg-slate-900 p-2 rounded">SD = √ [ Σ(x - Min)² / (n - 1) ]</code>
+                         <p className="text-[10px] text-slate-500 mt-1">Formula sampel digunakan (n-1) untuk ketepatan populasi kecil.</p>
+                       </div>
+
+                       <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                         <h5 className="font-bold text-cyan-400 text-sm mb-2">3. Nilai t (T-Value)</h5>
+                         <p className="text-xs text-slate-400 mb-2">Mengukur perbezaan Pra dan Pasca.</p>
+                         <code className="text-cyan-200 text-[11px] block bg-slate-900 p-2 rounded">t = d̄ / (SD_d / √n)</code>
+                         <p className="text-[10px] text-slate-500 mt-1">d̄ = Purata beza markah<br/>Jika t &gt; 2.26 (p &lt; 0.05) = Signifikan.</p>
+                       </div>
+                     </div>
+                   </div>
+                 </motion.div>
+               )}
+            </AnimatePresence>
+
             <div className="p-5 overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-max">
                 <thead>
@@ -334,7 +368,7 @@ export default function MakmalDataKajian() {
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
                   <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-slate-300">Eksperimen</td><td className="p-4 font-mono text-emerald-400 text-center font-bold">+{analisisEksperimen.tTest.meanDiff}</td><td className="p-4 font-mono text-slate-200 text-center">{analisisEksperimen.tTest.tValue}</td><td className="p-4 text-center"><span className="bg-emerald-900/40 text-emerald-400 px-3 py-1 rounded-full text-xs font-bold border border-emerald-800/50">{analisisEksperimen.tTest.pValue} (Sig.)</span></td></tr>
-                  <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-slate-300">Kawalan</td><td className="p-4 font-mono text-amber-400 text-center font-bold">+{analisisKawalan.tTest.meanDiff}</td><td className="p-4 font-mono text-slate-200 text-center">{analisisKawalan.tTest.tValue}</td><td className="p-4 text-center"><span className="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-xs font-bold border border-slate-700">{analisisKawalan.tTest.pValue} (Sig.)</span></td></tr>
+                  <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-slate-300">Kawalan</td><td className="p-4 font-mono text-amber-400 text-center font-bold">+{analisisKawalan.tTest.meanDiff}</td><td className="p-4 font-mono text-slate-200 text-center">{analisisKawalan.tTest.tValue}</td><td className="p-4 text-center"><span className="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-xs font-bold border border-slate-700">{analisisKawalan.tTest.pValue} (Tidak Sig.)</span></td></tr>
                 </tbody>
               </table>
             </div>
@@ -346,22 +380,78 @@ export default function MakmalDataKajian() {
       {/* 📈 TAB 2: ANALISIS SOAL SELIDIK */}
       {/* ========================================== */}
       {activeSubTab === "spss" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
-           <div className="md:col-span-3 bg-slate-800/80 p-5 rounded-2xl border border-slate-700 flex justify-between items-center">
-              <div>
-                <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2"><FileText className="text-blue-400"/> Analisis Deskriptif Soal Selidik (Skor Min)</h4>
-                <p className="text-xs text-amber-400 mt-1">Data dikira berdasarkan sampel jawapan murid Kumpulan Eksperimen SAHAJA.</p>
+        <div className="space-y-6 animate-in fade-in duration-300">
+           
+           {/* RINGKASAN MIN KESELURUHAN */}
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <div className="md:col-span-3 bg-slate-800/80 p-5 rounded-2xl border border-slate-700 flex justify-between items-center">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2"><FileText className="text-blue-400"/> Analisis Deskriptif Soal Selidik (Skor Min)</h4>
+                  <p className="text-xs text-amber-400 mt-1">Data dikira berdasarkan sampel jawapan murid Kumpulan Eksperimen SAHAJA.</p>
+                </div>
+             </div>
+             {statsDeskriptif && Object.keys(statsDeskriptif).length > 0 ? (
+               Object.keys(statsDeskriptif).map((kategori, idx) => (
+                 <div key={idx} className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700 shadow-md">
+                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block mb-4 border-b border-slate-700 pb-2">{kategori}</span>
+                    <div className="flex justify-between items-end mb-3"><span className="text-slate-400 text-xs">Min (Purata)</span><span className="text-3xl font-black text-white">{statsDeskriptif[kategori].min}</span></div>
+                    <div className="flex justify-between items-end"><span className="text-slate-400 text-xs flex items-center gap-1"><Activity size={12}/> Sisihan Piawai (SD)</span><span className="text-lg font-bold text-slate-300">{statsDeskriptif[kategori].sd}</span></div>
+                 </div>
+               ))
+             ) : <div className="md:col-span-3 p-12 text-center text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-700 border-dashed">Tiada data soal selidik ditemui setakat ini.</div>}
+           </div>
+
+           {/* 🌟 JADUAL SENARAI JAWAPAN INDIVIDU MURID */}
+           <div className="bg-slate-800/80 rounded-2xl border border-slate-700 overflow-hidden shadow-xl mt-8">
+              <div className="p-5 border-b border-slate-700 bg-slate-900/50">
+                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><Users className="text-fuchsia-400"/> Rekod Jawapan Individu (Eksperimen)</h3>
+                 <p className="text-xs text-slate-400 mt-1">Semak skor mentah setiap soalan (Skala 1-5) yang telah dijawab oleh pelajar secara terperinci.</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-700 bg-slate-800/50">
+                      <th className="p-4 font-bold text-xs uppercase text-slate-400">Nama Murid / ID</th>
+                      <th className="p-4 font-bold text-xs uppercase text-slate-400 text-center">Fasa Kajian</th>
+                      <th className="p-4 font-bold text-xs uppercase text-slate-400 text-center">Tarikh Menjawab</th>
+                      <th className="p-4 font-bold text-xs uppercase text-slate-400 text-right">Tindakan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rawSurveyData.filter(s => s.kumpulan === "Eksperimen").length > 0 ? (
+                      rawSurveyData.filter(s => s.kumpulan === "Eksperimen")
+                        .sort((a, b) => new Date(b.tarikhJawab).getTime() - new Date(a.tarikhJawab).getTime())
+                        .map((survey, i) => (
+                        <tr key={i} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
+                          <td className="p-4">
+                            <div className="font-bold text-slate-200">{survey.namaMurid}</div>
+                            <div className="text-xs text-slate-500 font-mono mt-0.5">ID: {survey.idMurid}</div>
+                          </td>
+                          <td className="p-4 text-center">
+                            <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider border ${survey.fasa === "Pra" ? 'bg-indigo-900/40 text-indigo-400 border-indigo-800/50' : 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50'}`}>
+                              {survey.fasa || "Pra"}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center text-xs text-slate-400">
+                             {new Date(survey.tarikhJawab).toLocaleString('ms-MY', { dateStyle: 'medium', timeStyle: 'short' })}
+                          </td>
+                          <td className="p-4 text-right">
+                             <button 
+                               onClick={() => setSelectedSurveyDetail(survey)}
+                               className="bg-slate-700 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                             >
+                               <Eye size={14}/> Lihat Jawapan
+                             </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan={4} className="p-8 text-center text-slate-500">Belum ada murid Eksperimen yang menjawab.</td></tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
            </div>
-           {statsDeskriptif && Object.keys(statsDeskriptif).length > 0 ? (
-             Object.keys(statsDeskriptif).map((kategori, idx) => (
-               <div key={idx} className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700 shadow-md">
-                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block mb-4 border-b border-slate-700 pb-2">{kategori}</span>
-                  <div className="flex justify-between items-end mb-3"><span className="text-slate-400 text-xs">Min (Purata)</span><span className="text-3xl font-black text-white">{statsDeskriptif[kategori].min}</span></div>
-                  <div className="flex justify-between items-end"><span className="text-slate-400 text-xs">SD (Sisihan Piawai)</span><span className="text-lg font-bold text-slate-300">{statsDeskriptif[kategori].sd}</span></div>
-               </div>
-             ))
-           ) : <div className="md:col-span-3 p-12 text-center text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-700 border-dashed">Tiada data soal selidik ditemui setakat ini.</div>}
         </div>
       )}
 
@@ -369,26 +459,25 @@ export default function MakmalDataKajian() {
       {/* 📝 TAB 3: PENGURUSAN ITEM SOALAN */}
       {/* ========================================== */}
       {activeSubTab === "soalan" && (
-        <div className="flex flex-col lg:flex-row gap-6 animate-in fade-in duration-300 items-start relative">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300 items-start relative">
           
-          {/* ================= KOTAK KIRI (BORANG STICKY) ================= */}
-          {/* 💡 Ditambah lg:top-8 dan lg:sticky */}
-          <div className="w-full lg:w-1/3 bg-slate-800/90 p-6 rounded-2xl border border-slate-700 lg:sticky lg:top-8 z-10 shadow-2xl order-first flex-shrink-0 max-h-[85vh] overflow-y-auto custom-scrollbar">
+          <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 lg:col-span-1 lg:sticky lg:top-6 h-fit z-10 shadow-xl order-first">
             <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
               <Settings className="text-fuchsia-400" size={20}/> 
               {isEditing ? "Kemaskini Item" : "Daftar Item Baharu"}
             </h4>
             
             <form onSubmit={handleSimpanSoalan} className="space-y-5">
+              
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Fasa Kajian</label>
                 <select 
                   value={formData.fasa} 
                   onChange={e => setFormData({...formData, fasa: e.target.value})} 
-                  className={`w-full border rounded-xl p-3.5 text-white font-bold outline-none shadow-inner transition-colors ${formData.fasa === 'Pra' ? 'bg-indigo-900/40 border-indigo-500/50 focus:border-indigo-400' : 'bg-emerald-900/40 border-emerald-500/50 focus:border-emerald-400'}`}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none focus:border-fuchsia-500 shadow-inner transition-colors"
                 >
-                  <option value="Pra">Pra-Kajian (Sebelum Mula)</option>
-                  <option value="Pasca">Pasca-Kajian (Selepas Tamat)</option>
+                  <option className="bg-slate-800 text-white" value="Pra">Pra-Kajian (Sebelum Mula)</option>
+                  <option className="bg-slate-800 text-white" value="Pasca">Pasca-Kajian (Selepas Tamat)</option>
                 </select>
               </div>
 
@@ -399,9 +488,9 @@ export default function MakmalDataKajian() {
                   onChange={e => setFormData({...formData, kategori: e.target.value})} 
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white outline-none focus:border-fuchsia-500 shadow-inner transition-colors"
                 >
-                  <option value="Motivasi">Motivasi</option>
-                  <option value="Penglibatan">Penglibatan</option>
-                  <option value="Kebolehgunaan">Kebolehgunaan</option>
+                  <option className="bg-slate-800 text-white" value="Motivasi">Motivasi</option>
+                  <option className="bg-slate-800 text-white" value="Penglibatan">Penglibatan</option>
+                  <option className="bg-slate-800 text-white" value="Kebolehgunaan">Kebolehgunaan</option>
                 </select>
               </div>
               
@@ -423,14 +512,14 @@ export default function MakmalDataKajian() {
                   value={formData.soalan} 
                   onChange={e => setFormData({...formData, soalan: e.target.value})} 
                   required 
-                  placeholder="Cth: Laman web ini membantu saya..."
+                  placeholder="Cth: I-RAGS membantu saya fokus..."
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-fuchsia-500 outline-none resize-y shadow-inner leading-relaxed transition-colors"
                 ></textarea>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Susunan (No)</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Susunan</label>
                   <input 
                     type="number" 
                     min="1"
@@ -446,8 +535,8 @@ export default function MakmalDataKajian() {
                     onChange={e => setFormData({...formData, aktif: e.target.value === "true"})} 
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-emerald-400 font-bold outline-none focus:border-fuchsia-500 shadow-inner transition-colors"
                   >
-                    <option value="true">Aktif</option>
-                    <option value="false" className="text-rose-400">Sembunyi</option>
+                    <option className="bg-slate-800 text-white" value="true">Aktif</option>
+                    <option className="bg-slate-800 text-white" value="false">Sembunyi</option>
                   </select>
                 </div>
               </div>
@@ -473,7 +562,6 @@ export default function MakmalDataKajian() {
             </form>
           </div>
           
-          {/* ================= KOTAK KANAN (2 LAJUR PRA & PASCA) ================= */}
           <div className="w-full lg:w-2/3 grid grid-cols-1 xl:grid-cols-2 gap-6 relative">
             
             {isUpdatingOrder && (
@@ -482,7 +570,6 @@ export default function MakmalDataKajian() {
                </div>
             )}
 
-            {/* Kotak: Pra-Kajian */}
             <div className="bg-indigo-900/10 rounded-2xl border border-indigo-500/30 p-4 shadow-lg flex flex-col h-full">
               <div className="bg-indigo-900/40 p-4 rounded-xl border border-indigo-500/40 mb-4 flex justify-between items-center">
                  <h3 className="font-bold text-indigo-300">Pra-Kajian (Sebelum)</h3>
@@ -518,7 +605,6 @@ export default function MakmalDataKajian() {
               </div>
             </div>
 
-            {/* Kotak: Pasca-Kajian */}
             <div className="bg-emerald-900/10 rounded-2xl border border-emerald-500/30 p-4 shadow-lg flex flex-col h-full">
               <div className="bg-emerald-900/30 p-4 rounded-xl border border-emerald-500/40 mb-4 flex justify-between items-center">
                  <h3 className="font-bold text-emerald-400">Pasca-Kajian (Selepas)</h3>
@@ -598,6 +684,68 @@ export default function MakmalDataKajian() {
           </div>
         </div>
       )}
+
+      {/* 🌟 MODAL PAPARAN JAWAPAN INDIVIDU MURID 🌟 */}
+      <AnimatePresence>
+        {selectedSurveyDetail && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }} className="bg-slate-800 w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-600 overflow-hidden flex flex-col max-h-[90vh]">
+              
+              {/* Header Modal */}
+              <div className="bg-slate-900 p-6 text-white flex justify-between items-start border-b border-slate-700 shrink-0">
+                <div>
+                  <h3 className="font-black text-xl text-white mb-2">{selectedSurveyDetail.namaMurid}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-slate-700 text-slate-300 text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-wider">ID: {selectedSurveyDetail.idMurid}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider border ${selectedSurveyDetail.fasa === "Pra" ? 'bg-indigo-900/40 text-indigo-400 border-indigo-800/50' : 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50'}`}>
+                      Fasa: {selectedSurveyDetail.fasa || "Pra"}
+                    </span>
+                    <span className="text-[10px] text-slate-400 ml-2">
+                      {new Date(selectedSurveyDetail.tarikhJawab).toLocaleString('ms-MY')}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedSurveyDetail(null)} className="bg-slate-800 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-rose-500 transition-colors"><X size={20}/></button>
+              </div>
+
+              {/* Kandungan Jawapan Terperinci */}
+              <div className="p-6 overflow-y-auto flex-1 custom-scrollbar bg-[#0f172a]">
+                 <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-700 pb-2"><FileText size={16}/> Skor Keseluruhan (Min)</h4>
+                 <div className="flex flex-wrap gap-4 mb-8">
+                    {Object.entries(selectedSurveyDetail.skorKeseluruhan).map(([kat, skor]: any, idx) => (
+                      <div key={idx} className="bg-slate-800 border border-slate-700 px-4 py-3 rounded-xl flex items-center gap-3">
+                         <span className="text-xs font-bold text-slate-400 uppercase">{kat}:</span>
+                         <span className="text-xl font-black text-white">{skor.toFixed(2)}</span>
+                      </div>
+                    ))}
+                 </div>
+
+                 <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-700 pb-2"><CheckSquare size={16}/> Maklum Balas Item</h4>
+                 <div className="space-y-3">
+                   {selectedSurveyDetail.jawapanTerperinci.map((ans: any, idx: number) => {
+                     // Skema Warna Skala
+                     let colorClass = "bg-slate-700 text-slate-300";
+                     if(ans.skor >= 4) colorClass = "bg-emerald-900/50 text-emerald-400 border border-emerald-800";
+                     else if (ans.skor <= 2) colorClass = "bg-rose-900/50 text-rose-400 border border-rose-800";
+
+                     return (
+                       <div key={idx} className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 flex gap-4 items-center hover:bg-slate-800 transition-colors">
+                          <div className={`w-12 h-12 rounded-xl shrink-0 flex items-center justify-center font-black text-xl shadow-inner ${colorClass}`}>
+                             {ans.skor}
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-fuchsia-400 font-bold uppercase tracking-wider mb-1 block">{ans.kategori} {ans.subKategori && `- ${ans.subKategori}`}</span>
+                            <p className="text-sm text-slate-200 leading-relaxed font-medium">{ans.soalan}</p>
+                          </div>
+                       </div>
+                     )
+                   })}
+                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
