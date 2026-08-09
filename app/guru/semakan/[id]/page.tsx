@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { doc, getDoc, collection, query, where, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase"; 
-import { ArrowLeft, Save, Loader2, User, BookOpen, AlertTriangle, Sparkles, CheckCircle } from "lucide-react";
+import { ArrowLeft, Save, Loader2, User, BookOpen, AlertTriangle, Sparkles, CheckCircle, RefreshCw } from "lucide-react";
 
 export default function PemarkahanGuru() {
   const params = useParams();
@@ -16,91 +16,129 @@ export default function PemarkahanGuru() {
   const [markahGuru, setMarkahGuru] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [menyimpan, setMenyimpan] = useState(false);
+  
+  // State untuk butang Refresh AI individu
+  const [loadingAI, setLoadingAI] = useState<string | null>(null);
 
   useEffect(() => {
-    const tarikData = async () => {
-      try {
-        const docRef = doc(db, "skor_murid", documentId);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          const rekod = docSnap.data();
-          setDataMurid(rekod);
-
-          // 🌟 KUNCI UTAMA: Dapatkan senarai ID soalan yang BETUL-BETUL DITANYA semasa ujian.
-          // Kita ekstrak ID daripada kunci (keys) objek jawapan murid atau rekod ulasan AI.
-          const keysJawapan = rekod.jawapanStruktur ? Object.keys(rekod.jawapanStruktur) : [];
-          const keysUlasan = rekod.ulasanAI ? Object.keys(rekod.ulasanAI) : [];
-          const keysMarkah = rekod.markahGuru ? Object.keys(rekod.markahGuru) : [];
-          
-          // Gabungkan semua ID dan buang yang duplicate menggunakan Set
-          const senaraiIdSoalanSah = Array.from(new Set([...keysJawapan, ...keysUlasan, ...keysMarkah]));
-
-          // Tarik Bank Soalan
-          const q = query(
-            collection(db, "questionBank"), 
-            where("tingkatan", "==", rekod.tingkatan),
-            where("bab", "==", rekod.bab)
-          );
-          const qSnap = await getDocs(q);
-          const qList: any[] = [];
-          
-          qSnap.forEach((d) => {
-             const soalanData = d.data();
-             const soalanId = d.id;
-             
-             // 🌟 PENAPISAN KETAT:
-             // Hanya masukkan dalam senarai jika ia soalan struktur DAN ID-nya WUJUD dalam 'senaraiIdSoalanSah'
-             if (soalanData.jenis !== "objektif" && senaraiIdSoalanSah.includes(soalanId)) {
-                qList.push({ id: soalanId, ...soalanData });
-             }
-          });
-          
-          // Susun ikut urutan markah/nombor
-          qList.sort((a, b) => Number(a.urutan) - Number(b.urutan));
-          setSoalanBank(qList);
-
-          const markahAwal: Record<string, number> = {};
-          qList.forEach(soalan => {
-            if (rekod.markahGuru && rekod.markahGuru[soalan.id] !== undefined) {
-              markahAwal[soalan.id] = rekod.markahGuru[soalan.id];
-            } else if (rekod.ulasanAI && rekod.ulasanAI[soalan.id]) {
-              markahAwal[soalan.id] = rekod.ulasanAI[soalan.id].markahAI || 0;
-            } else {
-              markahAwal[soalan.id] = 0; 
-            }
-          });
-          setMarkahGuru(markahAwal);
-
-        }
-      } catch (error) {
-        console.error("Ralat Firebase:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (documentId) tarikData();
+    tarikData();
   }, [documentId]);
+
+  const tarikData = async () => {
+    try {
+      const docRef = doc(db, "skor_murid", documentId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const rekod = docSnap.data();
+        setDataMurid(rekod);
+
+        const keysJawapan = rekod.jawapanStruktur ? Object.keys(rekod.jawapanStruktur) : [];
+        const keysUlasan = rekod.ulasanAI ? Object.keys(rekod.ulasanAI) : [];
+        const keysMarkah = rekod.markahGuru ? Object.keys(rekod.markahGuru) : [];
+        
+        const senaraiIdSoalanSah = Array.from(new Set([...keysJawapan, ...keysUlasan, ...keysMarkah]));
+
+        const q = query(
+          collection(db, "questionBank"), 
+          where("tingkatan", "==", rekod.tingkatan),
+          where("bab", "==", rekod.bab)
+        );
+        const qSnap = await getDocs(q);
+        const qList: any[] = [];
+        
+        qSnap.forEach((d) => {
+           const soalanData = d.data();
+           const soalanId = d.id;
+           if (soalanData.jenis !== "objektif" && senaraiIdSoalanSah.includes(soalanId)) {
+              qList.push({ id: soalanId, ...soalanData });
+           }
+        });
+        
+        qList.sort((a, b) => Number(a.urutan) - Number(b.urutan));
+        setSoalanBank(qList);
+
+        const markahAwal: Record<string, number> = {};
+        qList.forEach(soalan => {
+          if (rekod.markahGuru && rekod.markahGuru[soalan.id] !== undefined) {
+            markahAwal[soalan.id] = rekod.markahGuru[soalan.id];
+          } else if (rekod.ulasanAI && rekod.ulasanAI[soalan.id]) {
+            markahAwal[soalan.id] = rekod.ulasanAI[soalan.id].markahAI || 0;
+          } else {
+            markahAwal[soalan.id] = 0; 
+          }
+        });
+        setMarkahGuru(markahAwal);
+      }
+    } catch (error) {
+      console.error("Ralat Firebase:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleMarkahChange = (soalanId: string, nilai: string, markahPenuh: number) => {
     let num = parseInt(nilai) || 0;
     if (num > markahPenuh) num = markahPenuh; 
     if (num < 0) num = 0; 
 
-    setMarkahGuru(prev => ({
-      ...prev,
-      [soalanId]: num
-    }));
+    setMarkahGuru(prev => ({ ...prev, [soalanId]: num }));
+  };
+
+  // 🌟 FUNGSI BAHARU: MINTA AI SEMAK SEMULA SATU SOALAN
+  const semakSemulaGunaAI = async (soalan: any, jawapanPelajar: string) => {
+    setLoadingAI(soalan.id); // Tunjukkan loader pada butang soalan ini
+    
+    try {
+      // Panggil API Semakan AI (Google Gemini / OpenAI)
+      const res = await fetch("/api/semak-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          soalan: soalan.soalan,
+          skema: soalan.skemaJawapan,
+          markahPenuh: soalan.markah,
+          jawapanPelajar: jawapanPelajar || "Tiada jawapan diberikan."
+        })
+      });
+
+      const data = await res.json();
+      
+      if (res.ok && data.markah !== undefined) {
+        // Gabungkan ulasan lama dan baru untuk disimpan
+        const ulasanTerkini = {
+          ...dataMurid.ulasanAI,
+          [soalan.id]: {
+            komenAI: data.ulasan,
+            markahAI: data.markah
+          }
+        };
+
+        // Kemas kini ke Firebase
+        await updateDoc(doc(db, "skor_murid", documentId), {
+          ulasanAI: ulasanTerkini
+        });
+
+        alert(`Berjaya disemak AI! Markah baharu: ${data.markah}`);
+        
+        // Tarik semula data untuk refresh paparan
+        tarikData();
+      } else {
+        alert("Ralat dari API AI: " + (data.error || "Sila cuba lagi."));
+      }
+    } catch (error) {
+      console.error("Ralat Semakan AI:", error);
+      alert("Gagal menghubungi server AI. Sila periksa sambungan internet.");
+    } finally {
+      setLoadingAI(null);
+    }
   };
 
   const simpanPemarkahan = async () => {
     setMenyimpan(true);
     try {
       let totalStrukturBaru = 0;
-      Object.values(markahGuru).forEach(m => { 
-        totalStrukturBaru += (Number(m) || 0); 
-      });
+      Object.values(markahGuru).forEach(m => { totalStrukturBaru += (Number(m) || 0); });
 
       const skorAkhirBaru = (Number(dataMurid.skorObjektif) || 0) + totalStrukturBaru;
       const penuhUjian = Number(dataMurid.markahPenuhUjian) || 100; 
@@ -141,7 +179,6 @@ export default function PemarkahanGuru() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0f172a] text-slate-200 py-6 sm:py-10 px-4 font-sans relative">
-      
       <style dangerouslySetInnerHTML={{ __html: `body { background-color: #0f172a; margin: 0; }` }} />
 
       <div className="max-w-4xl w-full mx-auto flex-1">
@@ -195,7 +232,7 @@ export default function PemarkahanGuru() {
         {/* SENARAI SOALAN DAN JAWAPAN */}
         <div className="space-y-8 pb-12">
           {soalanBank.length > 0 ? soalanBank.map((soalan, index) => {
-            const jawapanMurid = dataMurid.jawapanStruktur?.[soalan.id];
+            const jawapanMurid = dataMurid.jawapanStruktur?.[soalan.id] || "";
             const ulasanAI = dataMurid.ulasanAI?.[soalan.id];
             const isAIGagal = ulasanAI?.komenAI?.includes("GAGAL");
 
@@ -224,15 +261,29 @@ export default function PemarkahanGuru() {
                   </div>
 
                   {/* ULASAN AI TENTANG JAWAPAN INI */}
-                  {ulasanAI && jawapanMurid && (
-                    <div className={`p-5 rounded-2xl border shrink-0 shadow-sm ${isAIGagal ? 'bg-rose-900/10 border-rose-800/50' : 'bg-cyan-900/10 border-cyan-800/50'}`}>
-                      <p className={`text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2 ${isAIGagal ? 'text-rose-400' : 'text-cyan-400'}`}>
-                        {isAIGagal ? <AlertTriangle size={16}/> : <Sparkles size={16}/>} 
-                        Bantuan AI (Cadangan: {ulasanAI.markahAI}M)
-                      </p>
-                      <p className={`text-sm leading-relaxed ${isAIGagal ? 'text-rose-300' : 'text-cyan-200'}`}>
-                        {ulasanAI.komenAI}
-                      </p>
+                  {ulasanAI && (
+                    <div className={`p-5 rounded-2xl border shrink-0 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${isAIGagal ? 'bg-rose-900/10 border-rose-800/50' : 'bg-cyan-900/10 border-cyan-800/50'}`}>
+                      <div>
+                        <p className={`text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 ${isAIGagal ? 'text-rose-400' : 'text-cyan-400'}`}>
+                          {isAIGagal ? <AlertTriangle size={16}/> : <Sparkles size={16}/>} 
+                          Bantuan AI (Cadangan: {ulasanAI.markahAI}M)
+                        </p>
+                        <p className={`text-sm leading-relaxed ${isAIGagal ? 'text-rose-300' : 'text-cyan-200'}`}>
+                          {ulasanAI.komenAI}
+                        </p>
+                      </div>
+                      
+                      {/* 🌟 BUTANG SEMAK SEMULA AI (JIKA GAGAL/RALAT) */}
+                      {isAIGagal && jawapanMurid.length > 5 && (
+                        <button 
+                          onClick={() => semakSemulaGunaAI(soalan, jawapanMurid)}
+                          disabled={loadingAI === soalan.id}
+                          className="shrink-0 bg-rose-900/50 hover:bg-rose-800 text-rose-300 hover:text-white text-xs font-bold px-4 py-2.5 rounded-lg border border-rose-700/50 transition-all flex items-center gap-2 disabled:opacity-50"
+                        >
+                          {loadingAI === soalan.id ? <Loader2 size={14} className="animate-spin"/> : <RefreshCw size={14}/>}
+                          Semak Semula AI
+                        </button>
+                      )}
                     </div>
                   )}
 
