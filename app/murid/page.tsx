@@ -67,6 +67,12 @@ export default function MuridDashboard() {
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, number>>({});
   const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false);
   const [currentSurveyCategoryIndex, setCurrentSurveyCategoryIndex] = useState(-1);
+  
+  // STATUS SOAL SELIDIK MURID (PRE & POST)
+  const [hasPreSurvey, setHasPreSurvey] = useState(false);
+  const [hasPostSurvey, setHasPostSurvey] = useState(false);
+  const [surveyType, setSurveyType] = useState<"pre" | "post">("pre");
+  const [initialPopupShown, setInitialPopupShown] = useState(false);
 
   // STATE UNTUK TEMA 
   const senaraiTheme = [
@@ -118,7 +124,19 @@ export default function MuridDashboard() {
       const uniqueIds = [...new Set(targetIds)];
       if (uniqueIds.length === 0) uniqueIds.push("kosong");
 
-      // 🌟 PEMBAIKAN: Buang tapisan "where(tingkatan)" dari query untuk tarik semua data skor murid ini
+      // 1. Tarik Status Soal Selidik (Pre/Post)
+      const qSurvey = query(collection(db, "soal_selidik_murid"), where("idMurid", "in", uniqueIds));
+      const snapSurvey = await getDocs(qSurvey);
+      let donePre = false, donePost = false;
+      snapSurvey.forEach(d => {
+         const data = d.data();
+         if(data.jenisSurvey === "pre" || !data.jenisSurvey) donePre = true; // backward compatibility
+         if(data.jenisSurvey === "post") donePost = true;
+      });
+      setHasPreSurvey(donePre);
+      setHasPostSurvey(donePost);
+
+      // 2. Tarik Rekod Markah
       const qSkor = query(collection(db, "skor_murid"), where("idMurid", "in", uniqueIds));
       const snapSkor = await getDocs(qSkor);
       
@@ -142,12 +160,22 @@ export default function MuridDashboard() {
       snapSkor.forEach((docSnap) => {
         const data = docSnap.data();
         
-        // 🌟 PEMBAIKAN: Tapis Tingkatan guna JavaScript (Kalis Ralat String/Nombor)
         if (String(data.tingkatan) !== tSemasa) return;
 
-        // 🌟 PEMBAIKAN: Ekstrak nombor bab dengan selamat (Hanya baca angka)
-        const babNum = parseInt(String(data.bab).replace(/\D/g, ""));
-        if (isNaN(babNum)) return;
+        // 🌟 PEMBAIKAN BUG MARKAH: Cara ekstrak bab dengan lebih terperinci (Kalis ralat Tingkatan 4 Bab 2 -> 42)
+        let babNum = NaN;
+        const babStr = String(data.bab);
+        const babMatch = babStr.match(/bab\s*(\d+)/i); // Cari perkataan 'bab' diikuti nombor
+        
+        if (babMatch) {
+            babNum = parseInt(babMatch[1]);
+        } else {
+            // Jika struktur aneh, cuba tangkap digit paling terakhir
+            const digits = babStr.match(/\d+/g);
+            if(digits && digits.length > 0) babNum = parseInt(digits[digits.length - 1]);
+        }
+
+        if (isNaN(babNum)) return; // Abai jika nombor gagal diekstrak
 
         if (!tempProgress[babNum]) tempProgress[babNum] = { jumlahCubaanPost: 0, aiSelesai: false, pemulihanSelesai: false, gameSelesai: false };
         
@@ -199,6 +227,16 @@ export default function MuridDashboard() {
   useEffect(() => {
     tarikDataFirebase();
   }, [activeLevel]);
+
+  // 🌟 LOGIK AUTO POP-UP UNTUK SOAL SELIDIK AWAL (PRE-SURVEY) 🌟
+  useEffect(() => {
+    if (!loading && userData?.kumpulan === 'Eksperimen' && !hasPreSurvey && !initialPopupShown) {
+      setSurveyType("pre");
+      tarikSoalanSelidik();
+      setShowSurvey(true);
+      setInitialPopupShown(true); // Pastikan pop-up auto ini jalan sekali sahaja setiap sesi
+    }
+  }, [loading, userData, hasPreSurvey, initialPopupShown]);
 
   // 🌟 FUNGSI TARIK SOALAN KAJI SELIDIK DARI FIREBASE 🌟
   const tarikSoalanSelidik = async () => {
@@ -262,13 +300,19 @@ export default function MuridDashboard() {
         sekolah: userData?.sekolah || "Tiada Maklumat",
         tarikhJawab: new Date().toISOString(),
         skorKeseluruhan: purataKategori,
-        jawapanTerperinci: jawapanTerperinci
+        jawapanTerperinci: jawapanTerperinci,
+        jenisSurvey: surveyType // 🌟 Tentukan pre atau post survey
       });
 
       alert("Terima kasih! Maklum balas soal selidik anda telah berjaya direkodkan.");
       setShowSurvey(false);
       setSurveyAnswers({});
       setCurrentSurveyCategoryIndex(-1);
+      
+      // Update state supaya banner hilang
+      if (surveyType === "pre") setHasPreSurvey(true);
+      if (surveyType === "post") setHasPostSurvey(true);
+      
     } catch (e) {
       console.error("Ralat menyimpan soal selidik:", e);
       alert("Ralat sistem. Gagal menghantar borang soal selidik.");
@@ -416,6 +460,11 @@ export default function MuridDashboard() {
     return { label: "Bimbingan AI", color: "bg-amber-50 border-amber-200 text-amber-700", bar: "w-1/2 bg-amber-400 animate-pulse", icon: "⏳" };
   };
 
+  // 🌟 LOGIK KELAYAKAN SOAL SELIDIK (PASCA/POST)
+  const qualifiesForPostSurvey = Object.values(progressBab).some(p => p.preSkor !== undefined && p.preSkor < 50); // Aras Rendah
+  const showPreSurveyBanner = userData?.kumpulan === 'Eksperimen' && !hasPreSurvey;
+  const showPostSurveyBanner = userData?.kumpulan === 'Eksperimen' && hasPreSurvey && qualifiesForPostSurvey && !hasPostSurvey;
+
   // 🌟 LOGIK PAGINATION KATEGORI SOAL SELIDIK
   const surveyCategories = Array.from(new Set(surveyQuestions.map(q => q.kategori)));
   const currentSurveyCategory = surveyCategories[currentSurveyCategoryIndex] || "";
@@ -426,7 +475,16 @@ export default function MuridDashboard() {
 
   return (
     <div className={`min-h-screen px-4 py-8 md:px-6 font-sans text-slate-900 relative transition-colors duration-700 ${selectedTheme}`}>
-      <div className="mx-auto max-w-6xl">
+      
+      {/* CORAK BINTANG UNTUK MOD ANGKASA */}
+      {selectedTheme.includes('indigo-950') && (
+        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+          <div className="absolute inset-0 opacity-40" style={{ backgroundImage: 'radial-gradient(2px 2px at 20px 30px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 50px 160px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 130px 80px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 160px 120px, #fff, rgba(0,0,0,0))', backgroundSize: '200px 200px' }}></div>
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(1px 1px at 10px 10px, #fff, rgba(0,0,0,0)), radial-gradient(1px 1px at 30px 50px, #fff, rgba(0,0,0,0)), radial-gradient(1px 1px at 80px 120px, #fff, rgba(0,0,0,0)), radial-gradient(1px 1px at 120px 20px, #fff, rgba(0,0,0,0))', backgroundSize: '150px 150px' }}></div>
+        </div>
+      )}
+
+      <div className="mx-auto max-w-6xl relative z-10">
         
         {/* HEADER TOP (Welcome Banner) */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-gradient-to-r from-sky-600 to-indigo-700 p-6 md:p-8 shadow-lg text-white mb-6 relative overflow-hidden">
@@ -510,24 +568,30 @@ export default function MuridDashboard() {
           </div>
         </motion.div>
 
-        {/* 🌟 BANNER SOAL SELIDIK KAJIAN (HANYA UNTUK EKSPERIMEN & ARAS RENDAH) 🌟 */}
-        {userData?.kumpulan === 'Eksperimen' && userData?.tahapInkuiri === 'Rendah' && (
+        {/* 🌟 BANNER SOAL SELIDIK KAJIAN (DYNAMIK UNTUK PRA & PASCA) 🌟 */}
+        {(showPreSurveyBanner || showPostSurveyBanner) && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="mb-8 rounded-3xl bg-gradient-to-r from-purple-600 to-fuchsia-600 p-1 flex flex-col md:flex-row items-center justify-between shadow-xl shadow-purple-900/20">
             <div className="p-5 md:p-6 flex items-center gap-4 text-white w-full">
               <div className="bg-white/20 p-3 rounded-2xl shrink-0"><ClipboardList className="w-8 h-8" /></div>
               <div className="flex-1">
-                <h3 className="font-bold text-lg md:text-xl flex items-center gap-2">Tugasan Kajian: Penilaian Sistem <Sparkles className="w-5 h-5 text-yellow-300"/></h3>
-                <p className="text-purple-100 text-xs md:text-sm mt-1 leading-relaxed">Luangkan masa 3 minit menjawab soal selidik ringkas ini bagi membantu mengukur tahap motivasi dan penglibatan anda.</p>
+                <h3 className="font-bold text-lg md:text-xl flex items-center gap-2">
+                  Tugasan Kajian: {showPreSurveyBanner ? 'Soal Selidik Awalan (Pre-Survey)' : 'Soal Selidik Akhir (Post-Survey)'} <Sparkles className="w-5 h-5 text-yellow-300"/>
+                </h3>
+                <p className="text-purple-100 text-xs md:text-sm mt-1 leading-relaxed">
+                  {showPreSurveyBanner ? 
+                    "Sila luangkan masa 3 minit menjawab soal selidik ringkas ini sebelum menggunakan sistem sepenuhnya." : 
+                    "Terima kasih atas dedikasi anda. Sila lengkapkan soal selidik akhir ini sebagai tanda maklum balas sistem."}
+                </p>
               </div>
               <button 
-                onClick={() => { tarikSoalanSelidik(); setShowSurvey(true); }} 
+                onClick={() => { setSurveyType(showPreSurveyBanner ? "pre" : "post"); tarikSoalanSelidik(); setShowSurvey(true); }} 
                 className="hidden md:flex px-6 py-3 bg-white text-purple-700 hover:bg-purple-50 font-bold rounded-xl items-center gap-2 shadow-md transition-transform hover:scale-105 shrink-0"
               >
                 Mula Jawab <ArrowRight className="w-5 h-5"/>
               </button>
             </div>
             <button 
-              onClick={() => { tarikSoalanSelidik(); setShowSurvey(true); }} 
+              onClick={() => { setSurveyType(showPreSurveyBanner ? "pre" : "post"); tarikSoalanSelidik(); setShowSurvey(true); }} 
               className="md:hidden w-full px-6 py-4 bg-white text-purple-700 font-bold rounded-b-3xl flex items-center justify-center gap-2 shadow-inner"
             >
               Mula Jawab Sekarang <ArrowRight className="w-5 h-5"/>
@@ -859,9 +923,16 @@ export default function MuridDashboard() {
               {/* Header Modal */}
               <div className="bg-gradient-to-r from-purple-700 to-fuchsia-700 p-5 md:p-6 text-white flex justify-between items-center shrink-0 shadow-md relative z-10">
                 <div>
-                  <h3 className="font-bold text-lg md:text-xl flex items-center gap-2"><ClipboardList className="w-6 h-6 text-fuchsia-200"/> Soal Selidik Penilaian Sistem</h3>
+                  <h3 className="font-bold text-lg md:text-xl flex items-center gap-2">
+                    <ClipboardList className="w-6 h-6 text-fuchsia-200"/> 
+                    {surveyType === "pre" ? "Soal Selidik Penilaian Sistem (Awalan)" : "Soal Selidik Penilaian Sistem (Akhir)"}
+                  </h3>
                   <p className="text-purple-100 text-xs md:text-sm mt-1">Borang Kaji Selidik Murid (Skala 1 - 5)</p>
                 </div>
+                {/* 
+                   Semasa Auto Pop-up (Pre-Survey), mungkin pelajar tak sengaja tutup.
+                   Kita benarkan butang 'Close' tapi ia akan diulang papar pada sesi login akan datang selagi tak dijawab. 
+                */}
                 <button onClick={() => setShowSurvey(false)} className="bg-white/10 p-2 rounded-xl text-purple-100 hover:text-white hover:bg-rose-500 transition-colors"><X className="w-6 h-6" /></button>
               </div>
 
