@@ -919,6 +919,76 @@ export default function GuruDashboard() {
                 </div>
               </div>
 
+                      {/* ========================================== */}
+              {/* 🚨 RADAR INTERVENSI GURU (EARLY WARNING SYSTEM) */}
+              {/* ========================================== */}
+              {(() => {
+                const senaraiAmaran: any[] = [];
+                
+                filteredPemantauan.forEach(murid => {
+                  const skorMuridIni = semuaSkor.filter(s => s.idMurid === murid.id || s.idMurid === murid.idPengguna);
+                  const postTests = skorMuridIni.filter(s => s.jenisUjian === "post_test");
+                  
+                  postTests.forEach(post => {
+                    const pre = skorMuridIni.find(s => s.bab === post.bab && (s.jenisUjian === "pre_test" || !s.jenisUjian));
+                    const preSkor = pre ? pre.skor : 0;
+                    const postSkor = post.skor;
+                    
+                    if (postSkor !== undefined) {
+                      if (postSkor < 40) {
+                        senaraiAmaran.push({ murid, bab: post.bab, preSkor, postSkor, tahap: "Kritikal", warna: "border-red-500 bg-red-900/20 text-red-400", ikon: "🚨", mesej: "Kritikal: Gagal menguasai asas. Pemulihan bersemuka WAJIB segera." });
+                      } else if (postSkor < preSkor) {
+                        senaraiAmaran.push({ murid, bab: post.bab, preSkor, postSkor, tahap: "Kemerosotan", warna: "border-orange-500 bg-orange-900/20 text-orange-400", ikon: "📉", mesej: "Kemerosotan: Markah akhir lebih rendah dari ujian awal. Berkemungkinan meneka jawapan." });
+                      } else if (postSkor < 50 && postSkor >= preSkor) {
+                        senaraiAmaran.push({ murid, bab: post.bab, preSkor, postSkor, tahap: "Belum Lulus", warna: "border-amber-500 bg-amber-900/20 text-amber-400", ikon: "⚠️", mesej: "Peningkatan dikesan tetapi masih gagal mencapai sasaran lulus 50%." });
+                      }
+                    }
+                  });
+                });
+
+                if (senaraiAmaran.length === 0) return null;
+
+                return (
+                  <div className="mb-8">
+                    <h4 className="text-sm font-black text-rose-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <AlertTriangle className="animate-pulse" size={18}/> Radar Intervensi Guru (EWS)
+                    </h4>
+                    <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                      {senaraiAmaran.map((amaran, idx) => (
+                        <div key={idx} className={`min-w-[300px] w-[300px] shrink-0 p-5 rounded-2xl border shadow-lg relative overflow-hidden ${amaran.warna}`}>
+                          <div className="absolute top-0 right-0 p-3 opacity-20 text-4xl">{amaran.ikon}</div>
+                          <div className="relative z-10">
+                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-900/50 border border-current mb-2 inline-block">
+                              {amaran.tahap}
+                            </span>
+                            <h5 className="font-bold text-white text-base truncate" title={amaran.murid.nama}>{amaran.murid.nama}</h5>
+                            <p className="text-xs font-medium opacity-80 mb-3">{amaran.bab}</p>
+                            
+                            <div className="flex items-center gap-4 bg-slate-900/50 p-2.5 rounded-xl border border-current/30 mb-3">
+                              <div className="text-center flex-1">
+                                <span className="block text-[9px] uppercase tracking-wider opacity-70">Diagnostik</span>
+                                <span className="font-bold text-slate-300">{amaran.preSkor}%</span>
+                              </div>
+                              <div className="text-slate-500 text-xs">➔</div>
+                              <div className="text-center flex-1">
+                                <span className="block text-[9px] uppercase tracking-wider opacity-70">Akhir</span>
+                                <span className="font-black text-white">{amaran.postSkor}%</span>
+                              </div>
+                            </div>
+                            
+                            <p className="text-[10px] leading-relaxed opacity-90 font-medium">
+                              {amaran.mesej}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+              {/* ========================================== */}
+
+
               <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 overflow-hidden shadow-xl print:bg-white print:border-black print:shadow-none">
                 <div className="overflow-x-auto print:overflow-visible">
                   <table className="w-full text-left border-collapse min-w-max print:min-w-full">
