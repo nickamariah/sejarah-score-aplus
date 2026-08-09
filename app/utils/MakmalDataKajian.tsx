@@ -365,7 +365,7 @@ export default function MakmalDataKajian() {
                 <select 
                   value={formData.fasa} 
                   onChange={e => setFormData({...formData, fasa: e.target.value})} 
-                  className="w-full bg-indigo-900/30 border border-indigo-500/50 rounded-xl p-3.5 text-black font-bold outline-none focus:border-indigo-400 shadow-inner transition-colors"
+                  className="w-full bg-indigo-900/30 border border-indigo-500/50 rounded-xl p-3.5 text-white font-bold outline-none focus:border-indigo-400 shadow-inner transition-colors"
                 >
                   <option value="Pra">Pra-Kajian (Sebelum Mula)</option>
                   <option value="Pasca">Pasca-Kajian (Selepas Tamat)</option>
