@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { doc, getDoc, collection, query, where, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase"; 
-import { ArrowLeft, Save, Loader2, User, BookOpen, AlertTriangle, Sparkles, CheckCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, Save, Loader2, User, BookOpen, AlertTriangle, Sparkles, CheckCircle, RefreshCw, Lightbulb } from "lucide-react";
 
 export default function PemarkahanGuru() {
   const params = useParams();
@@ -17,9 +17,9 @@ export default function PemarkahanGuru() {
   const [loading, setLoading] = useState(true);
   const [menyimpan, setMenyimpan] = useState(false);
   
-  // State untuk butang Refresh AI individu
+  // State untuk butang Refresh AI individu & Semua
   const [loadingAI, setLoadingAI] = useState<string | null>(null);
-  // 🌟 TAMBAHAN: Untuk sembunyikan butang lepas ditekan
+  const [isSemakSemuaLoading, setIsSemakSemuaLoading] = useState(false);
   const [soalanDisemakSemula, setSoalanDisemakSemula] = useState<string[]>([]);
 
   useEffect(() => {
@@ -87,6 +87,7 @@ export default function PemarkahanGuru() {
     setMarkahGuru(prev => ({ ...prev, [soalanId]: num }));
   };
 
+  // 🌟 FUNGSI: SEMAK SEMULA SATU SOALAN
   const semakSemulaGunaAI = async (soalan: any, teksJawapanMurid: string) => {
     setLoadingAI(soalan.id); 
     
@@ -117,15 +118,13 @@ export default function PemarkahanGuru() {
           ulasanAI: ulasanTerkini
         });
 
-        // 🌟 Sembunyikan butang selepas siap supaya cikgu tak keliru
         setSoalanDisemakSemula(prev => [...prev, soalan.id]);
-
+        
         if (data.markahDicadangkan === 0) {
             alert(`Selesai disemak. Jawapan murid ini memang SALAH berdasarkan skema. AI beri 0 Markah.`);
         } else {
             alert(`Selesai disemak! Markah dinaikkan kepada: ${data.markahDicadangkan} M`);
         }
-        
         tarikData(); 
       } else {
         alert("Ralat dari API AI: " + (data.komen || "Sila cuba lagi."));
@@ -135,6 +134,73 @@ export default function PemarkahanGuru() {
       alert("Gagal menghubungi server AI. Sila periksa sambungan internet.");
     } finally {
       setLoadingAI(null);
+    }
+  };
+
+  // 🌟 FUNGSI BAHARU: SEMAK SEMULA SEMUA AI (Pukal)
+  const semakSemulaSemuaAI = async () => {
+    // 1. Tapis mana soalan yang masih GAGAL dan belum ditekan Refresh
+    const soalanPerluSemak = soalanBank.filter(soalan => {
+      const jawapanMurid = dataMurid?.jawapanStruktur?.[soalan.id] || "";
+      const ulasanAI = dataMurid?.ulasanAI?.[soalan.id];
+      const isAIGagal = ulasanAI?.komenAI?.includes("GAGAL");
+      const sudahDisemakSemula = soalanDisemakSemula.includes(soalan.id);
+      
+      return isAIGagal && jawapanMurid.length > 5 && !sudahDisemakSemula;
+    });
+
+    if (soalanPerluSemak.length === 0) {
+      alert("Tiada soalan yang perlukan semakan semula.");
+      return;
+    }
+
+    setIsSemakSemuaLoading(true);
+
+    try {
+      let ulasanTerkini = { ...dataMurid.ulasanAI };
+      let soalanDisemakSekarang: string[] = [];
+
+      // 2. Jalankan panggilan API untuk semua soalan secara serentak (Parallel)
+      const semakanPromises = soalanPerluSemak.map(async (soalan) => {
+        const jawapanMurid = dataMurid.jawapanStruktur?.[soalan.id];
+        
+        const res = await fetch("/api/semak-ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            soalan: soalan.soalan,
+            skemaJawapan: soalan.skemaJawapan || "Tiada skema khusus.", 
+            markahPenuh: soalan.markah,
+            jawapanMurid: jawapanMurid || "Tiada jawapan diberikan."
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.markahDicadangkan !== undefined) {
+          ulasanTerkini[soalan.id] = {
+            komenAI: data.komen,
+            markahAI: data.markahDicadangkan
+          };
+          soalanDisemakSekarang.push(soalan.id);
+        }
+      });
+
+      await Promise.all(semakanPromises);
+
+      // 3. Simpan kesemua ulasan baru ke Firestore dengan 1 kali request
+      await updateDoc(doc(db, "skor_murid", documentId), {
+        ulasanAI: ulasanTerkini
+      });
+
+      setSoalanDisemakSemula(prev => [...prev, ...soalanDisemakSekarang]);
+      alert(`Selesai! Sebanyak ${soalanDisemakSekarang.length} jawapan murid telah disemak semula secara automatik.`);
+      tarikData(); // Tarik data baru untuk UI
+      
+    } catch (error) {
+      console.error("Ralat Semakan Pukal AI:", error);
+      alert("Gagal menyemak semua. Sila pastikan talian internet anda stabil.");
+    } finally {
+      setIsSemakSemuaLoading(false);
     }
   };
 
@@ -178,6 +244,15 @@ export default function PemarkahanGuru() {
     }
   };
 
+  // Logik memeriksa jika perlu paparkan Butang Semak Semua
+  const adaAIGagalBelumDisemak = soalanBank.some(soalan => {
+    const jawapanMurid = dataMurid?.jawapanStruktur?.[soalan.id] || "";
+    const ulasanAI = dataMurid?.ulasanAI?.[soalan.id];
+    const isAIGagal = ulasanAI?.komenAI?.includes("GAGAL");
+    const sudahDisemakSemula = soalanDisemakSemula.includes(soalan.id);
+    return isAIGagal && jawapanMurid.length > 5 && !sudahDisemakSemula;
+  });
+
   if (loading) return <div className="flex h-screen items-center justify-center bg-slate-900 text-sky-400 font-bold"><Loader2 className="animate-spin mr-3" size={28}/> Menarik rekod kertas jawapan...</div>;
   if (!dataMurid) return <div className="flex h-screen items-center justify-center bg-slate-900 text-rose-400 font-bold text-lg"><AlertTriangle className="mr-2"/> Rekod ujian tidak dijumpai.</div>;
 
@@ -187,19 +262,34 @@ export default function PemarkahanGuru() {
 
       <div className="max-w-4xl w-full mx-auto flex-1">
         
+        {/* ACTION BAR (HEADER) */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4">
           <button onClick={() => window.close()} className="w-full sm:w-auto flex items-center justify-center gap-2 text-slate-400 hover:text-white bg-slate-800 sm:bg-transparent py-2.5 rounded-lg sm:py-0 transition">
             <ArrowLeft size={20}/> Kembali ke Dashboard
           </button>
           
-          <button 
-            onClick={simpanPemarkahan} 
-            disabled={menyimpan}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 sm:py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-900/50 disabled:opacity-50 transition-all hover:scale-[1.02]"
-          >
-            {menyimpan ? <Loader2 className="animate-spin" size={18}/> : <CheckCircle size={18}/>}
-            {menyimpan ? "Sedang Menyimpan..." : "Sahkan & Simpan Pemarkahan"}
-          </button>
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            {/* 🌟 BUTANG SEMAK SEMULA SEMUA AI MUNCUL DI SINI */}
+            {adaAIGagalBelumDisemak && (
+              <button 
+                onClick={semakSemulaSemuaAI} 
+                disabled={isSemakSemuaLoading}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 text-white px-5 py-3 sm:py-2.5 rounded-xl font-bold shadow-lg shadow-rose-900/50 disabled:opacity-50 transition-all hover:scale-[1.02]"
+              >
+                {isSemakSemuaLoading ? <Loader2 className="animate-spin" size={18}/> : <RefreshCw size={18}/>}
+                {isSemakSemuaLoading ? "Menyemak Pukal..." : "Semak Semula AI (Ralat)"}
+              </button>
+            )}
+
+            <button 
+              onClick={simpanPemarkahan} 
+              disabled={menyimpan}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 sm:py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-900/50 disabled:opacity-50 transition-all hover:scale-[1.02]"
+            >
+              {menyimpan ? <Loader2 className="animate-spin" size={18}/> : <CheckCircle size={18}/>}
+              {menyimpan ? "Menyimpan..." : "Sahkan & Simpan"}
+            </button>
+          </div>
         </div>
 
         {/* KAD MAKLUMAT MURID */}
@@ -239,7 +329,7 @@ export default function PemarkahanGuru() {
             const jawapanMurid = dataMurid.jawapanStruktur?.[soalan.id] || "";
             const ulasanAI = dataMurid.ulasanAI?.[soalan.id];
             const isAIGagal = ulasanAI?.komenAI?.includes("GAGAL");
-            const sudahDisemakSemula = soalanDisemakSemula.includes(soalan.id); // Check status
+            const sudahDisemakSemula = soalanDisemakSemula.includes(soalan.id); 
 
             return (
               <div key={soalan.id} className="bg-[#1e293b] rounded-3xl border border-slate-700 overflow-hidden shadow-2xl flex flex-col h-full">
@@ -257,6 +347,18 @@ export default function PemarkahanGuru() {
 
                 <div className="p-5 sm:p-6 space-y-6 flex-1 flex flex-col">
                   
+                  {/* 🌟 KOTAK SKEMA JAWAPAN UNTUK RUJUKAN GURU */}
+                  {soalan.skemaJawapan && (
+                    <div className="bg-emerald-900/10 border border-emerald-800/30 p-4 sm:p-5 rounded-2xl shadow-inner">
+                      <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <Lightbulb size={14}/> Skema Jawapan (Rujukan Guru):
+                      </p>
+                      <div className="text-emerald-200/90 whitespace-pre-wrap text-sm leading-relaxed">
+                        {soalan.skemaJawapan}
+                      </div>
+                    </div>
+                  )}
+
                   {/* JAWAPAN MURID */}
                   <div className="flex-1">
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Teks Jawapan Murid:</p>
@@ -278,11 +380,11 @@ export default function PemarkahanGuru() {
                         </p>
                       </div>
                       
-                      {/* 🌟 BUTANG HILANG LEPAS SEMAK */}
+                      {/* Butang Individu (Refresh 1 soalan) */}
                       {!sudahDisemakSemula && isAIGagal && jawapanMurid.length > 5 && (
                         <button 
                           onClick={() => semakSemulaGunaAI(soalan, jawapanMurid)}
-                          disabled={loadingAI === soalan.id}
+                          disabled={loadingAI === soalan.id || isSemakSemuaLoading}
                           className="shrink-0 bg-rose-900/50 hover:bg-rose-800 text-rose-300 hover:text-white text-xs font-bold px-4 py-2.5 rounded-lg border border-rose-700/50 transition-all flex items-center gap-2 disabled:opacity-50"
                         >
                           {loadingAI === soalan.id ? <Loader2 size={14} className="animate-spin"/> : <RefreshCw size={14}/>}
