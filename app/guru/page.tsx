@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, HelpCircle, Save, Zap, Sparkles, Activity, UploadCloud, RefreshCw, CheckSquare, Filter, Menu, X, Search, MessageSquare, Eye, AlertTriangle, Rocket, Palette, Volume2, VolumeX, Music, TrendingUp, TrendingDown, BrainCircuit, ChevronDown, Check, Printer, PlayCircle, Grid } from "lucide-react";
 
 // IMPORT KOMPONEN MAKMAL DATA KAJIAN
-import MakmalDataKajian from "../utils/MakmalDataKajian";
+import MakmalDataKajian from "../../utils/MakmalDataKajian";
 
 // IMPORT FIREBASE 
 import { collection, getDocs, query, orderBy, deleteDoc, doc, serverTimestamp, updateDoc, setDoc, where, getDoc } from "firebase/firestore";
@@ -18,7 +18,7 @@ type TabKey = "murid" | "pemantauan" | "kandungan" | "upload" | "soalan" | "anal
 export default function GuruDashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>("murid");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); // 🌟 TOGGLE SIDEBAR BARU
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); // 🌟 TOGGLE SIDEBAR
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // PENGESAHAN IDENTITI (SEKOLAH & ROLE)
@@ -249,6 +249,49 @@ export default function GuruDashboard() {
     } catch (error) {
       console.error("Gagal reset data bab:", error);
       showToastMessage("Gagal reset data pangkalan data.", "error");
+    } finally {
+      setLoadingStudentProgress(false);
+    }
+  };
+
+  const handleResetChatSahaja = async (murid: any, ting: string, num: number) => {
+    const babName = `Bab ${num}`;
+    const sah = window.confirm(`Pasti mahu RESET SESI CHAT AI SAHAJA untuk ${babName} bagi pelajar ${murid.nama}?\n\nMarkah Ujian Pra/Pasca tidak akan terjejas.`);
+    
+    if (!sah) return;
+
+    try {
+      setLoadingStudentProgress(true); 
+      const targetIds = [murid.id];
+      if (murid.idPengguna) targetIds.push(murid.idPengguna);
+      const uniqueIds = [...new Set(targetIds)];
+
+      const chatPrefix = `tingkatan${ting}_bab${num}_sub`;
+      const qChat = query(collection(db, "chat_sessions"), where("studentId", "in", uniqueIds));
+      const snapChat = await getDocs(qChat);
+      
+      const deleteChatPromises: Promise<void>[] = [];
+      snapChat.forEach(d => {
+        const dData = d.data();
+        if (dData.chapterId && dData.chapterId.includes(chatPrefix)) {
+          deleteChatPromises.push(deleteDoc(doc(db, "chat_sessions", d.id)));
+        }
+      });
+
+      if (deleteChatPromises.length === 0) {
+        showToastMessage(`Tiada rekod chat dijumpai untuk bab ini.`, "info");
+        setLoadingStudentProgress(false);
+        return;
+      }
+
+      await Promise.all(deleteChatPromises);
+      showToastMessage(`Berjaya reset sesi Chat AI untuk ${babName}.`, "success");
+      
+      await tarikDetailMurid(murid);
+      
+    } catch (error) {
+      console.error("Gagal reset chat:", error);
+      showToastMessage("Gagal memadam rekod pangkalan data.", "error");
     } finally {
       setLoadingStudentProgress(false);
     }
@@ -694,82 +737,85 @@ export default function GuruDashboard() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative">
                 
-                {/* KOTAK BORANG (KIRI) - STICKY */}
-                <div className="lg:sticky lg:top-6 bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 lg:col-span-1 h-fit shadow-xl order-last lg:order-first z-10">
-                  <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><Users className="text-blue-400" size={20}/> {isEditingUser ? "Kemas Kini Akaun" : "Daftar Akaun Baru"}</h4>
-                  <form onSubmit={handleSimpanPengguna} className="space-y-4">
-                    
-                    <div className="p-4 bg-purple-900/20 rounded-xl border border-purple-800/50 mb-4">
-                      <label className="block text-sm text-purple-300 mb-1.5 font-bold">Pilih Sekolah 🏫</label>
-                      <select value={uSekolah} onChange={e => setUSekolah(e.target.value)} className="w-full bg-slate-900 border border-purple-700 rounded-xl p-3 text-white outline-none focus:border-purple-500 font-bold shadow-inner">
-                        {senaraiSekolahKajian.map(s => <option className="bg-slate-900 text-white" key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-slate-400 mb-1.5 font-medium">Peranan (Role)</label>
-                      <select value={uRole} onChange={e => setURole(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 shadow-inner">
-                        <option className="bg-slate-900 text-white" value="murid">Murid</option>
-                        <option className="bg-slate-900 text-white" value="guru">Guru Sekolah</option>
-                        <option className="bg-slate-900 text-white" value="admin">Penyelidik Utama (Admin)</option>
-                      </select>
-                    </div>
-                    <div><label className="block text-sm text-slate-400 mb-1.5 font-medium">Nama Penuh</label><input type="text" value={uNama} onChange={e => setUNama(e.target.value)} required placeholder="Contoh: Ahmad" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none shadow-inner"/></div>
-                    <div><label className="block text-sm text-slate-400 mb-1.5 font-medium">Kata Laluan</label><input type="text" value={uKataLaluan} onChange={e => setUKataLaluan(e.target.value)} required placeholder="123456" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none shadow-inner"/></div>
-                    {uRole === "murid" && (
-                      <div className="p-4 bg-blue-900/20 rounded-xl border border-blue-800/50 mt-4 space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm text-slate-400 mb-1.5">Tingkatan</label>
-                            <select value={uTingkatan} onChange={e => setUTingkatan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
-                              <option className="bg-slate-900 text-white" value="4">Tingkatan 4</option>
-                              <option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
-                            </select>
-                          </div>
-                          <div><label className="block text-sm text-slate-400 mb-1.5">Kelas</label><input type="text" value={uKelas} onChange={e => setUKelas(e.target.value)} required placeholder="Cth: Sains" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 outline-none"/></div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm text-slate-400 mb-1.5">Inkuiri Awal</label>
-                            <select value={uTahapInkuiri} onChange={e => setUTahapInkuiri(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
-                              <option className="bg-slate-900 text-white" value="Rendah">Rendah</option>
-                              <option className="bg-slate-900 text-white" value="Sederhana">Sederhana</option>
-                              <option className="bg-slate-900 text-white" value="Tinggi">Tinggi</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm text-slate-400 mb-1.5">Kumpulan</label>
-                            <select value={uKumpulan} onChange={e => setUKumpulan(e.target.value)} className="w-full bg-slate-900 border border-cyan-800/50 rounded-xl p-2.5 text-cyan-400 font-bold outline-none focus:border-cyan-500">
-                              <option className="bg-slate-900 text-cyan-400" value="Eksperimen">Eksperimen</option>
-                              <option className="bg-slate-900 text-cyan-400" value="Kawalan">Kawalan</option>
-                            </select>
-                          </div>
-                        </div>
-                        {uKumpulan === "Kawalan" && (
-                          <div className="col-span-2 mt-3 p-4 bg-rose-900/20 border border-rose-800/50 rounded-xl animate-in fade-in">
-                            <label className="flex items-center gap-3 cursor-pointer">
-                              <input 
-                                type="checkbox" 
-                                checked={uBukaPostTest}
-                                onChange={(e) => setUBukaPostTest(e.target.checked)}
-                                className="w-5 h-5 accent-rose-500 rounded bg-slate-900 border-slate-700"
-                              />
-                              <span className="text-sm text-rose-300 font-bold">Buka Akses Ujian Pasca (Post-Test) untuk murid ini.</span>
-                            </label>
-                            <p className="text-[10px] text-rose-400/80 mt-1.5 ml-8 leading-tight">
-                              Jika ditandakan, murid kawalan ini boleh menduduki Ujian Pasca secara online di dashboard mereka.
-                            </p>
-                          </div>
-                        )}
+                {/* BUNGKUSAN KIRI SUPAYA STICKY BERFUNGSI SEMASA SCROLL KANAN */}
+                <div className="lg:col-span-1 relative h-full order-last lg:order-first">
+                  {/* KOTAK BORANG (KIRI) - STICKY */}
+                  <div className="lg:sticky lg:top-6 bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 shadow-xl z-10">
+                    <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><Users className="text-blue-400" size={20}/> {isEditingUser ? "Kemas Kini Akaun" : "Daftar Akaun Baru"}</h4>
+                    <form onSubmit={handleSimpanPengguna} className="space-y-4">
+                      
+                      <div className="p-4 bg-purple-900/20 rounded-xl border border-purple-800/50 mb-4">
+                        <label className="block text-sm text-purple-300 mb-1.5 font-bold">Pilih Sekolah 🏫</label>
+                        <select value={uSekolah} onChange={e => setUSekolah(e.target.value)} className="w-full bg-slate-900 border border-purple-700 rounded-xl p-3 text-white outline-none focus:border-purple-500 font-bold shadow-inner">
+                          {senaraiSekolahKajian.map(s => <option className="bg-slate-900 text-white" key={s} value={s}>{s}</option>)}
+                        </select>
                       </div>
-                    )}
-                    <div className="flex gap-3 pt-4">
-                      {isEditingUser && ( <button type="button" onClick={resetFormPengguna} className="flex-1 bg-slate-700 text-white font-semibold py-3 rounded-xl hover:bg-slate-600 text-sm shadow-md transition-colors">Batal</button> )}
-                      <button type="submit" disabled={uIsSubmitting} className="flex-1 bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-500 shadow-md shadow-blue-900/50 text-sm transition-all">{uIsSubmitting ? "Menyimpan..." : isEditingUser ? "Simpan Perubahan" : "Daftar Akaun"}</button>
-                    </div>
-                  </form>
+
+                      <div>
+                        <label className="block text-sm text-slate-400 mb-1.5 font-medium">Peranan (Role)</label>
+                        <select value={uRole} onChange={e => setURole(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 shadow-inner">
+                          <option className="bg-slate-900 text-white" value="murid">Murid</option>
+                          <option className="bg-slate-900 text-white" value="guru">Guru Sekolah</option>
+                          <option className="bg-slate-900 text-white" value="admin">Penyelidik Utama (Admin)</option>
+                        </select>
+                      </div>
+                      <div><label className="block text-sm text-slate-400 mb-1.5 font-medium">Nama Penuh</label><input type="text" value={uNama} onChange={e => setUNama(e.target.value)} required placeholder="Contoh: Ahmad" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none shadow-inner"/></div>
+                      <div><label className="block text-sm text-slate-400 mb-1.5 font-medium">Kata Laluan</label><input type="text" value={uKataLaluan} onChange={e => setUKataLaluan(e.target.value)} required placeholder="123456" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none shadow-inner"/></div>
+                      {uRole === "murid" && (
+                        <div className="p-4 bg-blue-900/20 rounded-xl border border-blue-800/50 mt-4 space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm text-slate-400 mb-1.5">Tingkatan</label>
+                              <select value={uTingkatan} onChange={e => setUTingkatan(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
+                                <option className="bg-slate-900 text-white" value="4">Tingkatan 4</option>
+                                <option className="bg-slate-900 text-white" value="5">Tingkatan 5</option>
+                              </select>
+                            </div>
+                            <div><label className="block text-sm text-slate-400 mb-1.5">Kelas</label><input type="text" value={uKelas} onChange={e => setUKelas(e.target.value)} required placeholder="Cth: Sains" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 outline-none"/></div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm text-slate-400 mb-1.5">Inkuiri Awal</label>
+                              <select value={uTahapInkuiri} onChange={e => setUTahapInkuiri(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
+                                <option className="bg-slate-900 text-white" value="Rendah">Rendah</option>
+                                <option className="bg-slate-900 text-white" value="Sederhana">Sederhana</option>
+                                <option className="bg-slate-900 text-white" value="Tinggi">Tinggi</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm text-slate-400 mb-1.5">Kumpulan</label>
+                              <select value={uKumpulan} onChange={e => setUKumpulan(e.target.value)} className="w-full bg-slate-900 border border-cyan-800/50 rounded-xl p-2.5 text-cyan-400 font-bold outline-none focus:border-cyan-500">
+                                <option className="bg-slate-900 text-cyan-400" value="Eksperimen">Eksperimen</option>
+                                <option className="bg-slate-900 text-cyan-400" value="Kawalan">Kawalan</option>
+                              </select>
+                            </div>
+                          </div>
+                          {uKumpulan === "Kawalan" && (
+                            <div className="col-span-2 mt-3 p-4 bg-rose-900/20 border border-rose-800/50 rounded-xl animate-in fade-in">
+                              <label className="flex items-center gap-3 cursor-pointer">
+                                <input 
+                                  type="checkbox" 
+                                  checked={uBukaPostTest}
+                                  onChange={(e) => setUBukaPostTest(e.target.checked)}
+                                  className="w-5 h-5 accent-rose-500 rounded bg-slate-900 border-slate-700"
+                                />
+                                <span className="text-sm text-rose-300 font-bold">Buka Akses Ujian Pasca (Post-Test) untuk murid ini.</span>
+                              </label>
+                              <p className="text-[10px] text-rose-400/80 mt-1.5 ml-8 leading-tight">
+                                Jika ditandakan, murid kawalan ini boleh menduduki Ujian Pasca secara online di dashboard mereka.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex gap-3 pt-4">
+                        {isEditingUser && ( <button type="button" onClick={resetFormPengguna} className="flex-1 bg-slate-700 text-white font-semibold py-3 rounded-xl hover:bg-slate-600 text-sm shadow-md transition-colors">Batal</button> )}
+                        <button type="submit" disabled={uIsSubmitting} className="flex-1 bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-500 shadow-md shadow-blue-900/50 text-sm transition-all">{uIsSubmitting ? "Menyimpan..." : isEditingUser ? "Simpan Perubahan" : "Daftar Akaun"}</button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
 
                 {/* KOTAK JADUAL (KANAN) */}
@@ -1682,12 +1728,20 @@ export default function GuruDashboard() {
                                                             {postTestRecord && <a href={`/guru/semakan/${postTestRecord.id}`} target="_blank" rel="noreferrer" className="text-xs bg-emerald-600/80 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg shadow flex items-center gap-1.5 font-bold transition-all"><Eye size={14}/> Esei Post-Test</a>}
                                                           </div>
                                                           
-                                                          <button 
-                                                            onClick={(e) => { e.stopPropagation(); handleResetBabMurid(selectedStudentDetail, ting, num); }} 
-                                                            className="text-xs bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 font-bold transition-all ml-auto hover:shadow-rose-900/50 border border-rose-500"
-                                                          >
-                                                            <Trash2 size={14}/> Reset Data Bab Ini
-                                                          </button>
+                                                          <div className="flex gap-2 ml-auto">
+                                                            <button 
+                                                              onClick={(e) => { e.stopPropagation(); handleResetChatSahaja(selectedStudentDetail, ting, num); }} 
+                                                              className="text-xs bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 font-bold transition-all hover:shadow-amber-900/50 border border-amber-500"
+                                                            >
+                                                              <RefreshCw size={14}/> Reset Chat AI Sahaja
+                                                            </button>
+                                                            <button 
+                                                              onClick={(e) => { e.stopPropagation(); handleResetBabMurid(selectedStudentDetail, ting, num); }} 
+                                                              className="text-xs bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 font-bold transition-all hover:shadow-rose-900/50 border border-rose-500"
+                                                            >
+                                                              <Trash2 size={14}/> Reset Data Bab Ini
+                                                            </button>
+                                                          </div>
                                                        </div>
                                                     </div>
                                                     
