@@ -37,9 +37,11 @@ export default function MakmalDataKajian() {
   const [rawUsersData, setRawUsersData] = useState<any[]>([]);
   const [statsDeskriptif, setStatsDeskriptif] = useState<any>(null);
 
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  // Drag and Drop (Dinaik taraf untuk fasa berasingan)
+  const [draggedItemInfo, setDraggedItemInfo] = useState<{fasa: string, index: number} | null>(null);
   const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
 
+  // Data Mock Jika DB kosong
   const mockData = [
     { id: "M4001", kumpulan: "Eksperimen", ujianPra: 45, ujianPasca: 85 },
     { id: "M4002", kumpulan: "Eksperimen", ujianPra: 50, ujianPasca: 88 },
@@ -52,8 +54,6 @@ export default function MakmalDataKajian() {
       const snapSoalan = await getDocs(qSoalan);
       const dataSoal = snapSoalan.docs.map(d => ({ id: d.id, ...d.data() }));
       setSoalanList(dataSoal);
-      
-      if (!isEditing) setFormData(prev => ({ ...prev, susunan: dataSoal.length + 1 }));
 
       const uSnap = await getDocs(collection(db, "users"));
       const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -82,7 +82,6 @@ export default function MakmalDataKajian() {
       const svData = svSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       setRawSurveyData(svData);
 
-      // KIRA STATISTIK DESKRIPTIF PRA & PASCA (HANYA KUMPULAN EKSPERIMEN)
       const kategoriSkor: Record<string, number[]> = {};
       svData.forEach((res: any) => {
         if (res.kumpulan === "Eksperimen") {
@@ -116,6 +115,18 @@ export default function MakmalDataKajian() {
   };
 
   useEffect(() => { tarikSemuaData(); }, []);
+
+  // Membahagikan Soalan kepada dua kumpulan (Pra & Pasca) dan menyusun mengikut susunan
+  const soalanPra = soalanList.filter(s => s.fasa === "Pra").sort((a,b) => a.susunan - b.susunan);
+  const soalanPasca = soalanList.filter(s => s.fasa === "Pasca").sort((a,b) => a.susunan - b.susunan);
+
+  // Auto set nombor susunan baharu bila fasa ditukar (Pra / Pasca)
+  useEffect(() => {
+    if (!isEditing) {
+      const p = formData.fasa === "Pra" ? soalanPra.length + 1 : soalanPasca.length + 1;
+      setFormData(prev => ({ ...prev, susunan: p }));
+    }
+  }, [formData.fasa, soalanList]);
 
   const calculateStats = (data: number[]) => {
     const n = data.length;
@@ -173,23 +184,33 @@ export default function MakmalDataKajian() {
   const resetForm = () => {
     setIsEditing(false);
     setEditId(null);
-    setFormData({ fasa: "Pra", kategori: "Motivasi", subKategori: "", soalan: "", susunan: soalanList.length + 1, jenisSkala: 5, aktif: true });
+    const targetLength = formData.fasa === "Pra" ? soalanPra.length : soalanPasca.length;
+    setFormData({ fasa: formData.fasa, kategori: "Motivasi", subKategori: "", soalan: "", susunan: targetLength + 1, jenisSkala: 5, aktif: true });
   };
 
-  const handleDragStart = (index: number) => { setDraggedIndex(index); };
-  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => { e.preventDefault(); };
+  // Drag and Drop (Untuk Dua Kumpulan Berbeza)
+  const handleDragStartPhase = (fasa: string, index: number) => { setDraggedItemInfo({ fasa, index }); };
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); };
 
-  const handleDrop = async (index: number) => {
-    if (draggedIndex === null || draggedIndex === index) return;
+  const handleDropPhase = async (fasa: string, targetIndex: number) => {
+    if (!draggedItemInfo || draggedItemInfo.fasa !== fasa || draggedItemInfo.index === targetIndex) return;
     setIsUpdatingOrder(true);
-    const newList = [...soalanList];
-    const draggedItem = newList.splice(draggedIndex, 1)[0];
-    newList.splice(index, 0, draggedItem);
-    
-    const updatedList = newList.map((item, i) => ({ ...item, susunan: i + 1 }));
-    setSoalanList(updatedList); 
-    setDraggedIndex(null);
 
+    const currentList = fasa === "Pra" ? [...soalanPra] : [...soalanPasca];
+    const draggedItem = currentList.splice(draggedItemInfo.index, 1)[0];
+    currentList.splice(targetIndex, 0, draggedItem);
+    
+    // Susun Semula Nombor (1, 2, 3...)
+    const updatedList = currentList.map((item, i) => ({ ...item, susunan: i + 1 }));
+
+    // Kemaskini Local State Serta Merta Untuk Paparan Lancar
+    setSoalanList(prev => prev.map(oldItem => {
+        const found = updatedList.find(u => u.id === oldItem.id);
+        return found ? { ...oldItem, susunan: found.susunan } : oldItem;
+    }));
+    setDraggedItemInfo(null);
+
+    // Hantar ke Database
     try {
       const batch = writeBatch(db);
       updatedList.forEach(item => {
@@ -204,12 +225,11 @@ export default function MakmalDataKajian() {
   const exportKajianKeCSV = () => {
     if (rawUsersData.length === 0) return alert("Sila tunggu data ditarik.");
     
-    // Dapatkan soalan unik Pra dan Pasca
-    const soalanPra = soalanList.filter(q => q.fasa === "Pra").map(q => `PRA_Q${q.susunan}`);
-    const soalanPasca = soalanList.filter(q => q.fasa === "Pasca").map(q => `PASCA_Q${q.susunan}`);
+    const sPra = soalanList.filter(q => q.fasa === "Pra").map(q => `PRA_Q${q.susunan}`);
+    const sPasca = soalanList.filter(q => q.fasa === "Pasca").map(q => `PASCA_Q${q.susunan}`);
 
     let csvContent = "ID_Murid,Sekolah,Kumpulan,Tahap_Inkuiri,Pre_Bab1,Post_Bab1,Motivasi_PRA,Penglibatan_PRA,Motivasi_PASCA,Penglibatan_PASCA,Kebolehgunaan_PASCA,";
-    csvContent += [...soalanPra, ...soalanPasca].join(",") + "\n";
+    csvContent += [...sPra, ...sPasca].join(",") + "\n";
 
     rawUsersData.filter(u => u.role === "murid").forEach(murid => {
       const uid = murid.idPengguna || murid.id;
@@ -217,11 +237,9 @@ export default function MakmalDataKajian() {
       const preB1 = skorMurid.find(s => s.bab === "Bab 1" && (s.jenisUjian === "pre_test" || !s.jenisUjian))?.skor || "";
       const postB1 = skorMurid.find(s => s.bab === "Bab 1" && s.jenisUjian === "post_test")?.skor || "";
 
-      // Rekod Survey Pra & Pasca Murid
       const svPra = rawSurveyData.find(sv => sv.idMurid === uid && sv.fasa === "Pra");
       const svPasca = rawSurveyData.find(sv => sv.idMurid === uid && sv.fasa === "Pasca");
 
-      // Set item skor (Tarik markah individu mengikut ID soalan)
       const itemSkorList: string[] = [];
       
       soalanList.filter(q => q.fasa === "Pra").forEach(q => {
@@ -350,22 +368,22 @@ export default function MakmalDataKajian() {
       {/* 📝 TAB 3: PENGURUSAN ITEM SOALAN */}
       {/* ========================================== */}
       {activeSubTab === "soalan" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300 items-start relative">
+        <div className="flex flex-col lg:flex-row gap-6 animate-in fade-in duration-300 items-start relative">
           
-          <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 lg:col-span-1 lg:sticky lg:top-6 h-fit z-10 shadow-xl order-first">
+          {/* ================= KOTAK KIRI (BORANG STICKY) ================= */}
+          <div className="w-full lg:w-1/3 bg-slate-800/90 p-6 rounded-2xl border border-slate-700 lg:sticky lg:top-6 z-10 shadow-2xl order-first flex-shrink-0 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
               <Settings className="text-fuchsia-400" size={20}/> 
               {isEditing ? "Kemaskini Item" : "Daftar Item Baharu"}
             </h4>
             
             <form onSubmit={handleSimpanSoalan} className="space-y-5">
-              
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Fasa Kajian</label>
                 <select 
                   value={formData.fasa} 
                   onChange={e => setFormData({...formData, fasa: e.target.value})} 
-                  className="w-full bg-indigo-900/30 border border-indigo-500/50 rounded-xl p-3.5 text-white font-bold outline-none focus:border-indigo-400 shadow-inner transition-colors"
+                  className={`w-full border rounded-xl p-3.5 text-white font-bold outline-none shadow-inner transition-colors ${formData.fasa === 'Pra' ? 'bg-indigo-900/40 border-indigo-500/50 focus:border-indigo-400' : 'bg-emerald-900/40 border-emerald-500/50 focus:border-emerald-400'}`}
                 >
                   <option value="Pra">Pra-Kajian (Sebelum Mula)</option>
                   <option value="Pasca">Pasca-Kajian (Selepas Tamat)</option>
@@ -403,14 +421,14 @@ export default function MakmalDataKajian() {
                   value={formData.soalan} 
                   onChange={e => setFormData({...formData, soalan: e.target.value})} 
                   required 
-                  placeholder="Cth: I-RAGS membantu saya fokus..."
+                  placeholder="Cth: Laman web ini membantu saya..."
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-fuchsia-500 outline-none resize-y shadow-inner leading-relaxed transition-colors"
                 ></textarea>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Susunan</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Susunan (No)</label>
                   <input 
                     type="number" 
                     min="1"
@@ -453,49 +471,87 @@ export default function MakmalDataKajian() {
             </form>
           </div>
           
-          <div className="bg-slate-800/80 rounded-2xl border border-slate-700 overflow-hidden lg:col-span-2 shadow-xl relative">
+          {/* ================= KOTAK KANAN (2 LAJUR PRA & PASCA) ================= */}
+          <div className="w-full lg:w-2/3 grid grid-cols-1 xl:grid-cols-2 gap-6 relative">
+            
             {isUpdatingOrder && (
-               <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center">
+               <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center rounded-2xl">
                   <div className="flex flex-col items-center gap-2 text-fuchsia-400"><Loader2 className="animate-spin" size={32}/><span className="font-bold">Menyusun Pangkalan Data...</span></div>
                </div>
             )}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-max">
-                <thead><tr className="border-b border-slate-700 bg-slate-900/50"><th className="p-4 font-bold text-xs uppercase text-slate-400 w-20 text-center">No</th><th className="p-4 font-bold text-xs uppercase text-slate-400">Kategori & Item</th><th className="p-4 font-bold text-xs uppercase text-slate-400 text-right">Tindakan</th></tr></thead>
-                <tbody>
-                  {soalanList.length > 0 ? soalanList.map((item, i) => (
-                    <tr 
-                      key={item.id} 
+
+            {/* Kotak: Pra-Kajian */}
+            <div className="bg-indigo-900/10 rounded-2xl border border-indigo-500/30 p-4 shadow-lg flex flex-col h-full">
+              <div className="bg-indigo-900/40 p-4 rounded-xl border border-indigo-500/40 mb-4 flex justify-between items-center">
+                 <h3 className="font-bold text-indigo-300">Pra-Kajian (Sebelum)</h3>
+                 <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-md">{soalanPra.length} Item</span>
+              </div>
+              <div className="flex flex-col gap-3">
+                 {soalanPra.length > 0 ? soalanPra.map((item, i) => (
+                    <div 
+                      key={item.id}
                       draggable={!isUpdatingOrder}
-                      onDragStart={() => handleDragStart(i)}
+                      onDragStart={() => handleDragStartPhase("Pra", i)}
                       onDragOver={handleDragOver}
-                      onDrop={() => handleDrop(i)}
-                      className={`border-b border-slate-700/50 transition-colors ${!item.aktif && 'opacity-50'} ${draggedIndex === i ? 'bg-fuchsia-900/40 border border-fuchsia-500 shadow-inner scale-[0.99]' : 'hover:bg-slate-700/30'}`}
+                      onDrop={() => handleDropPhase("Pra", i)}
+                      className={`flex gap-3 bg-slate-800/80 p-4 rounded-xl border transition-all ${draggedItemInfo?.fasa === "Pra" && draggedItemInfo.index === i ? 'border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)] opacity-50 scale-95' : 'border-slate-700 hover:border-indigo-500/50'} ${!item.aktif && 'opacity-50 grayscale'}`}
                     >
-                      <td className="p-4 text-center font-bold text-slate-400 text-sm">
-                        <div className="flex items-center justify-center gap-3 cursor-grab active:cursor-grabbing hover:text-white" title="Tarik untuk susun">
-                          <GripVertical size={16} className="text-slate-600"/>
-                          {item.susunan}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                          <span className={`text-[9px] px-2.5 py-0.5 rounded-md font-bold uppercase border ${item.fasa === "Pra" ? 'bg-indigo-900/40 text-indigo-400 border-indigo-800/50' : 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50'}`}>{item.fasa || "Pra"}</span>
-                          <span className="text-[10px] px-2.5 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>
-                          {item.subKategori && <span className="text-[10px] bg-slate-700/50 border border-slate-600 px-2 py-0.5 rounded-md text-slate-300 uppercase">{item.subKategori}</span>}
-                          {!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md ml-auto">Disembunyikan</span>}
-                        </div>
-                        <div className="font-medium text-slate-200 text-sm leading-relaxed">{item.soalan}</div>
-                      </td>
-                      <td className="p-4 text-right">
-                        <button onClick={() => handleEdit(item)} className="bg-slate-700/50 p-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-amber-500 mr-2 transition-all"><Edit3 size={16} /></button>
-                        <button onClick={() => handlePadam(item.id)} className="bg-slate-700/50 p-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-red-500 transition-all"><Trash2 size={16} /></button>
-                      </td>
-                    </tr>
-                  )) : <tr><td colSpan={3} className="p-10 text-center text-slate-500">Tiada item soalan dijumpai.</td></tr>}
-                </tbody>
-              </table>
+                       <div className="flex flex-col items-center justify-start gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-indigo-400">
+                          <GripVertical size={18}/>
+                          <span className="font-bold text-sm">{item.susunan}</span>
+                       </div>
+                       <div className="flex-1">
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                             <span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>
+                             {!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md">Sembunyi</span>}
+                          </div>
+                          <p className="text-sm text-slate-200 leading-relaxed font-medium">{item.soalan}</p>
+                       </div>
+                       <div className="flex flex-col gap-2 border-l border-slate-700 pl-3">
+                          <button onClick={() => handleEdit(item)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-amber-500 hover:text-white transition-colors" title="Edit"><Edit3 size={16}/></button>
+                          <button onClick={() => handlePadam(item.id)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-red-500 hover:text-white transition-colors" title="Padam"><Trash2 size={16}/></button>
+                       </div>
+                    </div>
+                 )) : <div className="text-center p-8 text-slate-500 border border-dashed border-slate-700 rounded-xl">Tiada soalan Pra-Kajian.</div>}
+              </div>
             </div>
+
+            {/* Kotak: Pasca-Kajian */}
+            <div className="bg-emerald-900/10 rounded-2xl border border-emerald-500/30 p-4 shadow-lg flex flex-col h-full">
+              <div className="bg-emerald-900/30 p-4 rounded-xl border border-emerald-500/40 mb-4 flex justify-between items-center">
+                 <h3 className="font-bold text-emerald-400">Pasca-Kajian (Selepas)</h3>
+                 <span className="bg-emerald-600 text-white text-xs font-bold px-2 py-1 rounded-md">{soalanPasca.length} Item</span>
+              </div>
+              <div className="flex flex-col gap-3">
+                 {soalanPasca.length > 0 ? soalanPasca.map((item, i) => (
+                    <div 
+                      key={item.id}
+                      draggable={!isUpdatingOrder}
+                      onDragStart={() => handleDragStartPhase("Pasca", i)}
+                      onDragOver={handleDragOver}
+                      onDrop={() => handleDropPhase("Pasca", i)}
+                      className={`flex gap-3 bg-slate-800/80 p-4 rounded-xl border transition-all ${draggedItemInfo?.fasa === "Pasca" && draggedItemInfo.index === i ? 'border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] opacity-50 scale-95' : 'border-slate-700 hover:border-emerald-500/50'} ${!item.aktif && 'opacity-50 grayscale'}`}
+                    >
+                       <div className="flex flex-col items-center justify-start gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-emerald-400">
+                          <GripVertical size={18}/>
+                          <span className="font-bold text-sm">{item.susunan}</span>
+                       </div>
+                       <div className="flex-1">
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                             <span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>
+                             {!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md">Sembunyi</span>}
+                          </div>
+                          <p className="text-sm text-slate-200 leading-relaxed font-medium">{item.soalan}</p>
+                       </div>
+                       <div className="flex flex-col gap-2 border-l border-slate-700 pl-3">
+                          <button onClick={() => handleEdit(item)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-amber-500 hover:text-white transition-colors" title="Edit"><Edit3 size={16}/></button>
+                          <button onClick={() => handlePadam(item.id)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-red-500 hover:text-white transition-colors" title="Padam"><Trash2 size={16}/></button>
+                       </div>
+                    </div>
+                 )) : <div className="text-center p-8 text-slate-500 border border-dashed border-slate-700 rounded-xl">Tiada soalan Pasca-Kajian.</div>}
+              </div>
+            </div>
+
           </div>
         </div>
       )}
