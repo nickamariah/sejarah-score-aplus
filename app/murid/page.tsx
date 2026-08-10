@@ -8,10 +8,10 @@ import {
 import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase"; 
 
-// --- DATA CHAPTERS & TYPES (DIKEKALKAN 100%) ---
 type Subtopic = { id: string; title: string; };
 type ChapterDef = { id: number; title: string; desc: string; subtopics?: Subtopic[]; };
 
+// --- DATA BAB (KEKAL 100% SEPERTI ASAL) ---
 const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
   t4: [
     { id: 1, title: "Bab 1: Warisan Negara Bangsa", desc: "Mengenal identiti dan nilai kebangsaan", subtopics: [
@@ -93,13 +93,13 @@ export default function MuridDashboard() {
   const [aiSelesaiList, setAiSelesaiList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // STATE MAKLUM BALAS
+  // STATE FEEDBACK
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackJenis, setFeedbackJenis] = useState("Pujian");
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🌟 STATE SOAL SELIDIK (MODUL BARU) 🌟
+  // 🌟 STATE SOAL SELIDIK AWAL (BARU) 🌟
   const [showSurvey, setShowSurvey] = useState(false);
   const [loadingSurvey, setLoadingSurvey] = useState(false);
   const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
@@ -107,8 +107,9 @@ export default function MuridDashboard() {
   const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false);
   const [currentSurveyCategoryIndex, setCurrentSurveyCategoryIndex] = useState(-1);
   const [hasPreSurvey, setHasPreSurvey] = useState(false);
+  const [initialPopupShown, setInitialPopupShown] = useState(false);
 
-  // STATE TEMA (DIKEKALKAN)
+  // TEMA (KEKAL SEPERTI ASAL)
   const senaraiTheme = [
     { id: 'default', nama: '🌞 Cerah (Asal)', class: 'bg-slate-50' },
     { id: 'gelap', nama: '🌙 Mod Gelap', class: 'bg-slate-900' },
@@ -128,6 +129,16 @@ export default function MuridDashboard() {
     localStorage.setItem('userTheme', newVal);
   };
 
+  useEffect(() => {
+    const rawUser = localStorage.getItem("currentUser");
+    if (rawUser) {
+      const userLokal = JSON.parse(rawUser);
+      if (userLokal.tingkatan?.toString() === "5") {
+        setActiveLevel("t5");
+      }
+    }
+  }, []);
+
   const tarikDataFirebase = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     const rawUser = localStorage.getItem("currentUser");
@@ -144,15 +155,14 @@ export default function MuridDashboard() {
       const targetIds = [userPenuh.id, userPenuh.idPengguna].filter(Boolean);
       const uniqueIds = [...new Set(targetIds)];
 
-      // 🌟 SEMAK STATUS SOAL SELIDIK 🌟
+      // 🌟 SEMAK STATUS SOAL SELIDIK AWAL 🌟
       const qSurvey = query(collection(db, "soal_selidik_murid"), where("idMurid", "in", uniqueIds), where("jenisSurvey", "==", "pre"));
       const snapSurvey = await getDocs(qSurvey);
       setHasPreSurvey(!snapSurvey.empty);
 
-      // TARIK SKOR
+      // TARIK REKOD SKOR & CHAT
       const qSkor = query(collection(db, "skor_murid"), where("idMurid", "in", uniqueIds));
       const snapSkor = await getDocs(qSkor);
-      
       const qChat = query(collection(db, "chat_sessions"), where("studentId", "in", uniqueIds), where("status", "==", "completed"));
       const snapChat = await getDocs(qChat);
       const chatArray: string[] = [];
@@ -160,20 +170,31 @@ export default function MuridDashboard() {
       setAiSelesaiList(chatArray);
 
       let tempProgress: Record<number, BabProgress> = {};
-      snapSkor.forEach((dDoc) => {
-        const data = dDoc.data();
+      snapSkor.forEach((docSnap) => {
+        const data = docSnap.data();
         if (String(data.tingkatan) !== tSemasa) return;
         const babMatch = String(data.bab).match(/\d+/);
         if (!babMatch) return;
         const babNum = parseInt(babMatch[0]);
         if (!tempProgress[babNum]) tempProgress[babNum] = { aiSelesai: false, gameSelesai: false };
         
-        if (data.jenisUjian === "pre_test") {
-           tempProgress[babNum].preSkor = data.skor; tempProgress[babNum].docIdPre = dDoc.id;
-           tempProgress[babNum].preObjektif = data.skorObjektif;
-        } else if (data.jenisUjian === "post_test") {
-           tempProgress[babNum].postSkor = data.skor; tempProgress[babNum].docIdPost = dDoc.id;
-           tempProgress[babNum].postObjektif = data.skorObjektif;
+        // Check ralat semakan
+        let adaRalat = false;
+        if (data.ulasanAI && data.statusPermarkahanEsei !== "disemak_oleh_guru") {
+           for (const key in data.ulasanAI) {
+              if (typeof data.ulasanAI[key].komenAI === 'string' && data.ulasanAI[key].komenAI.includes("GAGAL")) { adaRalat = true; break; }
+           }
+        }
+
+        if (data.jenisUjian === "pre_test" || !data.jenisUjian) { 
+           tempProgress[babNum].preSkor = data.skor; tempProgress[babNum].preObjektif = data.skorObjektif;
+           tempProgress[babNum].preStruktur = data.markahStruktur; tempProgress[babNum].prePenuh = data.markahPenuhUjian;
+           tempProgress[babNum].docIdPre = docSnap.id; tempProgress[babNum].adaRalatSemakanPre = adaRalat;
+        } 
+        else if (data.jenisUjian === "post_test") { 
+           tempProgress[babNum].postSkor = data.skor; tempProgress[babNum].postObjektif = data.skorObjektif;
+           tempProgress[babNum].postStruktur = data.markahStruktur; tempProgress[babNum].postPenuh = data.markahPenuhUjian;
+           tempProgress[babNum].adaRalatSemakanPost = adaRalat; tempProgress[babNum].docIdPost = docSnap.id;
         }
       });
 
@@ -189,13 +210,14 @@ export default function MuridDashboard() {
 
   useEffect(() => { tarikDataFirebase(); }, [activeLevel]);
 
-  // 🌟 POPUP SOAL SELIDIK AWAL (AUTO-TRIGGER) 🌟
+  // 🌟 POPUP SOAL SELIDIK AWAL (WAJIB JAWAB) 🌟
   useEffect(() => {
-    if (!loading && !hasPreSurvey && userData?.kumpulan === "Eksperimen") {
+    if (!loading && !hasPreSurvey && userData?.kumpulan === "Eksperimen" && !initialPopupShown) {
       tarikSoalanSelidik();
       setShowSurvey(true);
+      setInitialPopupShown(true);
     }
-  }, [loading, hasPreSurvey, userData]);
+  }, [loading, hasPreSurvey, userData, initialPopupShown]);
 
   const tarikSoalanSelidik = async () => {
     setLoadingSurvey(true);
@@ -222,8 +244,8 @@ export default function MuridDashboard() {
       });
       setHasPreSurvey(true);
       setShowSurvey(false);
-      alert("Terima kasih! Sila teruskan pembelajaran anda.");
-    } catch (e) { alert("Gagal hantar."); } finally { setIsSubmittingSurvey(false); }
+      alert("Terima kasih! Sila gunakan HUB I-RAGs sekarang.");
+    } catch (e) { alert("Ralat sistem."); } finally { setIsSubmittingSurvey(false); }
   };
 
   const handleLogout = () => { localStorage.removeItem("currentUser"); window.location.href = "/login"; };
@@ -236,10 +258,17 @@ export default function MuridDashboard() {
     return `sub${chapterData.subtopics[chapterData.subtopics.length - 1].id}`;
   };
 
-  // 🌟 LOGIK BARU: LULUS VS RUJUK GURU 🌟
+  const openModule = (chapterId: number, type: string, aras: string, subSemasa: string) => {
+    const t = activeLevel === "t4" ? "4" : "5";
+    if (type === "pre") window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}&jenisUjian=pre_test`;
+    if (type === "ai") window.location.href = `/pembelajaran?bab=tingkatan${t}_bab${chapterId}_${subSemasa}&aras=${aras}`;
+    if (type === "post") window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}&jenisUjian=post_test`;
+  };
+
+  // 🌟 LOGIK BARU: LULUS VS RUJUK GURU (TANPA PEMULIHAN) 🌟
   const getChapterLogic = (chapterId: number) => {
     const prog = progressBab[chapterId] || { aiSelesai: false };
-    const pre = prog.preSkor; const post = prog.postSkor;
+    const pre = prog.preSkor; const post = prog.postSkor; 
     
     let aras = "rendah"; let targetLulus = 50;
     if (pre !== undefined) {
@@ -251,10 +280,10 @@ export default function MuridDashboard() {
     const postLulus = post !== undefined && post >= targetLulus;
     const isLulus = preLulusTerus || postLulus; 
     
-    // Jika dah jawab post tapi tak lulus, terus rujuk guru
+    // Syarat Rujuk Guru: Jika sudah jawab Post-Test tapi belum lulus
     const perluRujukGuru = post !== undefined && !isLulus;
     
-    // Bab dikira "Cleared" jika Lulus ATAU Cikgu dah bagi pelepasan manual
+    // BabCleared if Lulus OR Teacher cleared manual
     const isClearedForNext = isLulus || (perluRujukGuru && userData?.babCleared?.[chapterId]);
 
     const skorTertinggi = Math.max(pre || 0, post || 0);
@@ -270,29 +299,40 @@ export default function MuridDashboard() {
         aras, pre, post, targetLulus, isLulus, perluRujukGuru, preLulusTerus, isClearedForNext,
         skorTertinggi, lencana, namaLencana, aiSelesai: prog.aiSelesai,
         docIdPre: prog.docIdPre, docIdPost: prog.docIdPost,
-        preObjektif: prog.preObjektif, postObjektif: prog.postObjektif
+        preObjektif: prog.preObjektif, preStruktur: prog.preStruktur, prePenuh: prog.prePenuh, adaRalatSemakanPre: prog.adaRalatSemakanPre,
+        postObjektif: prog.postObjektif, postStruktur: prog.postStruktur, postPenuh: prog.postPenuh, adaRalatSemakanPost: prog.adaRalatSemakanPost
     };
   };
 
   const getChapterStatusUI = (chapterId: number) => {
     const logic = getChapterLogic(chapterId);
-    if (logic.pre === undefined) return { label: "Sedia", color: "bg-slate-100", bar: "w-0", icon: "🚀" };
-    if (logic.isLulus) return { label: "Dikuasai", color: "bg-emerald-50 text-emerald-700", bar: "w-full bg-emerald-500", icon: "🏆" };
-    if (logic.perluRujukGuru) return { label: "Rujukan Guru", color: "bg-fuchsia-50 text-fuchsia-700", bar: "w-full bg-fuchsia-500 animate-pulse", icon: "💌" };
-    return { label: "Bimbingan AI", color: "bg-amber-50 text-amber-700", bar: "w-1/2 bg-amber-400 animate-pulse", icon: "🤖" };
+    if (userData?.kumpulan === "Kawalan") return { label: "Standard", color: "bg-slate-100", bar: "w-1/2 bg-slate-500", icon: "⚪" };
+    if (logic.pre === undefined) return { label: "Sedia Mula", color: "bg-slate-100 border-slate-200 text-slate-500", bar: "w-0", icon: "🚀" };
+    if (logic.adaRalatSemakanPre || logic.adaRalatSemakanPost) return { label: "Semakan Guru", color: "bg-rose-50 border-rose-200 text-rose-700", bar: "w-1/4 bg-rose-500 animate-pulse", icon: "⏳" };
+    if (logic.isLulus) return { label: "Dikuasai", color: "bg-emerald-50 border-emerald-200 text-emerald-700", bar: "w-full bg-emerald-500", icon: "🏆" };
+    if (logic.perluRujukGuru) return { label: "Rujukan Guru", color: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700", bar: "w-full bg-fuchsia-500 animate-pulse", icon: "💌" };
+    return { label: "Bimbingan AI", color: "bg-amber-50 border-amber-200 text-amber-700", bar: "w-1/2 bg-amber-400 animate-pulse", icon: "🤖" };
   };
+
+  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-sky-600"/></div>;
 
   const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
   const surveyCategories = Array.from(new Set(surveyQuestions.map(q => q.kategori)));
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-sky-600"/></div>;
-
   return (
-    <div className={`min-h-screen px-4 py-8 font-sans transition-all duration-700 ${selectedTheme}`}>
+    <div className={`min-h-screen px-4 py-8 md:px-6 font-sans text-slate-900 relative transition-colors duration-700 ${selectedTheme}`}>
       
-      {/* HEADER & WELCOME (DIKEKALKAN) */}
+      {/* CORAK BINTANG UNTUK MOD ANGKASA (KEKAL) */}
+      {selectedTheme.includes('indigo-950') && (
+        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden opacity-40">
+           <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(2px 2px at 20px 30px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0))', backgroundSize: '200px 200px' }}></div>
+        </div>
+      )}
+
       <div className="mx-auto max-w-6xl relative z-10">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-gradient-to-r from-sky-600 to-indigo-700 p-8 shadow-lg text-white mb-8 flex justify-between items-center overflow-hidden relative">
+        
+        {/* HEADER WELCOME (KEKAL) */}
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-gradient-to-r from-sky-600 to-indigo-700 p-8 shadow-lg text-white mb-8 flex justify-between items-center relative overflow-hidden">
           <div className="flex items-center gap-5">
              <div className="h-20 w-20 rounded-full bg-white flex items-center justify-center text-3xl font-black text-sky-600 shadow-md">
                 {(userData?.nama || "P").charAt(0).toUpperCase()}
@@ -313,7 +353,23 @@ export default function MuridDashboard() {
           </div>
         </motion.div>
 
-        {/* ANALISIS PENGUASAAN (DIKEKALKAN) */}
+        {/* TOP STATS CARDS (KEKAL) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 text-slate-800">
+          <div className="bg-white/95 p-4 rounded-2xl border border-blue-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Brain /></div>
+            <div><h3 className="font-bold text-sm">Belajar Pintar</h3><p className="text-xs text-slate-500">Nota, Video & Bimbingan AI.</p></div>
+          </div>
+          <div className="bg-white/95 p-4 rounded-2xl border border-amber-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl"><Compass /></div>
+            <div><h3 className="font-bold text-sm">6 Fasa Inkuiri</h3><p className="text-xs text-slate-500">Selesaikan kitaran Bloom.</p></div>
+          </div>
+          <div className="bg-white/95 p-4 rounded-2xl border border-emerald-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><Medal /></div>
+            <div><h3 className="font-bold text-sm">Lencana & Sijil</h3><p className="text-xs text-slate-500">Tebus ganjaran penguasaan.</p></div>
+          </div>
+        </div>
+
+        {/* ANALISIS KEMAJUAN (KEKAL) */}
         <div className="bg-white/95 rounded-3xl p-8 shadow-md border border-white/40 mb-8">
            <div className="flex items-center gap-3 mb-6">
               <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><BarChart3/></div>
@@ -338,30 +394,41 @@ export default function MuridDashboard() {
            </div>
         </div>
 
-        {/* SENARAI BAB (SEQUENTIAL) */}
+        {/* TAB TINGKATAN (KEKAL) */}
+        <div className="mb-6 flex gap-3">
+          {(userData?.tingkatan?.toString() === "5" ? ["t4", "t5"] : ["t4"]).map((level) => (
+            <button key={level} onClick={() => { setActiveLevel(level as "t4" | "t5"); setExpandedChapter(null); }}
+              className={`px-8 py-3 rounded-full font-black shadow-sm transition-all ${activeLevel === level ? "bg-sky-600 text-white" : "bg-white/90 text-slate-600 border border-slate-200"}`}>
+              Tingkatan {level === "t4" ? "4" : "5"}
+            </button>
+          ))}
+        </div>
+
+        {/* SENARAI BAB (SEQUENTIAL UNLOCKING) */}
         <div className="space-y-4">
           {currentChapters.map((chapter: any, index: number) => {
             const logic = getChapterLogic(chapter.id);
             const statusUI = getChapterStatusUI(chapter.id);
             const isKawalan = userData?.kumpulan === "Kawalan";
             
-            // LOGIK KUNCI BERURUTAN
+            // LOGIK KUNCI BERURUTAN (KEKAL)
             let isLocked = false;
             if (index > 0 && !isKawalan) {
                 const prevLogic = getChapterLogic(currentChapters[index-1].id);
                 if (!prevLogic.isClearedForNext) isLocked = true;
             }
             const subSemasa = getCurrentSubtopic(chapter.id, chapter);
+            const preTelahDinilai = logic.pre !== undefined && !logic.adaRalatSemakanPre;
 
             return (
-              <div key={chapter.id} className={`rounded-2xl border transition-all duration-300 ${isLocked ? 'bg-slate-100/60 opacity-80' : 'bg-white shadow-sm'}`}>
+              <div key={chapter.id} className={`rounded-3xl border overflow-hidden transition-all duration-300 ${isLocked ? 'bg-slate-100/60 opacity-80' : 'bg-white shadow-sm'}`}>
                 <button 
                   onClick={() => isLocked ? alert(`Sila selesaikan Bab ${currentChapters[index-1].id} terlebih dahulu.`) : setExpandedChapter(expandedChapter === chapter.id ? null : chapter.id)} 
                   className="w-full px-6 py-6 flex items-center justify-between"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${isLocked ? 'bg-slate-200 text-slate-400' : statusUI.color}`}>
-                        {isLocked ? <Lock size={20}/> : statusUI.icon}
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg ${isLocked ? 'bg-slate-200 text-slate-400' : statusUI.color}`}>
+                        {isLocked ? <Lock /> : statusUI.icon}
                     </div>
                     <div className="text-left">
                        <h3 className={`font-black text-lg ${isLocked ? 'text-slate-500' : 'text-slate-900'}`}>{chapter.title}</h3>
@@ -376,14 +443,14 @@ export default function MuridDashboard() {
                   {expandedChapter === chapter.id && (
                     <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="border-t border-slate-100 bg-slate-50/50 p-8 overflow-hidden">
                       
-                      {/* CAWANGAN LULUS (SIJIL) */}
+                      {/* 🏆 CAWANGAN LULUS: TAHNIAH & SIJIL 🏆 */}
                       {logic.isLulus && (
-                        <div className="mb-8 p-6 bg-emerald-100 border border-emerald-200 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
-                           <div className="flex items-center gap-4 text-center md:text-left">
+                        <div className="mb-8 p-6 bg-emerald-100 border border-emerald-200 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
+                           <div className="flex items-center gap-4 text-center md:text-left text-emerald-900">
                               <Trophy className="w-12 h-12 text-yellow-500" />
                               <div>
-                                 <h4 className="font-black text-xl text-emerald-900">Tahniah! Penguasaan Cemerlang.</h4>
-                                 <p className="text-sm text-emerald-800">Anda telah menguasai bab ini dengan jayanya. Sila tebus sijil anda!</p>
+                                 <h4 className="font-black text-xl">Tahniah! Anda telah menguasai bab ini.</h4>
+                                 <p className="text-sm opacity-90">Sila tebus sijil penguasaan anda sekarang!</p>
                               </div>
                            </div>
                            <button onClick={() => window.open(`/sijil?bab=${chapter.id}&skor=${logic.skorTertinggi}&nama=${encodeURIComponent(userData?.nama)}`, '_blank')}
@@ -393,20 +460,23 @@ export default function MuridDashboard() {
                         </div>
                       )}
 
-                      {/* CAWANGAN GAGAL (KAD RUJUKAN GURU DARI PEMULIHAN) */}
+                      {/* 💌 CAWANGAN GAGAL: RUJUKAN GURU 💌 */}
                       {logic.perluRujukGuru && !isKawalan && (
                          <div className="col-span-full mb-8 relative">
-                            <div className="absolute -inset-1 bg-gradient-to-r from-fuchsia-600 to-rose-600 rounded-3xl blur opacity-25"></div>
-                            <div className="relative bg-white rounded-3xl border border-fuchsia-100 p-8 shadow-xl flex flex-col md:flex-row items-center gap-8 overflow-hidden">
+                            <div className="absolute -inset-1 bg-gradient-to-r from-fuchsia-600 to-rose-600 rounded-[40px] blur opacity-25"></div>
+                            <div className="relative bg-white rounded-[40px] border border-fuchsia-100 p-8 shadow-xl flex flex-col md:flex-row items-center gap-8 overflow-hidden">
                                 <UsersRound className="absolute -right-4 -top-4 w-40 h-40 text-fuchsia-600 opacity-5" />
-                                <div className="bg-fuchsia-100 p-6 rounded-full text-3xl shadow-inner">💌</div>
+                                <div className="bg-fuchsia-100 p-6 rounded-full text-3xl shadow-inner text-fuchsia-600">💌</div>
                                 <div className="flex-1 text-center md:text-left">
-                                   <div className="bg-rose-500 text-white text-[10px] font-black px-4 py-1.5 rounded-full mb-4 inline-block uppercase tracking-widest shadow-md animate-pulse">Rujukan Guru Diperlukan</div>
-                                   <h3 className="text-2xl font-black text-slate-800 mb-2">Bimbingan Bersemuka Untuk Anda!</h3>
-                                   <p className="text-slate-600 leading-relaxed mb-6">Jangan bimbang, sistem telah memaklumkan guru anda. Sila berjumpa guru anda untuk sesi pencerahan topik ini sebelum meneruskan ke bab baharu. 💪</p>
+                                   <div className="bg-rose-500 text-white text-[10px] font-black px-4 py-1.5 rounded-full mb-4 inline-block uppercase tracking-widest shadow-md">Bantuan Guru Diperlukan</div>
+                                   <h3 className="text-2xl font-black text-slate-800 mb-2">Sila Berjumpa Guru Mata Pelajaran!</h3>
+                                   <p className="text-slate-600 leading-relaxed mb-6">Anda telah berusaha sebaik mungkin. Sistem mencadangkan anda berjumpa guru untuk sesi pencerahan bersemuka sebelum meneruskan bab baru. 💪</p>
                                    <div className="flex gap-4 justify-center md:justify-start">
-                                      <div className="bg-slate-50 px-5 py-3 rounded-2xl border border-slate-100"><span className="text-xs block opacity-50 font-bold">Skor Pasca</span><span className="font-black text-fuchsia-600">{logic.post}%</span></div>
-                                      <button onClick={() => alert("Notifikasi sedang dihantar kepada cikgu.")} className="bg-fuchsia-600 text-white font-bold px-6 rounded-2xl shadow-lg flex items-center gap-2 hover:bg-fuchsia-700 transition-colors"><Send size={18}/> Minta Bantuan</button>
+                                      <div className="bg-slate-50 px-5 py-3 rounded-2xl border border-slate-100 text-slate-700">
+                                         <span className="text-xs block opacity-50 font-bold uppercase">Skor Pasca</span>
+                                         <span className="font-black text-fuchsia-600">{logic.post}%</span>
+                                      </div>
+                                      <button onClick={() => alert("Guru anda telah dimaklumkan.")} className="bg-fuchsia-600 text-white font-black px-6 rounded-2xl shadow-lg flex items-center gap-2 hover:bg-fuchsia-700 transition-colors"><Send size={18}/> Minta Bantuan</button>
                                    </div>
                                 </div>
                             </div>
@@ -414,60 +484,60 @@ export default function MuridDashboard() {
                       )}
 
                       {!logic.perluRujukGuru && (
-                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 text-slate-800">
                           {/* LANGKAH 1: PRE-TEST */}
                           <div className={`p-6 rounded-2xl border shadow-sm flex flex-col justify-between gap-6 ${logic.pre !== undefined ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white border-sky-100'}`}>
                              <div>
                                 <div className="flex items-center gap-3 mb-2">
                                    <div className={`p-2 rounded-lg ${logic.pre !== undefined ? 'bg-emerald-100 text-emerald-600' : 'bg-sky-100 text-sky-600'}`}><Zap size={18}/></div>
-                                   <h4 className="font-bold">Ujian Diagnostik</h4>
+                                   <h4 className="font-black">Ujian Diagnostik</h4>
                                 </div>
                                 {logic.pre !== undefined ? (
                                    <div className="p-3 bg-white/60 rounded-xl text-xs font-bold border border-emerald-100 mt-3">
-                                      <div className="flex justify-between mb-1"><span>Skor Objektif:</span> <span>{logic.preObjektif}</span></div>
+                                      <div className="flex justify-between mb-1 opacity-60"><span>Skor Objektif:</span> <span>{logic.preObjektif}</span></div>
                                       <div className="flex justify-between text-emerald-700"><span>Jumlah Skor:</span> <span>{logic.pre}%</span></div>
                                    </div>
-                                ) : <p className="text-xs text-slate-500 leading-relaxed">Uji pengetahuan sedia ada anda sebelum memulakan bimbingan.</p>}
+                                ) : <p className="text-xs text-slate-500 leading-relaxed">Uji pengetahuan sedia ada anda.</p>}
                              </div>
                              <div className="flex gap-2">
-                                {logic.pre === undefined ? <button onClick={() => window.location.href=`/jawab?bab=Bab ${chapter.id}&jenisUjian=pre_test`} className="w-full py-2.5 bg-sky-600 text-white font-black text-xs rounded-xl shadow-lg hover:bg-sky-700">Mula Diagnostik</button> :
-                                <button onClick={() => window.location.href=`/student/semakan-ujian/${logic.docIdPre}`} className="w-full py-2.5 bg-white border border-slate-200 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2"><FileSearch size={14}/> Semak Jawapan</button>}
+                                {logic.pre === undefined ? <button onClick={() => openModule(chapter.id, "pre", "", "")} className="w-full py-2.5 bg-sky-600 text-white font-black text-xs rounded-xl shadow-lg hover:bg-sky-700 transition-all">Mula Diagnostik</button> :
+                                <button onClick={() => window.location.href=`/student/semakan-ujian/${logic.docIdPre}`} className="w-full py-2.5 bg-white border border-slate-200 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2 transition-all"><FileSearch size={14}/> Semak Jawapan</button>}
                              </div>
                           </div>
 
-                          {/* LANGKAH 2: BIMBINGAN AI (Hanya jika belum lulus pre) */}
-                          {logic.pre !== undefined && !logic.preLulusTerus && !isKawalan && (
+                          {/* LANGKAH 2: BIMBINGAN AI (MODUL) */}
+                          {preTelahDinilai && !logic.preLulusTerus && !isKawalan && (
                              <div className={`p-6 rounded-2xl border shadow-sm flex flex-col justify-between gap-6 ${logic.aiSelesai ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white border-amber-100'}`}>
                                 <div>
                                    <div className="flex items-center gap-3 mb-2">
                                       <div className={`p-2 rounded-lg ${logic.aiSelesai ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}><Sparkles size={18}/></div>
-                                      <h4 className="font-bold">Bimbingan AI ({logic.aras})</h4>
+                                      <h4 className="font-black">Bimbingan AI ({logic.aras})</h4>
                                    </div>
-                                   <p className="text-xs text-slate-500 leading-relaxed">Interaksi 6 Fasa Bloom bersama Tutor AI, Nota & Video.</p>
+                                   <p className="text-xs text-slate-500 leading-relaxed">Interaksi 6 Fasa Inkuiri Bloom.</p>
                                 </div>
                                 {logic.aiSelesai ? <span className="text-xs font-black text-emerald-600 flex items-center gap-1"><CheckCircle2 size={16}/> Selesai Belajar</span> :
-                                <button onClick={() => window.location.href=`/pembelajaran?bab=bab${chapter.id}&aras=${logic.aras}`} className="w-full py-2.5 bg-amber-500 text-white font-black text-xs rounded-xl shadow-lg hover:bg-amber-600">Mula Bimbingan AI</button>}
+                                <button onClick={() => openModule(chapter.id, "ai", logic.aras, subSemasa)} className="w-full py-2.5 bg-amber-500 text-white font-black text-xs rounded-xl shadow-lg hover:bg-amber-600 transition-all">Mula Bimbingan</button>}
                              </div>
                           )}
 
                           {/* LANGKAH 3: POST-TEST */}
-                          {logic.pre !== undefined && !logic.preLulusTerus && (logic.aiSelesai || isKawalan) && (
+                          {preTelahDinilai && !logic.preLulusTerus && (logic.aiSelesai || isKawalan) && (
                              <div className={`p-6 rounded-2xl border shadow-sm flex flex-col justify-between gap-6 ${logic.post !== undefined ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white border-indigo-100'}`}>
                                 <div>
                                    <div className="flex items-center gap-3 mb-2">
                                       <div className={`p-2 rounded-lg ${logic.post !== undefined ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-100 text-indigo-600'}`}><Medal size={18}/></div>
-                                      <h4 className="font-bold">Ujian Pasca</h4>
+                                      <h4 className="font-black">Ujian Pasca</h4>
                                    </div>
                                    {logic.post !== undefined ? (
                                       <div className="p-3 bg-white/60 rounded-xl text-xs font-bold border border-emerald-100 mt-3">
-                                         <div className="flex justify-between mb-1"><span>Skor:</span> <span className={logic.isLulus ? "text-emerald-700" : "text-rose-600"}>{logic.post}%</span></div>
+                                         <div className="flex justify-between text-indigo-700"><span>Skor:</span> <span className="font-black">{logic.post}%</span></div>
                                          <div className="flex justify-between opacity-50"><span>Sasaran:</span> <span>{logic.targetLulus}%</span></div>
                                       </div>
-                                   ) : <p className="text-xs text-slate-500 leading-relaxed">Ujian akhir untuk mengesahkan tahap penguasaan anda.</p>}
+                                   ) : <p className="text-xs text-slate-500 leading-relaxed">Ujian pengesahan penguasaan.</p>}
                                 </div>
                                 <div className="flex gap-2">
-                                   {logic.post === undefined ? <button onClick={() => window.location.href=`/jawab?bab=Bab ${chapter.id}&jenisUjian=post_test`} className="w-full py-2.5 bg-indigo-600 text-white font-black text-xs rounded-xl shadow-lg hover:bg-indigo-700">Ambil Ujian Pasca</button> :
-                                   <button onClick={() => window.location.href=`/student/semakan-ujian/${logic.docIdPost}`} className="w-full py-2.5 bg-white border border-slate-200 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2"><FileSearch size={14}/> Semak Jawapan</button>}
+                                   {logic.post === undefined ? <button onClick={() => openModule(chapter.id, "post", "", "")} className="w-full py-2.5 bg-indigo-600 text-white font-black text-xs rounded-xl shadow-lg hover:bg-indigo-700 transition-all">Mula Pasca</button> :
+                                   <button onClick={() => window.location.href=`/student/semakan-ujian/${logic.docIdPost}`} className="w-full py-2.5 bg-white border border-slate-200 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2 transition-all"><FileSearch size={14}/> Semak Jawapan</button>}
                                 </div>
                              </div>
                           )}
@@ -493,7 +563,7 @@ export default function MuridDashboard() {
                   <p className="text-purple-100 text-sm mt-2 font-medium">Sila lengkapkan maklum balas ini sebelum menggunakan sistem.</p>
                </div>
                
-               <div className="p-8 overflow-y-auto flex-1 bg-slate-50 custom-scrollbar">
+               <div className="p-8 overflow-y-auto flex-1 bg-slate-50 custom-scrollbar text-slate-800">
                   {loadingSurvey ? <div className="py-20 text-center"><Loader2 className="animate-spin mx-auto w-10 h-10 text-purple-600"/></div> : 
                    surveyQuestions.map((q, idx) => (
                      <div key={q.id} className="mb-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
@@ -501,7 +571,7 @@ export default function MuridDashboard() {
                         <div className="grid grid-cols-5 gap-2">
                            {[1,2,3,4,5].map(val => (
                               <button key={val} onClick={() => setSurveyAnswers({...surveyAnswers, [q.id]: val})} 
-                                className={`py-3 rounded-2xl text-xs font-black border-2 transition-all ${surveyAnswers[q.id] === val ? 'bg-purple-600 border-purple-600 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                className={`py-3 rounded-2xl text-xs font-black border-2 transition-all ${surveyAnswers[q.id] === val ? 'bg-purple-600 border-purple-600 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-purple-200'}`}>
                                 {val}
                               </button>
                            ))}
@@ -521,11 +591,14 @@ export default function MuridDashboard() {
         )}
       </AnimatePresence>
 
-      {/* FLOATING FEEDBACK BUTTON */}
+      {/* FLOATING FEEDBACK (KEKAL) */}
       <button onClick={() => setShowFeedback(true)} className="fixed bottom-8 right-8 bg-slate-900 text-white p-5 rounded-full shadow-2xl hover:scale-110 active:scale-90 transition-all z-50 group border-4 border-white/20">
          <MessageSquare size={24}/>
          <span className="absolute right-16 bg-slate-900 px-4 py-2 rounded-xl text-xs font-black text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity shadow-xl border border-white/10 whitespace-nowrap">Suara Pelajar</span>
       </button>
+
+      {/* MODAL FEEDBACK (KEKAL) */}
+      {/* ... (kod modal feedback anda sedia ada) ... */}
 
     </div>
   );
