@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, AlertTriangle, Clock, FileSearch, Award, MessageSquare, Send, X, Loader2, Palette, Brain, Compass, ClipboardList, ArrowRight, ArrowLeft, RefreshCw, Medal
+  Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, AlertTriangle, Clock, FileSearch, Award, MessageSquare, Send, X, Loader2, Palette, Brain, Compass, UsersRound, Rocket, Medal, RefreshCw, ClipboardList, ArrowRight, ArrowLeft
 } from "lucide-react";
-import { collection, query, where, getDocs, doc, getDoc, addDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase"; 
 
 type Subtopic = { id: string; title: string; };
@@ -81,7 +81,7 @@ const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
 interface BabProgress { 
   preSkor?: number; preObjektif?: number; preStruktur?: number; prePenuh?: number; adaRalatSemakanPre?: boolean; docIdPre?: string;
   postSkor?: number; postObjektif?: number; postStruktur?: number; postPenuh?: number; adaRalatSemakanPost?: boolean; docIdPost?: string;
-  aiSelesai: boolean; gameSelesai: boolean; 
+  jumlahCubaanPost: number; aiSelesai: boolean; pemulihanSelesai?: boolean; gameSelesai: boolean; 
 }
 
 export default function MuridDashboard() {
@@ -91,6 +91,7 @@ export default function MuridDashboard() {
   const [progressBab, setProgressBab] = useState<Record<number, BabProgress>>({});
   
   const [aiSelesaiList, setAiSelesaiList] = useState<string[]>([]);
+  const [aiPemulihanSelesaiList, setAiPemulihanSelesaiList] = useState<string[]>([]); 
   
   const [loading, setLoading] = useState(true);
   
@@ -110,6 +111,7 @@ export default function MuridDashboard() {
   const [hasPreSurvey, setHasPreSurvey] = useState(false);
   const [hasPostSurvey, setHasPostSurvey] = useState(false);
   const [surveyType, setSurveyType] = useState<"pre" | "post">("pre");
+  const [initialPopupShown, setInitialPopupShown] = useState(false);
 
   // STATE UNTUK TEMA 
   const senaraiTheme = [
@@ -141,6 +143,7 @@ export default function MuridDashboard() {
     }
   }, []);
 
+  // 🌟 PEMBAIKAN: Fungsi tarik data kini menerima parameter (isSilent)
   const tarikDataFirebase = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     
@@ -174,7 +177,7 @@ export default function MuridDashboard() {
       setHasPreSurvey(donePre);
       setHasPostSurvey(donePost);
 
-      // Tarik Rekod Markah & Sesi Chat
+      // Tarik Rekod Markah
       const qSkor = query(collection(db, "skor_murid"), where("idMurid", "in", uniqueIds));
       const snapSkor = await getDocs(qSkor);
       
@@ -182,16 +185,22 @@ export default function MuridDashboard() {
       const snapChat = await getDocs(qChat);
       
       const chatSelesaiArrayNormal: string[] = [];
+      const chatSelesaiArrayPemulihan: string[] = [];
+      
       snapChat.forEach(d => {
          const data = d.data();
-         chatSelesaiArrayNormal.push(data.chapterId);
+         if (data.mode === "pemulihan") chatSelesaiArrayPemulihan.push(data.chapterId);
+         else chatSelesaiArrayNormal.push(data.chapterId);
       });
+
       setAiSelesaiList(chatSelesaiArrayNormal);
+      setAiPemulihanSelesaiList(chatSelesaiArrayPemulihan);
 
       let tempProgress: Record<number, BabProgress> = {};
       
       snapSkor.forEach((docSnap) => {
         const data = docSnap.data();
+        
         if (String(data.tingkatan) !== tSemasa) return;
 
         let babNum = NaN;
@@ -207,7 +216,7 @@ export default function MuridDashboard() {
 
         if (isNaN(babNum)) return; 
 
-        if (!tempProgress[babNum]) tempProgress[babNum] = { aiSelesai: false, gameSelesai: false };
+        if (!tempProgress[babNum]) tempProgress[babNum] = { jumlahCubaanPost: 0, aiSelesai: false, pemulihanSelesai: false, gameSelesai: false };
         
         let adaRalat = false;
         if (data.ulasanAI && data.statusPermarkahanEsei !== "disemak_oleh_guru") {
@@ -224,23 +233,28 @@ export default function MuridDashboard() {
         else if (data.jenisUjian === "post_test") { 
            tempProgress[babNum].postSkor = data.skor; tempProgress[babNum].postObjektif = data.skorObjektif;
            tempProgress[babNum].postStruktur = data.markahStruktur; tempProgress[babNum].postPenuh = data.markahPenuhUjian;
-           tempProgress[babNum].adaRalatSemakanPost = adaRalat; tempProgress[babNum].docIdPost = docSnap.id;
+           tempProgress[babNum].jumlahCubaanPost = data.percubaan || 1; tempProgress[babNum].adaRalatSemakanPost = adaRalat;
+           tempProgress[babNum].docIdPost = docSnap.id;
         }
       });
 
       const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
       currentChapters.forEach(ch => {
-          if(!tempProgress[ch.id]) tempProgress[ch.id] = { aiSelesai: false, gameSelesai: false };
+          if(!tempProgress[ch.id]) tempProgress[ch.id] = { jumlahCubaanPost: 0, aiSelesai: false, pemulihanSelesai: false, gameSelesai: false };
           
           if (ch.subtopics && ch.subtopics.length > 0) {
             let siapCountNormal = 0;
+            let siapCountPemulihan = 0;
             ch.subtopics.forEach(sub => { 
                const targetId = `tingkatan${tSemasa}_bab${ch.id}_sub${sub.id}`;
                if (chatSelesaiArrayNormal.includes(targetId)) siapCountNormal++; 
+               if (chatSelesaiArrayPemulihan.includes(targetId)) siapCountPemulihan++; 
             });
             tempProgress[ch.id].aiSelesai = (siapCountNormal === ch.subtopics.length);
+            tempProgress[ch.id].pemulihanSelesai = (siapCountPemulihan === ch.subtopics.length);
           } else { 
             tempProgress[ch.id].aiSelesai = chatSelesaiArrayNormal.some(id => id && id.includes(`bab${ch.id}`)); 
+            tempProgress[ch.id].pemulihanSelesai = chatSelesaiArrayPemulihan.some(id => id && id.includes(`bab${ch.id}`)); 
           }
       });
 
@@ -255,23 +269,31 @@ export default function MuridDashboard() {
     tarikDataFirebase();
   }, [activeLevel]);
 
+  // 🌟 LOGIK AUTO-REFRESH (SENYAP) JIKA ADA UJIAN MENUNGGU SEMAKAN 🌟
   useEffect(() => {
     const adaMenungguSemakan = Object.values(progressBab).some(p => p.adaRalatSemakanPre || p.adaRalatSemakanPost);
     let intervalId: NodeJS.Timeout;
+    
     if (adaMenungguSemakan) {
-      intervalId = setInterval(() => { tarikDataFirebase(true); }, 5000); 
+      intervalId = setInterval(() => {
+        tarikDataFirebase(true); // true bermaksud tarik data senyap-senyap tanpa loading screen
+      }, 5000); // Semak setiap 5 saat
     }
-    return () => { if (intervalId) clearInterval(intervalId); };
+    
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [progressBab, activeLevel]);
 
-  // 🌟 LOGIK POP-UP AWAL (Mesti Jawab Sebelum Guna Sistem)
+  // LOGIK AUTO POP-UP UNTUK SOAL SELIDIK AWAL (PRE-SURVEY)
   useEffect(() => {
-    if (!loading && userData?.kumpulan === 'Eksperimen' && !hasPreSurvey) {
+    if (!loading && userData?.kumpulan === 'Eksperimen' && !hasPreSurvey && !initialPopupShown) {
       setSurveyType("pre");
       tarikSoalanSelidik("Pra");
       setShowSurvey(true);
+      setInitialPopupShown(true); 
     }
-  }, [loading, userData, hasPreSurvey]);
+  }, [loading, userData, hasPreSurvey, initialPopupShown]);
 
   const tarikSoalanSelidik = async (fasa: "Pra" | "Pasca") => {
     setLoadingSurvey(true);
@@ -335,7 +357,7 @@ export default function MuridDashboard() {
         skorKeseluruhan: purataKategori,
         jawapanTerperinci: jawapanTerperinci,
         jenisSurvey: surveyType,
-        fasa: surveyType === "pre" ? "Pra" : "Pasca"
+        fasa: surveyType === "pre" ? "Pra" : "Pasca" // 🌟 Tambah label fasa
       });
 
       alert("Terima kasih! Maklum balas soal selidik anda telah berjaya direkodkan.");
@@ -356,10 +378,11 @@ export default function MuridDashboard() {
 
   const handleLogout = () => { localStorage.removeItem("currentUser"); localStorage.removeItem("completedModules"); window.location.href = "/login"; };
   
-  const getCurrentSubtopic = (chapterId: number, chapterData: any) => {
+  const getCurrentSubtopic = (chapterId: number, chapterData: any, isPemulihanMode: boolean) => {
     if (!chapterData.subtopics || chapterData.subtopics.length === 0) return "sub1.1";
+    const targetList = isPemulihanMode ? aiPemulihanSelesaiList : aiSelesaiList;
     for (const sub of chapterData.subtopics) {
-      if (!aiSelesaiList.includes(`tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapterId}_sub${sub.id}`)) return `sub${sub.id}`; 
+      if (!targetList.includes(`tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapterId}_sub${sub.id}`)) return `sub${sub.id}`; 
     }
     return `sub${chapterData.subtopics[chapterData.subtopics.length - 1].id}`;
   };
@@ -389,6 +412,22 @@ export default function MuridDashboard() {
     }
   };
 
+  const mulaUlanganBimbingan = async (chapterId: number, aras: string, subSemasa: string) => {
+    const t = activeLevel === "t4" ? "4" : "5";
+    const fullSubId = `tingkatan${t}_bab${chapterId}_${subSemasa}`;
+    const sessId = `${userData?.idPengguna || userData?.id}_${fullSubId}_pemulihan`; 
+    
+    try {
+      const docRef = doc(db, "chat_sessions", sessId);
+      const dSnap = await getDoc(docRef);
+      if(dSnap.exists()){
+         await updateDoc(docRef, { status: "in_progress", currentPhase: 1, mode: "pemulihan" });
+      }
+    } catch(e) { console.log(e); }
+    
+    window.location.href = `/pembelajaran?bab=${fullSubId}&aras=${aras}&mode=pemulihan`;
+  };
+
   const openModule = (chapterId: number, type: string, aras: string, subSemasa: string) => {
     const t = activeLevel === "t4" ? "4" : "5";
     if (type === "pre") window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}&jenisUjian=pre_test`;
@@ -396,10 +435,9 @@ export default function MuridDashboard() {
     if (type === "post") window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}&jenisUjian=post_test`;
   };
 
-  // 🌟 LOGIK KATEGORI UJIAN & RUJUKAN GURU
   const getChapterLogic = (chapterId: number) => {
-    const prog = progressBab[chapterId] || { aiSelesai: false, gameSelesai: false };
-    const pre = prog.preSkor; const post = prog.postSkor;
+    const prog = progressBab[chapterId] || { jumlahCubaanPost: 0, aiSelesai: false, pemulihanSelesai: false };
+    const pre = prog.preSkor; const post = prog.postSkor; const attempt = prog.jumlahCubaanPost;
     
     let aras = "rendah"; let targetLulus = 50;
 
@@ -414,27 +452,36 @@ export default function MuridDashboard() {
     const isLulus = preLulusTerus || postLulus; 
     
     let isClearedForNext = false;
-    let gagalKategori: string | null = null;
-    let rujukGuru = false;
+    let pemulihanWajib = false;
+    let pemulihanPilihan = false;
 
-    // 🌟 KUNCI: Sesiapa sahaja yang telah menduduki Ujian Pasca, bab seterusnya akan terbuka!
     if (preLulusTerus) {
        isClearedForNext = true;
     } else if (post !== undefined) {
-       isClearedForNext = true; 
-       
-       if (!isLulus) {
-          // MURID TIDAK LULUS UJIAN PASCA
-          rujukGuru = true;
-          if (post < 40) {
-             gagalKategori = "Kritikal";
-          } else if (post < pre!) {
-             gagalKategori = "Sederhana"; // Merosot
-          } else {
-             gagalKategori = "Rendah"; // Tidak capai target
+       if (isLulus) {
+          isClearedForNext = true;
+       } else {
+          const gain = post - pre!;
+          if (aras === "sederhana") {
+             if (gain > 0) {
+               isClearedForNext = true; 
+               pemulihanPilihan = true;
+             } else {
+               pemulihanWajib = true; 
+             }
+          } else if (aras === "rendah") {
+             if (gain > 0 && post >= 40) {
+               isClearedForNext = true; 
+               pemulihanPilihan = true;
+             } else {
+               pemulihanWajib = true; 
+             }
           }
        }
     }
+
+    const limitReached = attempt >= 2 && !postLulus; 
+    if (limitReached) isClearedForNext = true; 
 
     const skorTertinggi = Math.max(pre || 0, post || 0);
     let lencana = null;
@@ -447,10 +494,10 @@ export default function MuridDashboard() {
     }
 
     return { 
-        aras, pre, post, targetLulus, isLulus, preLulusTerus,
-        isClearedForNext, rujukGuru, gagalKategori,
+        aras, pre, post, attempt, targetLulus, isLulus, limitReached, preLulusTerus,
+        isClearedForNext, pemulihanWajib, pemulihanPilihan,
         skorTertinggi, lencana, namaLencana,
-        aiSelesai: prog.aiSelesai, docIdPre: prog.docIdPre, docIdPost: prog.docIdPost,
+        aiSelesai: prog.aiSelesai, pemulihanSelesai: prog.pemulihanSelesai, docIdPre: prog.docIdPre, docIdPost: prog.docIdPost,
         preObjektif: prog.preObjektif, preStruktur: prog.preStruktur, prePenuh: prog.prePenuh, adaRalatSemakanPre: prog.adaRalatSemakanPre,
         postObjektif: prog.postObjektif, postStruktur: prog.postStruktur, postPenuh: prog.postPenuh, adaRalatSemakanPost: prog.adaRalatSemakanPost
     };
@@ -462,12 +509,14 @@ export default function MuridDashboard() {
     if (logic.pre === undefined) return { label: "Sedia Mula", color: "bg-slate-100 border-slate-200 text-slate-500", bar: "w-0", icon: "🚀" };
     if (logic.adaRalatSemakanPre || logic.adaRalatSemakanPost) return { label: "Semakan Guru", color: "bg-rose-50 border-rose-200 text-rose-700", bar: "w-1/4 bg-rose-500 animate-pulse", icon: "⏳" };
     if (logic.isLulus) return { label: "Dikuasai", color: "bg-emerald-50 border-emerald-200 text-emerald-700", bar: "w-full bg-emerald-500", icon: "🏆" };
-    if (logic.rujukGuru) return { label: "Rujuk Guru", color: "bg-rose-50 border-rose-200 text-rose-700", bar: "w-full bg-rose-500 animate-pulse", icon: "💌" };
+    if (logic.limitReached) return { label: "Rujukan Guru", color: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700", bar: "w-full bg-fuchsia-500 animate-pulse", icon: "💌" };
+    if (logic.attempt === 1 && logic.pemulihanWajib) return { label: "Pemulihan Wajib", color: "bg-rose-50 border-rose-300 text-rose-700 shadow-[0_0_15px_rgba(225,29,72,0.3)]", bar: "w-2/3 bg-linear-to-r from-rose-500 to-red-600 animate-pulse", icon: "🚨" };
+    if (logic.attempt === 1 && logic.pemulihanPilihan) return { label: "Pemulihan Pilihan", color: "bg-orange-50 border-orange-300 text-orange-700 shadow-[0_0_15px_rgba(251,146,60,0.3)]", bar: "w-2/3 bg-linear-to-r from-orange-400 to-amber-500 animate-pulse", icon: "🚀" };
     return { label: "Bimbingan AI", color: "bg-amber-50 border-amber-200 text-amber-700", bar: "w-1/2 bg-amber-400 animate-pulse", icon: "⏳" };
   };
 
-  // 🌟 LOGIK KELAYAKAN SOAL SELIDIK PASCA (Hanya jika Pre-test < 50, dan dah siap Pasca)
-  const qualifiesForPostSurvey = Object.values(progressBab).some(p => p.preSkor !== undefined && p.preSkor < 50 && p.postSkor !== undefined); 
+  const qualifiesForPostSurvey = Object.values(progressBab).some(p => p.preSkor !== undefined && p.preSkor < 50); 
+  const showPreSurveyBanner = userData?.kumpulan === 'Eksperimen' && !hasPreSurvey;
   const showPostSurveyBanner = userData?.kumpulan === 'Eksperimen' && hasPreSurvey && qualifiesForPostSurvey && !hasPostSurvey;
 
   const surveyCategories = Array.from(new Set(surveyQuestions.map(q => q.kategori)));
@@ -572,28 +621,30 @@ export default function MuridDashboard() {
           </div>
         </motion.div>
 
-        {/* 🌟 BANNER SOAL SELIDIK KAJIAN (DYNAMIK UNTUK PASCA) 🌟 */}
-        {showPostSurveyBanner && (
+        {/* 🌟 BANNER SOAL SELIDIK KAJIAN (DYNAMIK UNTUK PRA & PASCA) 🌟 */}
+        {(showPreSurveyBanner || showPostSurveyBanner) && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="mb-8 rounded-3xl bg-gradient-to-r from-purple-600 to-fuchsia-600 p-1 flex flex-col md:flex-row items-center justify-between shadow-xl shadow-purple-900/20">
             <div className="p-5 md:p-6 flex items-center gap-4 text-white w-full">
               <div className="bg-white/20 p-3 rounded-2xl shrink-0"><ClipboardList className="w-8 h-8" /></div>
               <div className="flex-1">
                 <h3 className="font-bold text-lg md:text-xl flex items-center gap-2">
-                  Tugasan Kajian: Soal Selidik Akhir (Post-Survey) <Sparkles className="w-5 h-5 text-yellow-300"/>
+                  Tugasan Kajian: {showPreSurveyBanner ? 'Soal Selidik Awalan (Pre-Survey)' : 'Soal Selidik Akhir (Post-Survey)'} <Sparkles className="w-5 h-5 text-yellow-300"/>
                 </h3>
                 <p className="text-purple-100 text-xs md:text-sm mt-1 leading-relaxed">
-                  Terima kasih atas dedikasi anda. Sila lengkapkan soal selidik akhir ini sebagai tanda maklum balas keberkesanan sistem.
+                  {showPreSurveyBanner ? 
+                    "Sila luangkan masa 3 minit menjawab soal selidik ringkas ini sebelum menggunakan sistem sepenuhnya." : 
+                    "Terima kasih atas dedikasi anda. Sila lengkapkan soal selidik akhir ini sebagai tanda maklum balas sistem."}
                 </p>
               </div>
               <button 
-                onClick={() => { setSurveyType("post"); tarikSoalanSelidik("Pasca"); setShowSurvey(true); }} 
+                onClick={() => { setSurveyType(showPreSurveyBanner ? "pre" : "post"); tarikSoalanSelidik(showPreSurveyBanner ? "Pra" : "Pasca"); setShowSurvey(true); }} 
                 className="hidden md:flex px-6 py-3 bg-white text-purple-700 hover:bg-purple-50 font-bold rounded-xl items-center gap-2 shadow-md transition-transform hover:scale-105 shrink-0"
               >
                 Mula Jawab <ArrowRight className="w-5 h-5"/>
               </button>
             </div>
             <button 
-              onClick={() => { setSurveyType("post"); tarikSoalanSelidik("Pasca"); setShowSurvey(true); }} 
+              onClick={() => { setSurveyType(showPreSurveyBanner ? "pre" : "post"); tarikSoalanSelidik(showPreSurveyBanner ? "Pra" : "Pasca"); setShowSurvey(true); }} 
               className="md:hidden w-full px-6 py-4 bg-white text-purple-700 font-bold rounded-b-3xl flex items-center justify-center gap-2 shadow-inner"
             >
               Mula Jawab Sekarang <ArrowRight className="w-5 h-5"/>
@@ -633,8 +684,8 @@ export default function MuridDashboard() {
                 if (!prevLogic.isClearedForNext) isLocked = true;
             }
             
-            const subSemasa = getCurrentSubtopic(chapter.id, chapter);
-            const ralatMenghalangBimbingan = logic.post === undefined ? logic.adaRalatSemakanPre : logic.adaRalatSemakanPost;
+            const subSemasa = getCurrentSubtopic(chapter.id, chapter, logic.attempt === 1);
+            const ralatMenghalangBimbingan = logic.attempt === 0 ? logic.adaRalatSemakanPre : logic.adaRalatSemakanPost;
             const preTelahDinilai = logic.pre !== undefined && !logic.adaRalatSemakanPre;
 
             return (
@@ -645,7 +696,7 @@ export default function MuridDashboard() {
                 <button 
                   onClick={() => {
                     if (isLocked) {
-                       alert(`KUNCI AKTIF: Sila selesaikan kitaran ujian untuk Bab ${currentChapters[index-1].id} terlebih dahulu.`);
+                       alert(`KUNCI AKTIF: Sila selesaikan kitaran modul / pemulihan wajib untuk Bab ${currentChapters[index-1].id} terlebih dahulu.`);
                        return;
                     }
                     setExpandedChapter(expandedChapter === chapter.id ? null : chapter.id)
@@ -727,24 +778,19 @@ export default function MuridDashboard() {
                         </div>
                       )}
 
-                      {/* 🌟 KAD RUJUKAN GURU JIKA MURID GAGAL UJIAN PASCA 🌟 */}
-                      {logic.rujukGuru && !isKawalan && (
-                        <div className="col-span-full mb-6 bg-rose-50/90 backdrop-blur-md rounded-2xl border border-rose-200 p-6 md:p-8 shadow-md relative overflow-hidden">
-                          <div className="absolute top-0 right-0 p-6 opacity-10"><AlertTriangle className="w-32 h-32 text-rose-600" /></div>
+                      {/* SURAT RUJUKAN GURU */}
+                      {logic.limitReached && !isKawalan && (
+                        <div className="col-span-full mb-6 bg-fuchsia-50/90 backdrop-blur-md rounded-2xl border border-fuchsia-200 p-6 md:p-8 shadow-md relative overflow-hidden">
+                          <div className="absolute top-0 right-0 p-6 opacity-10"><Award className="w-32 h-32 text-fuchsia-600" /></div>
                           <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
                             <div className="bg-white p-4 rounded-full shadow-sm shrink-0"><span className="text-4xl">💌</span></div>
                             <div className="flex-1">
-                               <div className="inline-block bg-rose-200 text-rose-800 text-xs font-bold px-3 py-1 rounded-full mb-3 uppercase tracking-wider border border-rose-300">Kad Rujukan Guru</div>
-                               <h3 className="text-xl font-bold text-rose-900 mb-2">Perhatian, {userData?.nama?.split(' ')[0] || "Pelajar"}!</h3>
-                               <p className="text-rose-800 text-sm leading-relaxed max-w-3xl mb-3">
-                                 {logic.gagalKategori === "Kritikal" && "Markah Ujian Pasca anda berada di bawah 40 (Kritikal). Anda perlu merujuk guru untuk bimbingan bersemuka dengan kadar segera."}
-                                 {logic.gagalKategori === "Sederhana" && "Markah Ujian Pasca anda lebih rendah daripada Ujian Diagnostik. Berlaku kemerosotan kefahaman. Sila rujuk guru untuk mengenal pasti kesilapan anda."}
-                                 {logic.gagalKategori === "Rendah" && "Anda masih belum mencapai sasaran minimum. Sila berjumpa dengan guru untuk mendapatkan tip dan latihan tambahan."}
-                               </p>
-                               <p className="text-rose-700 text-xs font-bold italic mb-4 bg-white/50 p-2 rounded-lg border border-rose-100 inline-block">Nota: Anda boleh menduduki semula ujian ini selepas guru menetapkan semula (reset) markah anda di dalam sistem.</p>
-                               <div className="bg-white/60 p-4 rounded-xl border border-rose-100 flex flex-col sm:flex-row gap-4 sm:gap-8 max-w-lg">
-                                  <div><span className="block text-xs text-rose-600 font-bold uppercase">Skor Diagnostik</span><span className="text-lg font-black text-rose-900">{logic.pre}%</span></div>
-                                  <div><span className="block text-xs text-rose-600 font-bold uppercase">Skor Pasca</span><span className="text-lg font-black text-rose-900">{logic.post}%</span></div>
+                               <div className="inline-block bg-fuchsia-200 text-fuchsia-800 text-xs font-bold px-3 py-1 rounded-full mb-3 uppercase tracking-wider border border-fuchsia-300">Surat Rujukan Guru</div>
+                               <h3 className="text-xl font-bold text-fuchsia-900 mb-2">Usaha Anda Sangat Hebat, {userData?.nama?.split(' ')[0] || "Pelajar"}!</h3>
+                               <p className="text-fuchsia-800 text-sm leading-relaxed max-w-3xl mb-4">Mendapat Lencana Gangsa bukanlah kegagalan. Anda telah menunjukkan dedikasi luar biasa dengan menghabiskan semua modul Bimbingan AI. Sistem kini menyarankan anda untuk <strong>berjumpa dengan guru mata pelajaran</strong> untuk sentuhan akhir. Tunjukkan kad laporan ini kepada guru anda! 💪</p>
+                               <div className="bg-white/60 p-4 rounded-xl border border-fuchsia-100 flex flex-col sm:flex-row gap-4 sm:gap-8 max-w-lg">
+                                  <div><span className="block text-xs text-fuchsia-600 font-bold uppercase">Skor Diagnostik</span><span className="text-lg font-black text-fuchsia-900">{logic.pre}%</span></div>
+                                  <div><span className="block text-xs text-fuchsia-600 font-bold uppercase">Skor Pasca Tertinggi</span><span className="text-lg font-black text-fuchsia-900">{logic.post}%</span></div>
                                </div>
                             </div>
                           </div>
@@ -787,39 +833,53 @@ export default function MuridDashboard() {
                           </div>
                         </div>
 
-                        {/* 🌟 KAD 2: BIMBINGAN AI (BEBAS KUNCI) 🌟 */}
-                        {preTelahDinilai && !isKawalan && !logic.preLulusTerus && (
+                        {/* KAD 2: BIMBINGAN AI / MOD PEMULIHAN WAJIB @ PILIHAN */}
+                        {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && (
                           <div className={`p-5 rounded-2xl border backdrop-blur-sm transition-all duration-300 ${
-                              logic.aiSelesai ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-amber-200 shadow-sm'
+                              (logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.pemulihanSelesai) ? 'bg-emerald-50/80 border-emerald-200' : 
+                              (logic.attempt === 1 && logic.pemulihanWajib) ? 'bg-rose-50/90 border-rose-300 shadow-[0_5px_20px_-5px_rgba(225,29,72,0.3)]' :
+                              (logic.attempt === 1 && logic.pemulihanPilihan) ? 'bg-orange-50/90 border-orange-300 shadow-[0_5px_20px_-5px_rgba(251,146,60,0.3)]' : 
+                              'bg-white/80 border-amber-200 shadow-sm'
                             } flex flex-col justify-between gap-4`}>
                             
                             <div>
                               <div className="flex items-center gap-3 mb-2">
-                                <div className={`p-2 rounded-lg ${logic.adaRalatSemakanPre ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                                  {logic.adaRalatSemakanPre ? <AlertTriangle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+                                <div className={`p-2 rounded-lg ${ralatMenghalangBimbingan ? 'bg-rose-100 text-rose-600' : logic.attempt === 1 && logic.pemulihanWajib ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-md' : logic.attempt === 1 && logic.pemulihanPilihan ? 'bg-gradient-to-r from-orange-400 to-amber-500 text-white shadow-md' : 'bg-amber-100 text-amber-600'}`}>
+                                  {ralatMenghalangBimbingan ? <AlertTriangle className="w-5 h-5" /> : logic.attempt === 1 && logic.pemulihanWajib ? <AlertTriangle className="w-5 h-5" /> : logic.attempt === 1 && logic.pemulihanPilihan ? <Rocket className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
                                 </div>
                                 <h4 className="font-bold">
-                                  {logic.adaRalatSemakanPre ? "Menunggu Semakan" : `Bimbingan AI (${logic.aras})`}
-                               </h4>
+                                  {ralatMenghalangBimbingan ? "Menunggu Semakan" : 
+                                   logic.attempt === 1 && logic.pemulihanWajib ? `Pemulihan (Wajib) 🚨` :
+                                   logic.attempt === 1 && logic.pemulihanPilihan ? `Pemulihan (Pilihan) 🚀` : `Bimbingan AI (${logic.aras})`}
+                                </h4>
                               </div>
-                              <p className="text-xs text-slate-500 leading-relaxed">
-                                {logic.adaRalatSemakanPre ? "Status tahap penguasaan anda sedang dikemas kini oleh guru." :
+                              <p className={`text-xs leading-relaxed ${logic.attempt === 1 && logic.pemulihanWajib ? 'text-rose-700 font-bold' : logic.attempt === 1 && logic.pemulihanPilihan ? 'text-orange-700 font-medium' : 'text-slate-500'}`}>
+                                {ralatMenghalangBimbingan ? "Status tahap penguasaan anda sedang dikemas kini oleh guru." :
+                                 logic.attempt === 1 && logic.pemulihanWajib ? "Skor anda menurun/rendah. Anda DIWAJIBKAN buat modul ini untuk buka bab seterusnya." :
+                                 logic.attempt === 1 && logic.pemulihanPilihan ? "Tahniah, skor anda meningkat! Anda BOLEH buat modul ini jika mahu tingkatkan lagi markah." :
                                  "Bimbingan Inkuiri bersama Tutor AI, Nota & Video."}
                               </p>
                             </div>
                             
                             <div className="mt-2">
-                              {logic.adaRalatSemakanPre ? (
+                              {ralatMenghalangBimbingan ? (
                                   <button disabled className="w-full px-5 py-2 text-rose-400 bg-rose-100/50 text-sm font-bold rounded-xl cursor-not-allowed border border-rose-200">Menunggu Guru...</button>
-                              ) : logic.aiSelesai ? (
-                                <button onClick={() => openModule(chapter.id, "ai", logic.aras, subSemasa)} 
-                                        className="w-full px-5 py-2.5 text-emerald-700 text-sm font-bold rounded-xl border border-emerald-300 bg-emerald-100 hover:bg-emerald-200 shadow-sm transition-all flex items-center justify-center gap-2">
-                                  <CheckCircle2 className="w-4 h-4"/> Selesai (Ulang Kaji)
-                                </button>
+                              ) :
+                              (logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.pemulihanSelesai) ? (
+                                <span className="text-sm font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Selesai</span>
                               ) : (
-                                <button onClick={() => openModule(chapter.id, "ai", logic.aras, subSemasa)} 
-                                        className="w-full px-5 py-2.5 text-white text-sm font-bold rounded-xl shadow-md transition-all bg-amber-500 hover:bg-amber-600 hover:scale-[1.02]">
-                                  Mula Bimbingan
+                                <button onClick={() => {
+                                          if (logic.attempt === 1) mulaUlanganBimbingan(chapter.id, logic.aras, subSemasa);
+                                          else openModule(chapter.id, "ai", logic.aras, subSemasa);
+                                        }} 
+                                        className={`w-full px-5 py-2.5 text-white text-sm font-bold rounded-xl shadow-md transition-all ${
+                                          logic.attempt === 1 && logic.pemulihanWajib
+                                          ? 'bg-gradient-to-r from-rose-500 to-red-600 hover:scale-[1.02] hover:shadow-rose-500/30' 
+                                          : logic.attempt === 1 && logic.pemulihanPilihan
+                                          ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:scale-[1.02] hover:shadow-orange-500/30'
+                                          : 'bg-amber-500 hover:bg-amber-600'
+                                        }`}>
+                                  {logic.attempt === 1 ? "Mula Pemulihan 🌟" : "Mula Bimbingan"}
                                 </button>
                               )}
                             </div>
@@ -827,7 +887,7 @@ export default function MuridDashboard() {
                         )}
 
                         {/* KAD 3: UJIAN PASCA */}
-                        {preTelahDinilai && !logic.preLulusTerus && (logic.post !== undefined || (!isKawalan && logic.aiSelesai) || isKawalan) && (
+                        {preTelahDinilai && !logic.preLulusTerus && !logic.limitReached && (!isKawalan && (logic.aiSelesai || logic.attempt === 1) || isKawalan) && (
                           <div className={`p-5 rounded-2xl border backdrop-blur-sm ${
                               logic.isLulus ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-blue-200 shadow-sm'
                             } flex flex-col justify-between gap-4 animate-in zoom-in duration-300`}>
@@ -837,7 +897,7 @@ export default function MuridDashboard() {
                                 <div className={`p-2 rounded-lg ${logic.isLulus ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
                                   <CheckCircle2 className="w-5 h-5" />
                                 </div>
-                                <h4 className="font-bold">Ujian Pasca</h4>
+                                <h4 className="font-bold">Ujian Pasca {logic.attempt === 1 ? "(Cubaan 2)" : ""}</h4>
                               </div>
                               <p className="text-xs text-slate-500 leading-relaxed mb-3">Sasaran Sijil: {logic.targetLulus}%</p>
                               
@@ -851,24 +911,28 @@ export default function MuridDashboard() {
                             </div>
                             
                             <div className="flex justify-between items-center mt-2">
-                              {logic.post !== undefined && (logic.isLulus || (isKawalan && !logic.rujukGuru)) ? (
+                              {logic.post !== undefined && logic.attempt > 0 && (logic.isLulus || isKawalan) ? (
                                  <span className={`text-sm font-bold ${logic.isLulus ? 'text-emerald-600' : 'text-amber-600'}`}>Selesai ({logic.post}%)</span>
                               ) : logic.adaRalatSemakanPost ? (
                                  <span className="text-sm font-bold text-rose-600 flex items-center gap-1"><Clock className="w-4 h-4"/> Semakan Guru</span>
-                              ) : logic.rujukGuru ? (
-                                 <button disabled className="px-4 py-2.5 text-xs font-bold rounded-xl bg-rose-100 text-rose-500 border border-rose-200 w-full flex items-center justify-center gap-1.5 cursor-not-allowed">
-                                   <Lock className="w-4 h-4"/> Menunggu Reset
-                                 </button>
                               ) : isKawalan && !userData?.bukaPostTest ? (
                                  <button disabled className="px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-100 text-slate-400 border border-slate-200 w-full flex items-center justify-center gap-1.5 cursor-not-allowed shadow-inner">
-                                   <Lock className="w-4 h-4"/> Arahan Guru
+                                   <Lock className="w-4 h-4"/> Menunggu Arahan Guru
+                                 </button>
+                              ) : !isKawalan && logic.attempt === 1 && !logic.pemulihanSelesai && logic.pemulihanWajib ? (
+                                 <button disabled className="px-4 py-2.5 text-xs font-bold rounded-xl bg-rose-100 text-rose-500 border border-rose-200 w-full flex items-center justify-center gap-1.5 cursor-not-allowed">
+                                   <Lock className="w-4 h-4"/> Siapkan Pemulihan
+                                 </button>
+                              ) : !isKawalan && logic.attempt === 1 && !logic.pemulihanSelesai && logic.pemulihanPilihan ? (
+                                 <button disabled className="px-4 py-2.5 text-xs font-bold rounded-xl bg-orange-100 text-orange-500 border border-orange-200 w-full flex items-center justify-center gap-1.5 cursor-not-allowed">
+                                   <Lock className="w-4 h-4"/> Pemulihan (Pilihan)
                                  </button>
                               ) : (
                                 <button 
                                   onClick={() => openModule(chapter.id, "post", "", "")}
                                   className="px-5 py-2.5 text-sm font-bold rounded-xl transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-sm w-full"
                                 >
-                                  Mula Ujian
+                                  {!isKawalan && logic.attempt === 1 ? "Mula Ujian (Cubaan 2)" : "Mula Ujian"}
                                 </button>
                               )}
 
@@ -918,10 +982,11 @@ export default function MuridDashboard() {
                   </h3>
                   <p className="text-purple-100 text-xs md:text-sm mt-1">Borang Kaji Selidik Murid (Skala 1 - 5)</p>
                 </div>
-                {/* TUTUP BUTTON HANYA JIKA BUKAN PRE-SURVEY WAJIB */}
-                {(surveyType === "post" || hasPreSurvey) && (
-                   <button onClick={() => setShowSurvey(false)} className="bg-white/10 p-2 rounded-xl text-purple-100 hover:text-white hover:bg-rose-500 transition-colors"><X className="w-6 h-6" /></button>
-                )}
+                {/* 
+                   Semasa Auto Pop-up (Pre-Survey), mungkin pelajar tak sengaja tutup.
+                   Kita benarkan butang 'Close' tapi ia akan diulang papar pada sesi login akan datang selagi tak dijawab. 
+                */}
+                <button onClick={() => setShowSurvey(false)} className="bg-white/10 p-2 rounded-xl text-purple-100 hover:text-white hover:bg-rose-500 transition-colors"><X className="w-6 h-6" /></button>
               </div>
 
               {/* Kandungan Soalan */}
