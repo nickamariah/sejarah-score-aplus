@@ -417,12 +417,13 @@ export default function MuridDashboard() {
     let gagalKategori: string | null = null;
     let rujukGuru = false;
 
+    // 🌟 KUNCI: Sesiapa sahaja yang telah menduduki Ujian Pasca, bab seterusnya akan terbuka!
     if (preLulusTerus) {
        isClearedForNext = true;
     } else if (post !== undefined) {
-       if (isLulus) {
-          isClearedForNext = true;
-       } else {
+       isClearedForNext = true; 
+       
+       if (!isLulus) {
           // MURID TIDAK LULUS UJIAN PASCA
           rujukGuru = true;
           if (post < 40) {
@@ -786,7 +787,7 @@ export default function MuridDashboard() {
                           </div>
                         </div>
 
-                        {/* KAD 2: BIMBINGAN AI */}
+                        {/* 🌟 KAD 2: BIMBINGAN AI (BEBAS KUNCI) 🌟 */}
                         {preTelahDinilai && !isKawalan && !logic.preLulusTerus && (
                           <div className={`p-5 rounded-2xl border backdrop-blur-sm transition-all duration-300 ${
                               logic.aiSelesai ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-amber-200 shadow-sm'
@@ -794,16 +795,15 @@ export default function MuridDashboard() {
                             
                             <div>
                               <div className="flex items-center gap-3 mb-2">
-                                <div className={`p-2 rounded-lg ${logic.adaRalatSemakanPre || logic.rujukGuru ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                                  {logic.adaRalatSemakanPre || logic.rujukGuru ? <AlertTriangle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+                                <div className={`p-2 rounded-lg ${logic.adaRalatSemakanPre ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                                  {logic.adaRalatSemakanPre ? <AlertTriangle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
                                 </div>
                                 <h4 className="font-bold">
-                                  {logic.adaRalatSemakanPre ? "Menunggu Semakan" : logic.rujukGuru ? "Akses Terkunci" : `Bimbingan AI (${logic.aras})`}
+                                  {logic.adaRalatSemakanPre ? "Menunggu Semakan" : `Bimbingan AI (${logic.aras})`}
                                </h4>
                               </div>
                               <p className="text-xs text-slate-500 leading-relaxed">
                                 {logic.adaRalatSemakanPre ? "Status tahap penguasaan anda sedang dikemas kini oleh guru." :
-                                 logic.rujukGuru ? "Akses disekat sementara waktu. Sila dapatkan nasihat guru anda." :
                                  "Bimbingan Inkuiri bersama Tutor AI, Nota & Video."}
                               </p>
                             </div>
@@ -811,10 +811,11 @@ export default function MuridDashboard() {
                             <div className="mt-2">
                               {logic.adaRalatSemakanPre ? (
                                   <button disabled className="w-full px-5 py-2 text-rose-400 bg-rose-100/50 text-sm font-bold rounded-xl cursor-not-allowed border border-rose-200">Menunggu Guru...</button>
-                              ) : logic.rujukGuru ? (
-                                  <button disabled className="w-full px-5 py-2.5 text-rose-500 bg-rose-100/60 text-sm font-bold rounded-xl cursor-not-allowed border border-rose-200 flex items-center justify-center gap-2"><Lock className="w-4 h-4"/> Dikunci</button>
                               ) : logic.aiSelesai ? (
-                                <span className="text-sm font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Selesai</span>
+                                <button onClick={() => openModule(chapter.id, "ai", logic.aras, subSemasa)} 
+                                        className="w-full px-5 py-2.5 text-emerald-700 text-sm font-bold rounded-xl border border-emerald-300 bg-emerald-100 hover:bg-emerald-200 shadow-sm transition-all flex items-center justify-center gap-2">
+                                  <CheckCircle2 className="w-4 h-4"/> Selesai (Ulang Kaji)
+                                </button>
                               ) : (
                                 <button onClick={() => openModule(chapter.id, "ai", logic.aras, subSemasa)} 
                                         className="w-full px-5 py-2.5 text-white text-sm font-bold rounded-xl shadow-md transition-all bg-amber-500 hover:bg-amber-600 hover:scale-[1.02]">
