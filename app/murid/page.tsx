@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Zap, CheckCircle2, Trophy, ChevronDown, Lock, Sparkles, LogOut, BarChart3, Info, AlertTriangle, Clock, FileSearch, Award, MessageSquare, Send, X, Loader2, Palette, Brain, Compass, ClipboardList, ArrowRight, ArrowLeft, RefreshCw, Medal
 } from "lucide-react";
-
 import { collection, query, where, getDocs, doc, getDoc, addDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase"; 
 
@@ -788,22 +787,23 @@ export default function MuridDashboard() {
                         </div>
 
                         {/* KAD 2: BIMBINGAN AI */}
-                        {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.rujukGuru && (
+                        {preTelahDinilai && !isKawalan && !logic.preLulusTerus && (
                           <div className={`p-5 rounded-2xl border backdrop-blur-sm transition-all duration-300 ${
                               logic.aiSelesai ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-amber-200 shadow-sm'
                             } flex flex-col justify-between gap-4`}>
                             
                             <div>
                               <div className="flex items-center gap-3 mb-2">
-                                <div className={`p-2 rounded-lg ${logic.adaRalatSemakanPre ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                                  {logic.adaRalatSemakanPre ? <AlertTriangle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+                                <div className={`p-2 rounded-lg ${logic.adaRalatSemakanPre || logic.rujukGuru ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                                  {logic.adaRalatSemakanPre || logic.rujukGuru ? <AlertTriangle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
                                 </div>
                                 <h4 className="font-bold">
-                                  {logic.adaRalatSemakanPre ? "Menunggu Semakan" : `Bimbingan AI (${logic.aras})`}
-                                </h4>
+                                  {logic.adaRalatSemakanPre ? "Menunggu Semakan" : logic.rujukGuru ? "Akses Terkunci" : `Bimbingan AI (${logic.aras})`}
+                               </h4>
                               </div>
                               <p className="text-xs text-slate-500 leading-relaxed">
                                 {logic.adaRalatSemakanPre ? "Status tahap penguasaan anda sedang dikemas kini oleh guru." :
+                                 logic.rujukGuru ? "Akses disekat sementara waktu. Sila dapatkan nasihat guru anda." :
                                  "Bimbingan Inkuiri bersama Tutor AI, Nota & Video."}
                               </p>
                             </div>
@@ -811,6 +811,8 @@ export default function MuridDashboard() {
                             <div className="mt-2">
                               {logic.adaRalatSemakanPre ? (
                                   <button disabled className="w-full px-5 py-2 text-rose-400 bg-rose-100/50 text-sm font-bold rounded-xl cursor-not-allowed border border-rose-200">Menunggu Guru...</button>
+                              ) : logic.rujukGuru ? (
+                                  <button disabled className="w-full px-5 py-2.5 text-rose-500 bg-rose-100/60 text-sm font-bold rounded-xl cursor-not-allowed border border-rose-200 flex items-center justify-center gap-2"><Lock className="w-4 h-4"/> Dikunci</button>
                               ) : logic.aiSelesai ? (
                                 <span className="text-sm font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Selesai</span>
                               ) : (
@@ -824,7 +826,7 @@ export default function MuridDashboard() {
                         )}
 
                         {/* KAD 3: UJIAN PASCA */}
-                        {preTelahDinilai && !logic.preLulusTerus && (!isKawalan && logic.aiSelesai || isKawalan) && (
+                        {preTelahDinilai && !logic.preLulusTerus && (logic.post !== undefined || (!isKawalan && logic.aiSelesai) || isKawalan) && (
                           <div className={`p-5 rounded-2xl border backdrop-blur-sm ${
                               logic.isLulus ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-blue-200 shadow-sm'
                             } flex flex-col justify-between gap-4 animate-in zoom-in duration-300`}>
@@ -848,17 +850,17 @@ export default function MuridDashboard() {
                             </div>
                             
                             <div className="flex justify-between items-center mt-2">
-                              {logic.post !== undefined && (logic.isLulus || isKawalan) ? (
+                              {logic.post !== undefined && (logic.isLulus || (isKawalan && !logic.rujukGuru)) ? (
                                  <span className={`text-sm font-bold ${logic.isLulus ? 'text-emerald-600' : 'text-amber-600'}`}>Selesai ({logic.post}%)</span>
                               ) : logic.adaRalatSemakanPost ? (
                                  <span className="text-sm font-bold text-rose-600 flex items-center gap-1"><Clock className="w-4 h-4"/> Semakan Guru</span>
                               ) : logic.rujukGuru ? (
                                  <button disabled className="px-4 py-2.5 text-xs font-bold rounded-xl bg-rose-100 text-rose-500 border border-rose-200 w-full flex items-center justify-center gap-1.5 cursor-not-allowed">
-                                   <Lock className="w-4 h-4"/> Menunggu Reset Guru
+                                   <Lock className="w-4 h-4"/> Menunggu Reset
                                  </button>
                               ) : isKawalan && !userData?.bukaPostTest ? (
                                  <button disabled className="px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-100 text-slate-400 border border-slate-200 w-full flex items-center justify-center gap-1.5 cursor-not-allowed shadow-inner">
-                                   <Lock className="w-4 h-4"/> Menunggu Arahan Guru
+                                   <Lock className="w-4 h-4"/> Arahan Guru
                                  </button>
                               ) : (
                                 <button 
