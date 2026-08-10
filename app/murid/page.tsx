@@ -753,19 +753,19 @@ export default function MuridDashboard() {
                       <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                         
                         {/* KAD 1: UJIAN DIAGNOSTIK */}
-                        <div className={`p-5 rounded-2xl border ${logic.pre !== undefined ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-sky-200 shadow-sm'} flex flex-col justify-between gap-4 backdrop-blur-sm`}>
+                        <div className={`p-5 rounded-2xl border ${logic.pre !== undefined ? 'bg-emerald-50/80 border-emerald-200 shadow-sm' : 'bg-slate-50/80 border-slate-200 shadow-sm'} flex flex-col justify-between gap-4 backdrop-blur-sm`}>
                           <div>
                             <div className="flex items-center gap-3 mb-2">
-                              <div className={`p-2 rounded-lg ${logic.pre !== undefined ? 'bg-emerald-100 text-emerald-600' : 'bg-sky-100 text-sky-600'}`}><Zap className="w-5 h-5" /></div>
-                              <h4 className="font-bold">Ujian Diagnostik</h4>
+                              <div className={`p-2 rounded-lg ${logic.pre !== undefined ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-600'}`}><Zap className="w-5 h-5" /></div>
+                              <h4 className="font-bold text-slate-800">Ujian Diagnostik</h4>
                             </div>
                             <p className="text-xs text-slate-500 leading-relaxed mb-3">Penentuan aras kefahaman awal anda.</p>
                             
                             {logic.pre !== undefined && logic.prePenuh !== undefined && (
-                              <div className={`p-3 rounded-xl text-xs font-medium border ${logic.adaRalatSemakanPre ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-white/60 border-emerald-100 text-slate-700'}`}>
-                                <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span>Objektif:</span> <span className="font-bold">{logic.preObjektif} markah</span></p>
-                                <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span>Struktur/Esei:</span> <span className="font-bold">{logic.adaRalatSemakanPre ? '??' : logic.preStruktur} markah</span></p>
-                                <p className={`flex justify-between font-bold ${logic.adaRalatSemakanPre ? 'text-rose-700' : 'text-emerald-700'}`}><span>Jumlah Keseluruhan:</span> <span>{logic.adaRalatSemakanPre ? '??' : (logic.preObjektif! + logic.preStruktur!)} / {logic.prePenuh}</span></p>
+                              <div className={`p-3 rounded-xl text-xs font-medium border ${logic.adaRalatSemakanPre ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-emerald-100/50 border-emerald-300 text-slate-700'}`}>
+                                <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span className="text-slate-600">Objektif:</span> <span className="font-bold text-slate-800">{logic.preObjektif} markah</span></p>
+                                <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span className="text-slate-600">Struktur/Esei:</span> <span className="font-bold text-slate-800">{logic.adaRalatSemakanPre ? '??' : logic.preStruktur} markah</span></p>
+                                <p className={`flex justify-between font-bold pt-1 ${logic.adaRalatSemakanPre ? 'text-rose-700' : 'text-emerald-700'}`}><span>Jumlah Keseluruhan:</span> <span>{logic.adaRalatSemakanPre ? '??' : (logic.preObjektif! + logic.preStruktur!)} / {logic.prePenuh}</span></p>
                               </div>
                             )}
                           </div>
@@ -775,7 +775,7 @@ export default function MuridDashboard() {
                                 logic.adaRalatSemakanPre ? <span className="text-sm font-bold text-rose-600 flex items-center gap-1"><Clock className="w-4 h-4"/> Semakan Guru</span>
                                 : <span className="text-sm font-bold text-emerald-600">Selesai ({logic.pre}%)</span>
                             ) : (
-                              <button onClick={() => openModule(chapter.id, "pre", "", "")} className="w-full px-5 py-2 bg-sky-600 text-white text-sm font-bold rounded-xl hover:bg-sky-700 shadow-sm">Mula Ujian</button>
+                              <button onClick={() => openModule(chapter.id, "pre", "", "")} className="w-full px-5 py-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 shadow-sm">Mula Ujian</button>
                             )}
                             
                             {logic.pre !== undefined && logic.docIdPre && !logic.adaRalatSemakanPre && (
@@ -789,7 +789,7 @@ export default function MuridDashboard() {
                         {/* 🌟 KAD 2: BIMBINGAN AI (BEBAS KUNCI) 🌟 */}
                         {preTelahDinilai && !isKawalan && !logic.preLulusTerus && (
                           <div className={`p-5 rounded-2xl border backdrop-blur-sm transition-all duration-300 ${
-                              logic.aiSelesai ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-amber-200 shadow-sm'
+                              logic.aiSelesai ? 'bg-amber-50/80 border-amber-200 shadow-sm' : 'bg-amber-50/40 border-amber-200 shadow-sm'
                             } flex flex-col justify-between gap-4`}>
                             
                             <div>
@@ -797,7 +797,7 @@ export default function MuridDashboard() {
                                 <div className={`p-2 rounded-lg ${logic.adaRalatSemakanPre ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
                                   {logic.adaRalatSemakanPre ? <AlertTriangle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
                                 </div>
-                                <h4 className="font-bold">
+                                <h4 className="font-bold text-slate-800">
                                   {logic.adaRalatSemakanPre ? "Menunggu Semakan" : `Bimbingan AI (${logic.aras})`}
                                </h4>
                               </div>
@@ -812,7 +812,7 @@ export default function MuridDashboard() {
                                   <button disabled className="w-full px-5 py-2 text-rose-400 bg-rose-100/50 text-sm font-bold rounded-xl cursor-not-allowed border border-rose-200">Menunggu Guru...</button>
                               ) : logic.aiSelesai ? (
                                 <button onClick={() => openModule(chapter.id, "ai", logic.aras, subSemasa, logic.rujukGuru)} 
-                                        className="w-full px-5 py-2.5 text-emerald-700 text-sm font-bold rounded-xl border border-emerald-300 bg-emerald-100 hover:bg-emerald-200 shadow-sm transition-all flex items-center justify-center gap-2">
+                                        className="w-full px-5 py-2.5 text-amber-700 text-sm font-bold rounded-xl border border-amber-300 bg-amber-100 hover:bg-amber-200 shadow-sm transition-all flex items-center justify-center gap-2">
                                   <CheckCircle2 className="w-4 h-4"/> Selesai (Ulang Kaji)
                                 </button>
                               ) : (
@@ -828,32 +828,31 @@ export default function MuridDashboard() {
                         {/* KAD 3: UJIAN PASCA */}
                         {preTelahDinilai && !logic.preLulusTerus && (logic.post !== undefined || (!isKawalan && logic.aiSelesai) || isKawalan) && (
                           <div className={`p-5 rounded-2xl border backdrop-blur-sm ${
-                              logic.isLulus ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-blue-200 shadow-sm'
+                              logic.isLulus ? 'bg-emerald-50/80 border-emerald-200 shadow-sm' : 'bg-sky-50/80 border-sky-200 shadow-sm'
                             } flex flex-col justify-between gap-4 animate-in zoom-in duration-300`}>
                             
                             <div>
                               <div className="flex items-center gap-3 mb-2">
-                                <div className={`p-2 rounded-lg ${logic.isLulus ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                                <div className={`p-2 rounded-lg ${logic.isLulus ? 'bg-emerald-100 text-emerald-600' : 'bg-sky-100 text-sky-600'}`}>
                                   <CheckCircle2 className="w-5 h-5" />
                                 </div>
-                                <h4 className="font-bold">Ujian Pasca</h4>
+                                <h4 className="font-bold text-slate-800">Ujian Pasca</h4>
                               </div>
                               <p className="text-xs text-slate-500 leading-relaxed mb-3">Sasaran Sijil: {logic.targetLulus}%</p>
                               
                               {logic.post !== undefined && logic.postPenuh !== undefined && (
-                                <div className={`p-3 rounded-xl text-xs font-medium border ${logic.adaRalatSemakanPost ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50/60 border-blue-100 text-slate-700'}`}>
-                                  <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span>Objektif:</span> <span className="font-bold">{logic.postObjektif} markah</span></p>
-                                  <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span>Struktur/Esei:</span> <span className="font-bold">{logic.adaRalatSemakanPost ? '??' : logic.postStruktur} markah</span></p>
-                                  <p className={`flex justify-between font-bold ${logic.adaRalatSemakanPost ? 'text-rose-700' : 'text-blue-700'}`}><span>Jumlah Keseluruhan:</span> <span>{logic.adaRalatSemakanPost ? '??' : (logic.postObjektif! + logic.postStruktur!)} / {logic.postPenuh}</span></p>
+                                <div className={`p-3 rounded-xl text-xs font-medium border ${logic.adaRalatSemakanPost ? 'bg-rose-50 border-rose-200 text-rose-700' : logic.isLulus ? 'bg-emerald-100/50 border-emerald-300 text-slate-700' : 'bg-sky-100/50 border-sky-300 text-slate-700'}`}>
+                                  <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span className="text-slate-600">Objektif:</span> <span className="font-bold text-slate-800">{logic.postObjektif} markah</span></p>
+                                  <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span className="text-slate-600">Struktur/Esei:</span> <span className="font-bold text-slate-800">{logic.adaRalatSemakanPost ? '??' : logic.postStruktur} markah</span></p>
+                                  <p className={`flex justify-between font-bold pt-1 ${logic.adaRalatSemakanPost ? 'text-rose-700' : logic.isLulus ? 'text-emerald-700' : 'text-sky-700'}`}><span>Jumlah Keseluruhan:</span> <span>{logic.adaRalatSemakanPost ? '??' : (logic.postObjektif! + logic.postStruktur!)} / {logic.postPenuh}</span></p>
                                 </div>
                               )}
                             </div>
                             
                             <div className="flex justify-between items-center mt-2">
-                              {logic.post !== undefined && !logic.adaRalatSemakanPost ? (
-                                 <span className={`text-sm font-bold ${logic.isLulus ? 'text-emerald-600' : 'text-amber-500'}`}>Selesai ({logic.post}%)</span>
-                              ) : logic.adaRalatSemakanPost ? (
-                                 <span className="text-sm font-bold text-rose-600 flex items-center gap-1"><Clock className="w-4 h-4"/> Semakan Guru</span>
+                              {logic.post !== undefined ? (
+                                 logic.adaRalatSemakanPost ? <span className="text-sm font-bold text-rose-600 flex items-center gap-1"><Clock className="w-4 h-4"/> Semakan Guru</span>
+                                 : <span className={`text-sm font-bold ${logic.isLulus ? 'text-emerald-600' : 'text-amber-500'}`}>Selesai ({logic.post}%)</span>
                               ) : isKawalan && !userData?.bukaPostTest ? (
                                  <button disabled className="px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-100 text-slate-400 border border-slate-200 w-full flex items-center justify-center gap-1.5 cursor-not-allowed shadow-inner">
                                    <Lock className="w-4 h-4"/> Arahan Guru
@@ -861,7 +860,7 @@ export default function MuridDashboard() {
                               ) : (
                                 <button 
                                   onClick={() => openModule(chapter.id, "post", "", "")}
-                                  className="px-5 py-2.5 text-sm font-bold rounded-xl transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-sm w-full"
+                                  className="px-5 py-2.5 text-sm font-bold rounded-xl transition-all bg-sky-600 text-white hover:bg-sky-700 shadow-sm w-full"
                                 >
                                   Mula Ujian
                                 </button>
@@ -877,6 +876,7 @@ export default function MuridDashboard() {
                         )}
 
                       </div>
+
                     </motion.div>
                   )}
                 </AnimatePresence>
