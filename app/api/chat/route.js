@@ -21,36 +21,43 @@ export async function POST(req) {
     // ==========================================
     let maxPhase = 6;
     if (isPemulihan) maxPhase = 3; 
-    else if (tahapMurid === "rendah") maxPhase = 2;
+    else if (tahapMurid === "rendah") maxPhase = 2; // Aras Rendah hanya Fasa 1 (Ingat) & 2 (Faham)
     else if (tahapMurid === "sederhana") maxPhase = 4;
 
     if (currentPhase > maxPhase) {
       return new Response(JSON.stringify({
-        reply: "Tahniah! Cikgu bangga dengan usaha awak. Awak dah berjaya faham semua pecahan topik ini dengan sangat baik. Sila klik butang ke soalan/fasa seterusnya untuk tamatkan sesi bimbingan ini ya! 🎉🔥",
+        reply: "Tahniah! Cikgu sangat bangga dengan usaha awak. Awak dah berjaya faham topik ini dengan sangat baik. 🌟 Sila klik butang di bawah untuk ke fasa/modul seterusnya ya! 🎉🔥",
         isPhaseComplete: true
       }), { status: 200, headers: { "Content-Type": "application/json" } });
     }
 
-    // 🌟🌟🌟 PENYELESAIAN ISU AI TAMAT AWAL (KIRAAN PUSINGAN) 🌟🌟🌟
-    const jumlahSembangAI = previousMessages ? previousMessages.filter(m => m.role === 'assistant').length : 0;
-    
-    let amaranPenamat = "";
-    if (jumlahSembangAI < 3) {
-      amaranPenamat = `[AMARAN KETAT SISTEM]: Anda baru membalas sebanyak ${jumlahSembangAI} kali dalam subtopik ini. ANDA DIHARAMKAN SAMA SEKALI UNTUK MENAMATKAN SESI. WAJIB set "isPhaseComplete": false. Teruskan menguji fakta yang lain dari nota.`;
-    } else {
-      amaranPenamat = `[STATUS SISTEM]: Anda telah menguji murid sebanyak ${jumlahSembangAI} kali. Jika murid sudah faham dan berjaya menjawab sekurang-kurangnya 2 fakta berbeza, anda kini DIBENARKAN tamat sesi (set "isPhaseComplete": true).`;
-    }
-
     // ==========================================
-    // LOGIK FASA INKUIRI (PANDUAN AI)
+    // LOGIK FASA INKUIRI YANG DIPERBAIKI (TIDAK MEMAKSA)
     // ==========================================
     let arahanFasa = "";
-    if (currentPhase === 1) arahanFasa = `FASA 1 (MENGINGAT): Tanyakan soalan fakta asas berbentuk "Siapakah", "Apakah", atau "Senaraikan...". PENTING: Anda mesti menguji fakta berbeza-beza dari nota secara berurutan.`;
-    else if (currentPhase === 2) arahanFasa = `FASA 2 (MEMAHAMI): Minta murid JELASKAN atau TERANGKAN fakta yang mereka ingat tadi menggunakan ayat mereka sendiri.`;
-    else if (currentPhase === 3) arahanFasa = `FASA 3 (MENGAPLIKASI): Minta murid berikan contoh ringkas atau kaitkan kesan peristiwa tersebut.`;
-    else if (currentPhase === 4) arahanFasa = `FASA 4 (MENGANALISIS): Minta murid buat perbandingan atau nyatakan sebab-akibat.`;
-    else if (currentPhase === 5) arahanFasa = `FASA 5 (MENILAI): Minta pendapat murid kewajaran sesuatu tindakan tokoh/peristiwa.`;
-    else if (currentPhase === 6) arahanFasa = `FASA 6 (MENCIPTA): Tanya 1 soalan KBAT (Rumusan/Cadangan).`;
+    if (currentPhase === 1) {
+      arahanFasa = `FASA 1 (MENGINGAT - FAKTA ASAS): 
+      - Tanyakan HANYA SATU soalan mudah berbentuk "Siapakah", "Apakah", atau "Senaraikan 1-2 contoh...".
+      - MURID TIDAK PERLU MENERANGKAN. Hanya perlu sebut/nyatakan fakta sahaja.
+      - JIKA MURID JAWAB BETUL (walaupun sebut 1 fakta sahaja): Puji murid, berikan rumusan fakta yang lain dalam bentuk 'Point Form' ber-emoji, dan WAJIB set "isPhaseComplete": true untuk tamatkan fasa ini. JANGAN desak murid sebut fakta yang lain.`;
+    } 
+    else if (currentPhase === 2) {
+      arahanFasa = `FASA 2 (MEMAHAMI - HURAIAN): 
+      - Minta murid TERANGKAN atau JELASKAN salah satu fakta yang telah disebut tadi menggunakan ayat mereka sendiri secara ringkas.
+      - JIKA MURID BERJAYA TERANGKAN (walaupun ayat mudah): Puji mereka dan WAJIB set "isPhaseComplete": true.`;
+    } 
+    else if (currentPhase === 3) {
+      arahanFasa = `FASA 3 (MENGAPLIKASI): Minta murid berikan contoh ringkas atau kaitkan kesan peristiwa tersebut. Jika jawapan munasabah, set "isPhaseComplete": true.`;
+    } 
+    else if (currentPhase === 4) {
+      arahanFasa = `FASA 4 (MENGANALISIS): Minta murid buat perbandingan atau nyatakan sebab-akibat. Jika logik, set "isPhaseComplete": true.`;
+    } 
+    else if (currentPhase === 5) {
+      arahanFasa = `FASA 5 (MENILAI): Minta pendapat murid kewajaran sesuatu tindakan tokoh/peristiwa.`;
+    } 
+    else if (currentPhase === 6) {
+      arahanFasa = `FASA 6 (MENCIPTA): Tanya 1 soalan KBAT (Rumusan/Cadangan).`;
+    }
 
     // ==========================================
     // PERSONA TUTOR BERDASARKAN PSIKOLOGI PELAJAR
@@ -58,20 +65,12 @@ export async function POST(req) {
     let personaTutor = "";
     if (isPemulihan || tahapMurid === "rendah") {
       personaTutor = `
-      [GAYA PENGAJARAN: PEMBIMBING LEMBUT (ARAS RENDAH & PEMULIHAN)]
-      - PERHATIAN: Murid ini mudah putus asa (Low-Performing Student).
-      - NADA: Sangat ceria, penyabar, guna banyak emoji. Guna ganti nama "Cikgu" dan "Awak".
-      - TEKNIK MENYOAL: Pecahkan soalan. Jangan minta mereka senaraikan 3 perkara serentak. Minta 1 dahulu. Jika betul, baru minta yang ke-2.
-      - TEKNIK BANTUAN: Jika murid buntu/salah, berikan klu berbentuk huruf pangkal atau 'isi tempat kosong'. Dilarang guna perkataan "Salah".`;
-    } else if (tahapMurid === "sederhana") {
-      personaTutor = `
-      [GAYA PENGAJARAN: FASILITATOR (ARAS SEDERHANA)]
-      - NADA: Mesra dan menyokong.
-      - BANTUAN: Jangan berikan jawapan terus. Berikan 'Hint' (klu) yang kuat jika mereka buntu.`;
+      [GAYA PENGAJARAN: PEMBIMBING PENYAYANG (ARAS RENDAH)]
+      - PERHATIAN: Murid cepat bosan dan stress jika ditanya soalan berulang kali.
+      - NADA: Sangat ceria, penyabar, guna banyak emoji.
+      - BANTUAN: Jika murid buntu, beri klu (hint) berbentuk huruf pangkal atau isi tempat kosong. JANGAN sebut perkataan "Salah", guna "Hampir tepat!".`;
     } else {
-      personaTutor = `
-      [GAYA PENGAJARAN: GURU PAKAR (ARAS TINGGI)]
-      - NADA: Profesional, menggalakkan pemikiran kritis.`;
+      personaTutor = `[GAYA PENGAJARAN: FASILITATOR (ARAS SEDERHANA/TINGGI)] Nada mesra, berikan hint jika buntu.`;
     }
 
     // ==========================================
@@ -79,42 +78,30 @@ export async function POST(req) {
     // ==========================================
     const systemPrompt = {
       role: "system",
-      content: `Anda ialah "Cikgu I-RAGs", seorang guru maya Sejarah KSSM yang pakar, sistematik dan penyayang.
+      content: `Anda ialah "Cikgu I-RAGs", seorang guru maya Sejarah KSSM yang pakar.
       
       TOPIK SEMASA: ${tajukBab || "Sejarah KSSM"} | ${kodSubtopik || ""} - ${tajukSubtopik || ""}
       TUGASAN SEMASA: Anda sedang membimbing murid dalam ${arahanFasa}
       
       ${personaTutor}
 
-      ${amaranPenamat}
-
       [PERATURAN KETAT - WAJIB PATUH 100%]:
-      1. KESAHAN FAKTA (ANTI-HALLUCINATION): Rujuk HANYA pada [NOTA RUJUKAN]. Dilarang mencipta fakta luar.
-      2. PENILAIAN JAWAPAN: Rujuk [SKEMA JAWAPAN]. Terima jawapan asalkan maknanya atau kata kuncinya hampir sama dengan skema. Abaikan typo.
-      
-      3. SAPAAN AWAL MURID: 
-      - Jika mesej pertama murid hanyalah "Hai" atau "Assalamualaikum": Balas salam dan TERUS berikan soalan fakta pertama.
-      
-      4. BANTUAN JIKA MURID GAGAL: Jika murid kata "Tak tahu", beri klu (hint) yang sangat mudah. Minta mereka cuba teka. Set "isPhaseComplete": false.
-      
-      5. SATU SOALAN SAHAJA: Setiap kali anda membalas, HANYA SATU SOALAN dibenarkan di hujung mesej (Elakkan lambakan kognitif).
-      
-      6. FORMAT PENYAMPAIAN FAKTA (POINT FORM & EMOJI):
-      - WAJIB gunakan bentuk "Point Form" (Senarai pendek) dengan emoji (Contoh: 👑, ⚔️, 📜) jika menerangkan fakta.
-      - Pastikan ayat bagi setiap poin SANGAT RINGKAS. ELAKKAN perenggan meleret.
+      1. JANGAN ULANG SOALAN: Baca sejarah mesej. Jika murid sudah jawab soalan untuk fasa ini, puji mereka dan TERUS set "isPhaseComplete": true. JANGAN tanya "Boleh berikan ciri yang lain?".
+      2. KESAHAN FAKTA: Rujuk HANYA pada [NOTA RUJUKAN]. Terima jawapan asalkan kata kuncinya hampir sama. Abaikan ejaan (typo).
+      3. SATU SOALAN SAHAJA: Dalam satu balasan mesej, anda HANYA DIBENARKAN bertanya 1 soalan pendek sahaja.
+      4. RUMUSAN EMOJI: Jika murid jawab 1 fakta dengan betul, anda tolong senaraikan baki fakta yang ada dalam nota menggunakan point form ber-emoji (contoh: 👑 Raja, 📜 Undang-undang).
 
       [SUMBER PENGETAHUAN (RAG DATA)]:
       📌 NOTA RUJUKAN:
-      ${teksRujukanAI || "Tiada nota khusus, gunakan pengetahuan asas silibus KSSM."}
+      ${teksRujukanAI || "Gunakan pengetahuan asas silibus KSSM."}
 
-      📌 SKEMA JAWAPAN (PANDUAN ANDA SAHAJA):
+      📌 SKEMA JAWAPAN:
       ${skemaJawapan || "Terima jawapan yang logik dan berkaitan."}
 
       [FORMAT BALASAN (WAJIB JSON)]:
-      Anda mesti membalas dalam format JSON tulen seperti di bawah:
       {
-        "analisis_dalaman": "Berapa kali saya dah chat? Adakah lebih 3 kali? Adakah dia dah jawab 2 soalan?",
-        "reply": "Teks balasan anda (Pujian + Point Form + 1 Soalan Baru)...",
+        "analisis_dalaman": "Adakah murid dah sebut sekurang-kurangnya 1 poin betul? Jika ya, saya wajib set isPhaseComplete kepada true.",
+        "reply": "Teks balasan anda (Pujian ringkas + Jika betul, senaraikan baki fakta + Jika isPhaseComplete false, berikan 1 soalan)...",
         "isPhaseComplete": true atau false
       }`
     };
@@ -128,22 +115,15 @@ export async function POST(req) {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini", 
       messages: messages,
-      temperature: 0.1, 
+      temperature: 0.1, // Rendahkan temperature supaya AI patuh arahan dan tidak meleret
       response_format: { type: "json_object" } 
     });
 
     const aiOutput = JSON.parse(response.choices[0].message.content);
 
-    // 🌟 KAWALAN KOD TERAKHIR (OVERRIDE): 
-    // Sekiranya AI masih "degil" nak hantar True, kod ini akan paksa tukar ke False!
-    let finalPhaseComplete = aiOutput.isPhaseComplete;
-    if (jumlahSembangAI < 3) {
-      finalPhaseComplete = false;
-    }
-
     return new Response(JSON.stringify({
       reply: aiOutput.reply,
-      isPhaseComplete: finalPhaseComplete
+      isPhaseComplete: aiOutput.isPhaseComplete
     }), { status: 200, headers: { "Content-Type": "application/json" } });
 
   } catch (error) {
