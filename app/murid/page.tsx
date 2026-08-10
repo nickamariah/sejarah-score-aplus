@@ -389,10 +389,10 @@ export default function MuridDashboard() {
     }
   };
 
-  const openModule = (chapterId: number, type: string, aras: string, subSemasa: string) => {
+  const openModule = (chapterId: number, type: string, aras: string, subSemasa: string, isRujukGuru: boolean = false) => {
     const t = activeLevel === "t4" ? "4" : "5";
     if (type === "pre") window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}&jenisUjian=pre_test`;
-    if (type === "ai") window.location.href = `/pembelajaran?bab=tingkatan${t}_bab${chapterId}_${subSemasa}&aras=${aras}`;
+    if (type === "ai") window.location.href = `/pembelajaran?bab=tingkatan${t}_bab${chapterId}_${subSemasa}&aras=${aras}${isRujukGuru ? '&rujukGuru=true' : ''}`;
     if (type === "post") window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}&jenisUjian=post_test`;
   };
 
@@ -424,14 +424,13 @@ export default function MuridDashboard() {
        isClearedForNext = true; 
        
        if (!isLulus) {
-          // MURID TIDAK LULUS UJIAN PASCA
           rujukGuru = true;
           if (post < 40) {
              gagalKategori = "Kritikal";
           } else if (post < pre!) {
-             gagalKategori = "Sederhana"; // Merosot
+             gagalKategori = "Sederhana"; 
           } else {
-             gagalKategori = "Rendah"; // Tidak capai target
+             gagalKategori = "Rendah"; 
           }
        }
     }
@@ -462,11 +461,11 @@ export default function MuridDashboard() {
     if (logic.pre === undefined) return { label: "Sedia Mula", color: "bg-slate-100 border-slate-200 text-slate-500", bar: "w-0", icon: "🚀" };
     if (logic.adaRalatSemakanPre || logic.adaRalatSemakanPost) return { label: "Semakan Guru", color: "bg-rose-50 border-rose-200 text-rose-700", bar: "w-1/4 bg-rose-500 animate-pulse", icon: "⏳" };
     if (logic.isLulus) return { label: "Dikuasai", color: "bg-emerald-50 border-emerald-200 text-emerald-700", bar: "w-full bg-emerald-500", icon: "🏆" };
-    if (logic.rujukGuru) return { label: "Rujuk Guru", color: "bg-rose-50 border-rose-200 text-rose-700", bar: "w-full bg-rose-500 animate-pulse", icon: "💌" };
+    if (logic.rujukGuru) return { label: "Bimbingan Guru", color: "bg-sky-50 border-sky-200 text-sky-700", bar: "w-full bg-sky-400 animate-pulse", icon: "💬" };
     return { label: "Bimbingan AI", color: "bg-amber-50 border-amber-200 text-amber-700", bar: "w-1/2 bg-amber-400 animate-pulse", icon: "⏳" };
   };
 
-  // 🌟 LOGIK KELAYAKAN SOAL SELIDIK PASCA (Hanya jika Pre-test < 50, dan dah siap Pasca)
+  // 🌟 LOGIK KELAYAKAN SOAL SELIDIK PASCA
   const qualifiesForPostSurvey = Object.values(progressBab).some(p => p.preSkor !== undefined && p.preSkor < 50 && p.postSkor !== undefined); 
   const showPostSurveyBanner = userData?.kumpulan === 'Eksperimen' && hasPreSurvey && qualifiesForPostSurvey && !hasPostSurvey;
 
@@ -729,22 +728,22 @@ export default function MuridDashboard() {
 
                       {/* 🌟 KAD RUJUKAN GURU JIKA MURID GAGAL UJIAN PASCA 🌟 */}
                       {logic.rujukGuru && !isKawalan && (
-                        <div className="col-span-full mb-6 bg-rose-50/90 backdrop-blur-md rounded-2xl border border-rose-200 p-6 md:p-8 shadow-md relative overflow-hidden">
-                          <div className="absolute top-0 right-0 p-6 opacity-10"><AlertTriangle className="w-32 h-32 text-rose-600" /></div>
+                        <div className="col-span-full mb-6 bg-sky-50/90 backdrop-blur-md rounded-2xl border border-sky-200 p-6 md:p-8 shadow-md relative overflow-hidden">
+                          <div className="absolute top-0 right-0 p-6 opacity-10"><Info className="w-32 h-32 text-sky-600" /></div>
                           <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
-                            <div className="bg-white p-4 rounded-full shadow-sm shrink-0"><span className="text-4xl">💌</span></div>
+                            <div className="bg-white p-4 rounded-full shadow-sm shrink-0"><span className="text-4xl">💡</span></div>
                             <div className="flex-1">
-                               <div className="inline-block bg-rose-200 text-rose-800 text-xs font-bold px-3 py-1 rounded-full mb-3 uppercase tracking-wider border border-rose-300">Kad Rujukan Guru</div>
-                               <h3 className="text-xl font-bold text-rose-900 mb-2">Perhatian, {userData?.nama?.split(' ')[0] || "Pelajar"}!</h3>
-                               <p className="text-rose-800 text-sm leading-relaxed max-w-3xl mb-3">
-                                 {logic.gagalKategori === "Kritikal" && "Markah Ujian Pasca anda berada di bawah 40 (Kritikal). Anda perlu merujuk guru untuk bimbingan bersemuka dengan kadar segera."}
-                                 {logic.gagalKategori === "Sederhana" && "Markah Ujian Pasca anda lebih rendah daripada Ujian Diagnostik. Berlaku kemerosotan kefahaman. Sila rujuk guru untuk mengenal pasti kesilapan anda."}
-                                 {logic.gagalKategori === "Rendah" && "Anda masih belum mencapai sasaran minimum. Sila berjumpa dengan guru untuk mendapatkan tip dan latihan tambahan."}
+                               <div className="inline-block bg-sky-200 text-sky-800 text-xs font-bold px-3 py-1 rounded-full mb-3 uppercase tracking-wider border border-sky-300">Sesi Bimbingan Guru</div>
+                               <h3 className="text-xl font-bold text-sky-900 mb-2">Teruskan Usaha, {userData?.nama?.split(' ')[0] || "Pelajar"}!</h3>
+                               <p className="text-sky-800 text-sm leading-relaxed max-w-3xl mb-3">
+                                 {logic.gagalKategori === "Kritikal" && "Markah Ujian Pasca anda masih belum mencapai sasaran. Cikgu AI sarankan anda berjumpa guru Sejarah untuk bimbingan bersemuka supaya lebih mudah faham."}
+                                 {logic.gagalKategori === "Sederhana" && "Skor anda sedikit menurun berbanding ujian awal. Jangan risau, jumpa guru anda untuk semak bahagian mana yang terkeliru."}
+                                 {logic.gagalKategori === "Rendah" && "Anda hampir mencapai sasaran minimum! Sila berjumpa dengan guru untuk mendapatkan tip dan latihan tambahan."}
                                </p>
-                               <p className="text-rose-700 text-xs font-bold italic mb-4 bg-white/50 p-2 rounded-lg border border-rose-100 inline-block">Nota: Anda boleh menduduki semula ujian ini selepas guru menetapkan semula (reset) markah anda di dalam sistem.</p>
-                               <div className="bg-white/60 p-4 rounded-xl border border-rose-100 flex flex-col sm:flex-row gap-4 sm:gap-8 max-w-lg">
-                                  <div><span className="block text-xs text-rose-600 font-bold uppercase">Skor Diagnostik</span><span className="text-lg font-black text-rose-900">{logic.pre}%</span></div>
-                                  <div><span className="block text-xs text-rose-600 font-bold uppercase">Skor Pasca</span><span className="text-lg font-black text-rose-900">{logic.post}%</span></div>
+                               <p className="text-sky-700 text-xs font-bold italic mb-4 bg-white/50 p-2 rounded-lg border border-sky-100 inline-block">Nota: Anda boleh menduduki semula ujian ini selepas guru menetapkan semula (reset) markah anda.</p>
+                               <div className="bg-white/60 p-4 rounded-xl border border-sky-100 flex flex-col sm:flex-row gap-4 sm:gap-8 max-w-lg">
+                                  <div><span className="block text-xs text-sky-600 font-bold uppercase">Skor Diagnostik</span><span className="text-lg font-black text-sky-900">{logic.pre}%</span></div>
+                                  <div><span className="block text-xs text-sky-600 font-bold uppercase">Skor Pasca</span><span className="text-lg font-black text-sky-900">{logic.post}%</span></div>
                                </div>
                             </div>
                           </div>
@@ -812,12 +811,12 @@ export default function MuridDashboard() {
                               {logic.adaRalatSemakanPre ? (
                                   <button disabled className="w-full px-5 py-2 text-rose-400 bg-rose-100/50 text-sm font-bold rounded-xl cursor-not-allowed border border-rose-200">Menunggu Guru...</button>
                               ) : logic.aiSelesai ? (
-                                <button onClick={() => openModule(chapter.id, "ai", logic.aras, subSemasa)} 
+                                <button onClick={() => openModule(chapter.id, "ai", logic.aras, subSemasa, logic.rujukGuru)} 
                                         className="w-full px-5 py-2.5 text-emerald-700 text-sm font-bold rounded-xl border border-emerald-300 bg-emerald-100 hover:bg-emerald-200 shadow-sm transition-all flex items-center justify-center gap-2">
                                   <CheckCircle2 className="w-4 h-4"/> Selesai (Ulang Kaji)
                                 </button>
                               ) : (
-                                <button onClick={() => openModule(chapter.id, "ai", logic.aras, subSemasa)} 
+                                <button onClick={() => openModule(chapter.id, "ai", logic.aras, subSemasa, logic.rujukGuru)} 
                                         className="w-full px-5 py-2.5 text-white text-sm font-bold rounded-xl shadow-md transition-all bg-amber-500 hover:bg-amber-600 hover:scale-[1.02]">
                                   Mula Bimbingan
                                 </button>
@@ -851,14 +850,10 @@ export default function MuridDashboard() {
                             </div>
                             
                             <div className="flex justify-between items-center mt-2">
-                              {logic.post !== undefined && (logic.isLulus || (isKawalan && !logic.rujukGuru)) ? (
-                                 <span className={`text-sm font-bold ${logic.isLulus ? 'text-emerald-600' : 'text-amber-600'}`}>Selesai ({logic.post}%)</span>
+                              {logic.post !== undefined && !logic.adaRalatSemakanPost ? (
+                                 <span className={`text-sm font-bold ${logic.isLulus ? 'text-emerald-600' : 'text-amber-500'}`}>Selesai ({logic.post}%)</span>
                               ) : logic.adaRalatSemakanPost ? (
                                  <span className="text-sm font-bold text-rose-600 flex items-center gap-1"><Clock className="w-4 h-4"/> Semakan Guru</span>
-                              ) : logic.rujukGuru ? (
-                                 <button disabled className="px-4 py-2.5 text-xs font-bold rounded-xl bg-rose-100 text-rose-500 border border-rose-200 w-full flex items-center justify-center gap-1.5 cursor-not-allowed">
-                                   <span className="text-sm font-bold text-emerald-600">Selesai ({logic.post}%)</span>
-                                 </button>
                               ) : isKawalan && !userData?.bukaPostTest ? (
                                  <button disabled className="px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-100 text-slate-400 border border-slate-200 w-full flex items-center justify-center gap-1.5 cursor-not-allowed shadow-inner">
                                    <Lock className="w-4 h-4"/> Arahan Guru
