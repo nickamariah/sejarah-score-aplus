@@ -11,7 +11,6 @@ import { db } from "../../lib/firebase";
 type Subtopic = { id: string; title: string; };
 type ChapterDef = { id: number; title: string; desc: string; subtopics?: Subtopic[]; };
 
-// --- DATA BAB (KEKAL 100% SEPERTI ASAL ANDA) ---
 const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
   t4: [
     { id: 1, title: "Bab 1: Warisan Negara Bangsa", desc: "Mengenal identiti dan nilai kebangsaan", subtopics: [
@@ -82,7 +81,7 @@ const chapters: { t4: ChapterDef[]; t5: ChapterDef[] } = {
 interface BabProgress { 
   preSkor?: number; preObjektif?: number; preStruktur?: number; prePenuh?: number; adaRalatSemakanPre?: boolean; docIdPre?: string;
   postSkor?: number; postObjektif?: number; postStruktur?: number; postPenuh?: number; adaRalatSemakanPost?: boolean; docIdPost?: string;
-  aiSelesai: boolean; gameSelesai: boolean; 
+  jumlahCubaanPost: number; aiSelesai: boolean; pemulihanSelesai?: boolean; gameSelesai: boolean; 
 }
 
 export default function MuridDashboard() {
@@ -90,26 +89,31 @@ export default function MuridDashboard() {
   const [activeLevel, setActiveLevel] = useState<"t4" | "t5">("t4");
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
   const [progressBab, setProgressBab] = useState<Record<number, BabProgress>>({});
+  
   const [aiSelesaiList, setAiSelesaiList] = useState<string[]>([]);
+  const [aiPemulihanSelesaiList, setAiPemulihanSelesaiList] = useState<string[]>([]); 
+  
   const [loading, setLoading] = useState(true);
   
-  // STATE MAKLUM BALAS
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackJenis, setFeedbackJenis] = useState("Pujian");
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🌟 STATE SOAL SELIDIK (FORCE POPUP)
+  // 🌟 STATE UNTUK SOAL SELIDIK KAJIAN
   const [showSurvey, setShowSurvey] = useState(false);
   const [loadingSurvey, setLoadingSurvey] = useState(false);
   const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, number>>({});
   const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false);
   const [currentSurveyCategoryIndex, setCurrentSurveyCategoryIndex] = useState(-1);
+  
   const [hasPreSurvey, setHasPreSurvey] = useState(false);
-  const [initialPopupChecked, setInitialPopupChecked] = useState(false);
+  const [hasPostSurvey, setHasPostSurvey] = useState(false);
+  const [surveyType, setSurveyType] = useState<"pre" | "post">("pre");
+  const [initialPopupShown, setInitialPopupShown] = useState(false);
 
-  // --- LOGIK TEMA (KEKAL POWER) ---
+  // STATE UNTUK TEMA 
   const senaraiTheme = [
     { id: 'default', nama: '🌞 Cerah (Asal)', class: 'bg-slate-50' },
     { id: 'gelap', nama: '🌙 Mod Gelap', class: 'bg-slate-900' },
@@ -139,9 +143,10 @@ export default function MuridDashboard() {
     }
   }, []);
 
-  // --- FUNGSI TARIK DATA (GABUNGAN SEMUA LOGIK) ---
+  // 🌟 PEMBAIKAN: Fungsi tarik data kini menerima parameter (isSilent)
   const tarikDataFirebase = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
+    
     const rawUser = localStorage.getItem("currentUser");
     if (!rawUser) { window.location.href = "/login"; return; }
     const userLokal = JSON.parse(rawUser);
@@ -153,33 +158,65 @@ export default function MuridDashboard() {
       setUserData(userPenuh);
       
       const tSemasa = activeLevel === "t4" ? "4" : "5";
-      const targetIds = [userPenuh.id, userPenuh.idPengguna].filter(Boolean);
+
+      const targetIds = [];
+      if (userPenuh.id) targetIds.push(userPenuh.id);
+      if (userPenuh.idPengguna) targetIds.push(userPenuh.idPengguna);
       const uniqueIds = [...new Set(targetIds)];
+      if (uniqueIds.length === 0) uniqueIds.push("kosong");
 
-      // SEMAK STATUS SURVEY
-      const qSurvey = query(collection(db, "soal_selidik_murid"), where("idMurid", "in", uniqueIds), where("jenisSurvey", "==", "pre"));
+      // Tarik Status Soal Selidik (Pre/Post)
+      const qSurvey = query(collection(db, "soal_selidik_murid"), where("idMurid", "in", uniqueIds));
       const snapSurvey = await getDocs(qSurvey);
-      setHasPreSurvey(!snapSurvey.empty);
+      let donePre = false, donePost = false;
+      snapSurvey.forEach(d => {
+         const data = d.data();
+         if(data.jenisSurvey === "pre" || !data.jenisSurvey) donePre = true; 
+         if(data.jenisSurvey === "post") donePost = true;
+      });
+      setHasPreSurvey(donePre);
+      setHasPostSurvey(donePost);
 
-      // TARIK SKOR
+      // Tarik Rekod Markah
       const qSkor = query(collection(db, "skor_murid"), where("idMurid", "in", uniqueIds));
       const snapSkor = await getDocs(qSkor);
       
-      // TARIK CHAT SESSION
       const qChat = query(collection(db, "chat_sessions"), where("studentId", "in", uniqueIds), where("status", "==", "completed"));
       const snapChat = await getDocs(qChat);
-      const chatArray: string[] = [];
-      snapChat.forEach(d => chatArray.push(d.data().chapterId));
-      setAiSelesaiList(chatArray);
+      
+      const chatSelesaiArrayNormal: string[] = [];
+      const chatSelesaiArrayPemulihan: string[] = [];
+      
+      snapChat.forEach(d => {
+         const data = d.data();
+         if (data.mode === "pemulihan") chatSelesaiArrayPemulihan.push(data.chapterId);
+         else chatSelesaiArrayNormal.push(data.chapterId);
+      });
+
+      setAiSelesaiList(chatSelesaiArrayNormal);
+      setAiPemulihanSelesaiList(chatSelesaiArrayPemulihan);
 
       let tempProgress: Record<number, BabProgress> = {};
+      
       snapSkor.forEach((docSnap) => {
         const data = docSnap.data();
+        
         if (String(data.tingkatan) !== tSemasa) return;
-        const babMatch = String(data.bab).match(/\d+/);
-        if (!babMatch) return;
-        const babNum = parseInt(babMatch[0]);
-        if (!tempProgress[babNum]) tempProgress[babNum] = { aiSelesai: false, gameSelesai: false };
+
+        let babNum = NaN;
+        const babStr = String(data.bab);
+        const babMatch = babStr.match(/bab\s*(\d+)/i); 
+        
+        if (babMatch) {
+            babNum = parseInt(babMatch[1]);
+        } else {
+            const digits = babStr.match(/\d+/g);
+            if(digits && digits.length > 0) babNum = parseInt(digits[digits.length - 1]);
+        }
+
+        if (isNaN(babNum)) return; 
+
+        if (!tempProgress[babNum]) tempProgress[babNum] = { jumlahCubaanPost: 0, aiSelesai: false, pemulihanSelesai: false, gameSelesai: false };
         
         let adaRalat = false;
         if (data.ulasanAI && data.statusPermarkahanEsei !== "disemak_oleh_guru") {
@@ -189,98 +226,206 @@ export default function MuridDashboard() {
         }
 
         if (data.jenisUjian === "pre_test" || !data.jenisUjian) { 
-           tempProgress[babNum].preSkor = data.skor; 
-           tempProgress[babNum].preObjektif = data.skorObjektif;
-           tempProgress[babNum].docIdPre = docSnap.id;
-           tempProgress[babNum].adaRalatSemakanPre = adaRalat;
+           tempProgress[babNum].preSkor = data.skor; tempProgress[babNum].preObjektif = data.skorObjektif;
+           tempProgress[babNum].preStruktur = data.markahStruktur; tempProgress[babNum].prePenuh = data.markahPenuhUjian;
+           tempProgress[babNum].docIdPre = docSnap.id; tempProgress[babNum].adaRalatSemakanPre = adaRalat;
         } 
         else if (data.jenisUjian === "post_test") { 
-           tempProgress[babNum].postSkor = data.skor; 
-           tempProgress[babNum].postObjektif = data.skorObjektif;
-           tempProgress[babNum].adaRalatSemakanPost = adaRalat;
+           tempProgress[babNum].postSkor = data.skor; tempProgress[babNum].postObjektif = data.skorObjektif;
+           tempProgress[babNum].postStruktur = data.markahStruktur; tempProgress[babNum].postPenuh = data.markahPenuhUjian;
+           tempProgress[babNum].jumlahCubaanPost = data.percubaan || 1; tempProgress[babNum].adaRalatSemakanPost = adaRalat;
            tempProgress[babNum].docIdPost = docSnap.id;
         }
       });
 
       const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
       currentChapters.forEach(ch => {
-          if(!tempProgress[ch.id]) tempProgress[ch.id] = { aiSelesai: false, gameSelesai: false };
-          const siapSub = ch.subtopics?.filter(s => chatArray.includes(`tingkatan${tSemasa}_bab${ch.id}_sub${s.id}`)).length || 0;
-          tempProgress[ch.id].aiSelesai = (siapSub === (ch.subtopics?.length || 0));
+          if(!tempProgress[ch.id]) tempProgress[ch.id] = { jumlahCubaanPost: 0, aiSelesai: false, pemulihanSelesai: false, gameSelesai: false };
+          
+          if (ch.subtopics && ch.subtopics.length > 0) {
+            let siapCountNormal = 0;
+            let siapCountPemulihan = 0;
+            ch.subtopics.forEach(sub => { 
+               const targetId = `tingkatan${tSemasa}_bab${ch.id}_sub${sub.id}`;
+               if (chatSelesaiArrayNormal.includes(targetId)) siapCountNormal++; 
+               if (chatSelesaiArrayPemulihan.includes(targetId)) siapCountPemulihan++; 
+            });
+            tempProgress[ch.id].aiSelesai = (siapCountNormal === ch.subtopics.length);
+            tempProgress[ch.id].pemulihanSelesai = (siapCountPemulihan === ch.subtopics.length);
+          } else { 
+            tempProgress[ch.id].aiSelesai = chatSelesaiArrayNormal.some(id => id && id.includes(`bab${ch.id}`)); 
+            tempProgress[ch.id].pemulihanSelesai = chatSelesaiArrayPemulihan.some(id => id && id.includes(`bab${ch.id}`)); 
+          }
       });
+
       setProgressBab(tempProgress);
-    } catch (e) { console.error("Firebase Error:", e); } 
-    finally { if (!isSilent) setLoading(false); }
+    } catch (error) { console.error("Ralat tarik data:", error); } 
+    finally { 
+      if (!isSilent) setLoading(false); 
+    }
   };
 
-  useEffect(() => { tarikDataFirebase(); }, [activeLevel]);
-
-  // 🌟 LOGIK POPUP SURVEY WAJIB
   useEffect(() => {
-    if (!loading && !hasPreSurvey && userData?.kumpulan === "Eksperimen" && !initialPopupChecked) {
-      tarikSoalanSelidik();
-      setShowSurvey(true);
-      setInitialPopupChecked(true);
-    }
-  }, [loading, hasPreSurvey, userData, initialPopupChecked]);
+    tarikDataFirebase();
+  }, [activeLevel]);
 
-  const tarikSoalanSelidik = async () => {
+  // 🌟 LOGIK AUTO-REFRESH (SENYAP) JIKA ADA UJIAN MENUNGGU SEMAKAN 🌟
+  useEffect(() => {
+    const adaMenungguSemakan = Object.values(progressBab).some(p => p.adaRalatSemakanPre || p.adaRalatSemakanPost);
+    let intervalId: NodeJS.Timeout;
+    
+    if (adaMenungguSemakan) {
+      intervalId = setInterval(() => {
+        tarikDataFirebase(true); // true bermaksud tarik data senyap-senyap tanpa loading screen
+      }, 5000); // Semak setiap 5 saat
+    }
+    
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [progressBab, activeLevel]);
+
+  // LOGIK AUTO POP-UP UNTUK SOAL SELIDIK AWAL (PRE-SURVEY)
+  useEffect(() => {
+    if (!loading && userData?.kumpulan === 'Eksperimen' && !hasPreSurvey && !initialPopupShown) {
+      setSurveyType("pre");
+      tarikSoalanSelidik("Pra");
+      setShowSurvey(true);
+      setInitialPopupShown(true); 
+    }
+  }, [loading, userData, hasPreSurvey, initialPopupShown]);
+
+  const tarikSoalanSelidik = async (fasa: "Pra" | "Pasca") => {
     setLoadingSurvey(true);
     try {
-      const q = query(collection(db, "bank_soalan_selidik"), where("aktif", "==", true), where("fasa", "==", "Pra"));
+      const q = query(
+        collection(db, "bank_soalan_selidik"), 
+        where("aktif", "==", true),
+        where("fasa", "==", fasa)
+      );
       const snap = await getDocs(q);
       const data: any[] = [];
       snap.forEach(d => data.push({ id: d.id, ...d.data() }));
+      
       data.sort((a, b) => (a.susunan || 0) - (b.susunan || 0));
       setSurveyQuestions(data);
       setCurrentSurveyCategoryIndex(-1);
-    } catch (error) { console.error("Survey Error:", error); } finally { setLoadingSurvey(false); }
+    } catch (error) {
+      console.error("Gagal menarik soalan kajian:", error);
+    } finally {
+      setLoadingSurvey(false);
+    }
   };
 
   const hantarSoalSelidik = async () => {
-    if (Object.keys(surveyAnswers).length < surveyQuestions.length) { alert("Sila jawab semua soalan."); return; }
+    if (Object.keys(surveyAnswers).length < surveyQuestions.length) {
+      alert("Sila jawab semua soalan yang disediakan sebelum menghantar.");
+      return;
+    }
+
     setIsSubmittingSurvey(true);
     try {
-      await addDoc(collection(db, "soal_selidik_murid"), {
-        idMurid: userData?.idPengguna || userData?.id,
-        namaMurid: userData?.nama || userData?.name,
-        jenisSurvey: "pre",
-        tarikh: new Date().toISOString(),
-        jawapan: surveyAnswers
+      const skorKeseluruhan: Record<string, { total: number, count: number }> = {};
+      const jawapanTerperinci: any[] = [];
+
+      surveyQuestions.forEach(q => {
+        const score = surveyAnswers[q.id];
+        if (!skorKeseluruhan[q.kategori]) skorKeseluruhan[q.kategori] = { total: 0, count: 0 };
+        skorKeseluruhan[q.kategori].total += score;
+        skorKeseluruhan[q.kategori].count += 1;
+
+        jawapanTerperinci.push({
+          soalanId: q.id,
+          kategori: q.kategori,
+          subKategori: q.subKategori || "Umum",
+          soalan: q.soalan,
+          skor: score
+        });
       });
-      setHasPreSurvey(true);
+
+      const purataKategori: Record<string, number> = {};
+      Object.keys(skorKeseluruhan).forEach(k => {
+        purataKategori[k] = parseFloat((skorKeseluruhan[k].total / skorKeseluruhan[k].count).toFixed(2));
+      });
+
+      await addDoc(collection(db, "soal_selidik_murid"), {
+        idMurid: userData?.idPengguna || userData?.id || "Tiada ID",
+        namaMurid: userData?.nama || userData?.name || "Pelajar",
+        kumpulan: userData?.kumpulan || "Eksperimen",
+        sekolah: userData?.sekolah || "Tiada Maklumat",
+        tarikhJawab: new Date().toISOString(),
+        skorKeseluruhan: purataKategori,
+        jawapanTerperinci: jawapanTerperinci,
+        jenisSurvey: surveyType,
+        fasa: surveyType === "pre" ? "Pra" : "Pasca" // 🌟 Tambah label fasa
+      });
+
+      alert("Terima kasih! Maklum balas soal selidik anda telah berjaya direkodkan.");
       setShowSurvey(false);
-      alert("Terima kasih! Sila teruskan.");
-    } catch (e) { alert("Ralat hantar."); } finally { setIsSubmittingSurvey(false); }
+      setSurveyAnswers({});
+      setCurrentSurveyCategoryIndex(-1);
+      
+      if (surveyType === "pre") setHasPreSurvey(true);
+      if (surveyType === "post") setHasPostSurvey(true);
+      
+    } catch (e) {
+      console.error("Ralat menyimpan soal selidik:", e);
+      alert("Ralat sistem. Gagal menghantar borang soal selidik.");
+    } finally {
+      setIsSubmittingSurvey(false);
+    }
   };
 
-  // --- LOGIK MAKLUM BALAS (YANG HILANG TADI) ---
+  const handleLogout = () => { localStorage.removeItem("currentUser"); localStorage.removeItem("completedModules"); window.location.href = "/login"; };
+  
+  const getCurrentSubtopic = (chapterId: number, chapterData: any, isPemulihanMode: boolean) => {
+    if (!chapterData.subtopics || chapterData.subtopics.length === 0) return "sub1.1";
+    const targetList = isPemulihanMode ? aiPemulihanSelesaiList : aiSelesaiList;
+    for (const sub of chapterData.subtopics) {
+      if (!targetList.includes(`tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapterId}_sub${sub.id}`)) return `sub${sub.id}`; 
+    }
+    return `sub${chapterData.subtopics[chapterData.subtopics.length - 1].id}`;
+  };
+
   const hantarMaklumBalas = async () => {
     if (!feedbackMsg.trim()) return;
     setIsSubmitting(true);
     try {
       await addDoc(collection(db, "maklum_balas_murid"), {
-        muridId: userData?.idPengguna || userData?.id,
-        namaMurid: userData?.nama || userData?.name,
-        tingkatan: userData?.tingkatan || "Tiada",
+        muridId: userData?.idPengguna || userData?.id || "Tiada ID",
+        namaMurid: userData?.nama || userData?.name || "Pelajar",
+        tingkatan: userData?.tingkatan || "Tiada Maklumat",
+        kelas: userData?.kelas || "Tiada Maklumat",
         jenis: feedbackJenis,
         mesej: feedbackMsg,
         tarikh: new Date().toISOString()
       });
       setFeedbackMsg("");
+      setFeedbackJenis("Pujian"); 
       setShowFeedback(false);
-      alert("Maklum balas dihantar!");
-    } catch (error) { alert("Gagal hantar maklum balas."); } finally { setIsSubmitting(false); }
+      alert("Terima kasih! Maklum balas anda telah dihantar kepada guru.");
+    } catch (error) {
+      console.error("Gagal hantar maklum balas:", error);
+      alert("Ralat sistem. Gagal menghantar maklum balas.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleLogout = () => { localStorage.removeItem("currentUser"); window.location.href = "/login"; };
-  
-  const getCurrentSubtopic = (chapterId: number, chapterData: any) => {
-    if (!chapterData.subtopics || chapterData.subtopics.length === 0) return "sub1.1";
-    for (const sub of chapterData.subtopics) {
-      if (!aiSelesaiList.includes(`tingkatan${activeLevel === "t4" ? "4" : "5"}_bab${chapterId}_sub${sub.id}`)) return `sub${sub.id}`; 
-    }
-    return `sub${chapterData.subtopics[chapterData.subtopics.length - 1].id}`;
+  const mulaUlanganBimbingan = async (chapterId: number, aras: string, subSemasa: string) => {
+    const t = activeLevel === "t4" ? "4" : "5";
+    const fullSubId = `tingkatan${t}_bab${chapterId}_${subSemasa}`;
+    const sessId = `${userData?.idPengguna || userData?.id}_${fullSubId}_pemulihan`; 
+    
+    try {
+      const docRef = doc(db, "chat_sessions", sessId);
+      const dSnap = await getDoc(docRef);
+      if(dSnap.exists()){
+         await updateDoc(docRef, { status: "in_progress", currentPhase: 1, mode: "pemulihan" });
+      }
+    } catch(e) { console.log(e); }
+    
+    window.location.href = `/pembelajaran?bab=${fullSubId}&aras=${aras}&mode=pemulihan`;
   };
 
   const openModule = (chapterId: number, type: string, aras: string, subSemasa: string) => {
@@ -290,280 +435,517 @@ export default function MuridDashboard() {
     if (type === "post") window.location.href = `/jawab?tingkatan=${t}&bab=Bab ${chapterId}&jenisUjian=post_test`;
   };
 
-  // 🌟 LOGIK BAB: LULUS VS RUJUK GURU
   const getChapterLogic = (chapterId: number) => {
-    const prog = progressBab[chapterId] || { aiSelesai: false };
-    const pre = prog.preSkor; const post = prog.postSkor;
+    const prog = progressBab[chapterId] || { jumlahCubaanPost: 0, aiSelesai: false, pemulihanSelesai: false };
+    const pre = prog.preSkor; const post = prog.postSkor; const attempt = prog.jumlahCubaanPost;
     
     let aras = "rendah"; let targetLulus = 50;
+
     if (pre !== undefined) {
       if (pre >= 70) { aras = "tinggi"; targetLulus = 70; }
-      else if (pre >= 50) { aras = "sederhana"; targetLulus = 70; }
+      else if (pre >= 50 && pre <= 69) { aras = "sederhana"; targetLulus = 70; }
+      else { aras = "rendah"; targetLulus = 50; }
     }
     
     const preLulusTerus = pre !== undefined && pre >= 70;
     const postLulus = post !== undefined && post >= targetLulus;
     const isLulus = preLulusTerus || postLulus; 
     
-    const perluRujukGuru = post !== undefined && !isLulus;
-    const isClearedForNext = isLulus || (perluRujukGuru && userData?.babCleared?.[chapterId]);
+    let isClearedForNext = false;
+    let pemulihanWajib = false;
+    let pemulihanPilihan = false;
+
+    if (preLulusTerus) {
+       isClearedForNext = true;
+    } else if (post !== undefined) {
+       if (isLulus) {
+          isClearedForNext = true;
+       } else {
+          const gain = post - pre!;
+          if (aras === "sederhana") {
+             if (gain > 0) {
+               isClearedForNext = true; 
+               pemulihanPilihan = true;
+             } else {
+               pemulihanWajib = true; 
+             }
+          } else if (aras === "rendah") {
+             if (gain > 0 && post >= 40) {
+               isClearedForNext = true; 
+               pemulihanPilihan = true;
+             } else {
+               pemulihanWajib = true; 
+             }
+          }
+       }
+    }
+
+    const limitReached = attempt >= 2 && !postLulus; 
+    if (limitReached) isClearedForNext = true; 
 
     const skorTertinggi = Math.max(pre || 0, post || 0);
-    let lencana = null; let namaLencana = "";
-    if (isLulus) {
-      if (skorTertinggi >= 70) { lencana = "emas"; namaLencana = "🥇 Emas"; }
-      else if (skorTertinggi >= 50) { lencana = "perak"; namaLencana = "🥈 Perak"; }
-    } else if (perluRujukGuru) {
-      lencana = "gangsa"; namaLencana = "🥉 Rujuk Guru";
+    let lencana = null;
+    let namaLencana = "";
+    
+    if (preLulusTerus || post !== undefined) {
+      if (skorTertinggi >= 70) { lencana = "emas"; namaLencana = "🥇 Cemerlang"; }
+      else if (skorTertinggi >= 50) { lencana = "perak"; namaLencana = "🥈 Lulus"; }
+      else { lencana = "gangsa"; namaLencana = "🥉 Usaha Baik"; }
     }
 
     return { 
-        aras, pre, post, targetLulus, isLulus, perluRujukGuru, preLulusTerus, isClearedForNext,
-        skorTertinggi, lencana, namaLencana, aiSelesai: prog.aiSelesai,
-        docIdPre: prog.docIdPre, docIdPost: prog.docIdPost,
-        preObjektif: prog.preObjektif, postObjektif: prog.postObjektif,
-        adaRalatSemakanPre: prog.adaRalatSemakanPre, adaRalatSemakanPost: prog.adaRalatSemakanPost
+        aras, pre, post, attempt, targetLulus, isLulus, limitReached, preLulusTerus,
+        isClearedForNext, pemulihanWajib, pemulihanPilihan,
+        skorTertinggi, lencana, namaLencana,
+        aiSelesai: prog.aiSelesai, pemulihanSelesai: prog.pemulihanSelesai, docIdPre: prog.docIdPre, docIdPost: prog.docIdPost,
+        preObjektif: prog.preObjektif, preStruktur: prog.preStruktur, prePenuh: prog.prePenuh, adaRalatSemakanPre: prog.adaRalatSemakanPre,
+        postObjektif: prog.postObjektif, postStruktur: prog.postStruktur, postPenuh: prog.postPenuh, adaRalatSemakanPost: prog.adaRalatSemakanPost
     };
   };
 
   const getChapterStatusUI = (chapterId: number) => {
     const logic = getChapterLogic(chapterId);
     if (userData?.kumpulan === "Kawalan") return { label: "Standard", color: "bg-slate-100", bar: "w-1/2 bg-slate-500", icon: "⚪" };
-    if (logic.pre === undefined) return { label: "Sedia", color: "bg-slate-100", bar: "w-0", icon: "🚀" };
-    if (logic.isLulus) return { label: "Dikuasai", color: "bg-emerald-50 text-emerald-700", bar: "w-full bg-emerald-500", icon: "🏆" };
-    if (logic.perluRujukGuru) return { label: "Rujukan Guru", color: "bg-fuchsia-50 text-fuchsia-700 shadow-md", bar: "w-full bg-fuchsia-500 animate-pulse", icon: "💌" };
-    return { label: "Bimbingan AI", color: "bg-amber-50 text-amber-700", bar: "w-1/2 bg-amber-400 animate-pulse", icon: "🤖" };
+    if (logic.pre === undefined) return { label: "Sedia Mula", color: "bg-slate-100 border-slate-200 text-slate-500", bar: "w-0", icon: "🚀" };
+    if (logic.adaRalatSemakanPre || logic.adaRalatSemakanPost) return { label: "Semakan Guru", color: "bg-rose-50 border-rose-200 text-rose-700", bar: "w-1/4 bg-rose-500 animate-pulse", icon: "⏳" };
+    if (logic.isLulus) return { label: "Dikuasai", color: "bg-emerald-50 border-emerald-200 text-emerald-700", bar: "w-full bg-emerald-500", icon: "🏆" };
+    if (logic.limitReached) return { label: "Rujukan Guru", color: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700", bar: "w-full bg-fuchsia-500 animate-pulse", icon: "💌" };
+    if (logic.attempt === 1 && logic.pemulihanWajib) return { label: "Pemulihan Wajib", color: "bg-rose-50 border-rose-300 text-rose-700 shadow-[0_0_15px_rgba(225,29,72,0.3)]", bar: "w-2/3 bg-linear-to-r from-rose-500 to-red-600 animate-pulse", icon: "🚨" };
+    if (logic.attempt === 1 && logic.pemulihanPilihan) return { label: "Pemulihan Pilihan", color: "bg-orange-50 border-orange-300 text-orange-700 shadow-[0_0_15px_rgba(251,146,60,0.3)]", bar: "w-2/3 bg-linear-to-r from-orange-400 to-amber-500 animate-pulse", icon: "🚀" };
+    return { label: "Bimbingan AI", color: "bg-amber-50 border-amber-200 text-amber-700", bar: "w-1/2 bg-amber-400 animate-pulse", icon: "⏳" };
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-sky-600"/></div>;
+  const qualifiesForPostSurvey = Object.values(progressBab).some(p => p.preSkor !== undefined && p.preSkor < 50); 
+  const showPreSurveyBanner = userData?.kumpulan === 'Eksperimen' && !hasPreSurvey;
+  const showPostSurveyBanner = userData?.kumpulan === 'Eksperimen' && hasPreSurvey && qualifiesForPostSurvey && !hasPostSurvey;
 
+  const surveyCategories = Array.from(new Set(surveyQuestions.map(q => q.kategori)));
+  const currentSurveyCategory = surveyCategories[currentSurveyCategoryIndex] || "";
+  const questionsInCurrentCategory = surveyQuestions.filter(q => q.kategori === currentSurveyCategory);
+
+  if (loading) return ( <div className="flex h-screen items-center justify-center bg-slate-50"><div className="animate-spin w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full"></div></div> );
   const currentChapters = activeLevel === "t4" ? chapters.t4 : chapters.t5;
 
   return (
     <div className={`min-h-screen px-4 py-8 md:px-6 font-sans text-slate-900 relative transition-colors duration-700 ${selectedTheme}`}>
       
-      {/* MOD ANGKASA EFFECT (KEKAL) */}
+      {/* CORAK BINTANG UNTUK MOD ANGKASA */}
       {selectedTheme.includes('indigo-950') && (
-        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden opacity-40">
-           <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(2px 2px at 20px 30px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0))', backgroundSize: '200px 200px' }}></div>
+        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+          <div className="absolute inset-0 opacity-40" style={{ backgroundImage: 'radial-gradient(2px 2px at 20px 30px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 50px 160px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 130px 80px, #fff, rgba(0,0,0,0)), radial-gradient(2px 2px at 160px 120px, #fff, rgba(0,0,0,0))', backgroundSize: '200px 200px' }}></div>
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(1px 1px at 10px 10px, #fff, rgba(0,0,0,0)), radial-gradient(1px 1px at 30px 50px, #fff, rgba(0,0,0,0)), radial-gradient(1px 1px at 80px 120px, #fff, rgba(0,0,0,0)), radial-gradient(1px 1px at 120px 20px, #fff, rgba(0,0,0,0))', backgroundSize: '150px 150px' }}></div>
         </div>
       )}
 
       <div className="mx-auto max-w-6xl relative z-10">
         
-        {/* HEADER WELCOME (KEKAL) */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-gradient-to-r from-sky-600 to-indigo-700 p-8 shadow-lg text-white mb-8 flex justify-between items-center relative overflow-hidden">
-          <div className="flex items-center gap-5">
-             <div className="h-20 w-20 rounded-full bg-white flex items-center justify-center text-3xl font-black text-sky-600 shadow-md">
-                {(userData?.nama || "P").charAt(0).toUpperCase()}
-             </div>
-             <div>
-                <p className="text-sky-100 text-sm">Selamat kembali,</p>
-                <h1 className="text-3xl font-black uppercase tracking-tight">{userData?.nama || "Pelajar"}</h1>
-             </div>
-          </div>
-          <div className="flex items-center gap-3">
-             <div className="hidden sm:flex items-center bg-white/10 p-2 rounded-xl border border-white/20 backdrop-blur-md">
-                <Palette size={16} className="text-white mr-2" />
-                <select value={selectedTheme} onChange={handleThemeChange} className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer">
-                  {senaraiTheme.map(t => <option key={t.id} value={t.class} className="text-slate-800">{t.nama}</option>)}
+        {/* HEADER TOP (Welcome Banner) */}
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-gradient-to-r from-sky-600 to-indigo-700 p-6 md:p-8 shadow-lg text-white mb-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between relative z-10">
+            <div className="flex items-center gap-5">
+             <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-full bg-white text-2xl md:text-3xl font-extrabold text-sky-600 shadow-md border-4 border-sky-100 shrink-0">
+                {(userData?.nama || userData?.name) ? (userData.nama || userData.name).charAt(0).toUpperCase() : "P"}
+              </div>
+              <div>
+                <p className="text-sky-100 text-xs md:text-sm mb-1">Selamat datang ke Hub I-RAGs,</p>
+                <h1 className="text-xl md:text-3xl font-extrabold uppercase line-clamp-2">{userData?.nama || userData?.name}</h1>
+                <p className="text-sky-50 flex items-center gap-2 mt-1 md:mt-2 text-xs md:text-sm font-medium opacity-90">
+                  ID: <span className="font-bold tracking-wider">{userData?.idPengguna || userData?.id}</span>
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+              <button 
+                onClick={() => tarikDataFirebase(false)} 
+                className="px-4 md:px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 font-bold border border-white/20 flex items-center gap-2 text-sm transition-all shadow-md"
+                title="Segar Semula Data"
+              >
+                <RefreshCw className="w-4 h-4"/> <span className="hidden sm:inline">Segar Semula</span>
+              </button>
+              <div className="hidden sm:flex items-center bg-white/10 p-1.5 rounded-xl border border-white/20 shadow-sm backdrop-blur-md">
+                <Palette size={16} className="text-white ml-2" />
+                <select value={selectedTheme} onChange={handleThemeChange} className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer py-1.5 pl-1 pr-2 hover:text-sky-200 transition-colors appearance-none">
+                  {senaraiTheme.map(theme => ( <option key={theme.id} value={theme.class} className="text-slate-800">{theme.nama}</option> ))}
                 </select>
-             </div>
-             <button onClick={handleLogout} className="bg-rose-500 p-3 rounded-xl hover:bg-rose-600 shadow-lg transition-all"><LogOut size={20} className="text-white"/></button>
+              </div>
+              <button onClick={handleLogout} className="px-4 md:px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 font-bold border border-rose-400 flex items-center gap-2 text-sm transition-all shadow-md shadow-rose-900/20">
+                <LogOut className="w-4 h-4"/> <span className="hidden md:inline">Log Keluar</span>
+              </button>
+            </div>
           </div>
         </motion.div>
 
-        {/* 3 TUNJANG (KEKAL) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 text-slate-800 font-bold">
-          <div className="bg-white/95 p-4 rounded-2xl border border-blue-100 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Brain /></div>
-            <div><h3 className="text-sm">Belajar Pintar</h3><p className="text-[10px] text-slate-500 font-normal">Nota, Video & Bimbingan AI.</p></div>
+        {/* KAD 3 TUNJANG UTAMA */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-blue-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl shrink-0"><Brain className="w-6 h-6" strokeWidth={2.5} /></div>
+            <div><h3 className="font-bold text-slate-800 text-sm">Belajar Ikut Keupayaan</h3><p className="text-xs text-slate-500 mt-0.5">Tiada tekanan, ikuti laluan anda.</p></div>
           </div>
-          <div className="bg-white/95 p-4 rounded-2xl border border-amber-100 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl"><Compass /></div>
-            <div><h3 className="text-sm">Bloom's Taxonomy</h3><p className="text-[10px] text-slate-500 font-normal">6 Fasa Inkuiri Intelek.</p></div>
+          <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-amber-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl shrink-0"><Compass className="w-6 h-6" strokeWidth={2.5} /></div>
+            <div><h3 className="font-bold text-slate-800 text-sm">Bimbingan Pintar AI</h3><p className="text-xs text-slate-500 mt-0.5">Selesaikan kitaran & kumpul lencana.</p></div>
           </div>
-          <div className="bg-white/95 p-4 rounded-2xl border border-emerald-100 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><Medal /></div>
-            <div><h3 className="text-sm">Sijil & Lencana</h3><p className="text-[10px] text-slate-500 font-normal">Ganjaran atas penguasaan.</p></div>
+          <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-emerald-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl shrink-0"><Medal className="w-6 h-6" strokeWidth={2.5} /></div>
+            <div><h3 className="font-bold text-slate-800 text-sm">Sijil Penghargaan</h3><p className="text-xs text-slate-500 mt-0.5">Tebus sijil cemerlang atau lulus.</p></div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* ANALISIS KEMAJUAN (KEKAL) */}
-        <div className="bg-white/95 rounded-3xl p-8 shadow-md border border-white/40 mb-8">
-           <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><BarChart3/></div>
-              <h2 className="text-xl font-black text-slate-800 italic">Analisis Kemajuan Bab</h2>
-           </div>
-           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {currentChapters.map(ch => {
-                 const ui = getChapterStatusUI(ch.id);
-                 return (
-                    <div key={ch.id} className={`p-4 rounded-2xl border ${ui.color} flex flex-col gap-3 shadow-sm hover:shadow-md transition-all`}>
-                       <div className="flex justify-between items-start">
-                          <span className="font-black text-xs opacity-60">Bab {ch.id}</span>
-                          <span className="text-xl">{ui.icon}</span>
-                       </div>
-                       <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-50">{ui.label}</p>
-                          <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden"><div className={`h-full ${ui.bar} rounded-full`}></div></div>
-                       </div>
-                    </div>
-                 )
-              })}
-           </div>
-        </div>
+        {/* ANALISIS PENGUASAAN BAB */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 md:p-8 shadow-md border border-white/40 mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><BarChart3 className="w-6 h-6" /></div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Analisis Kemajuan Bab</h2>
+              <p className="text-sm text-slate-500">Maju selangkah demi selangkah. Bab baharu akan terbuka apabila kitaran selesai.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {currentChapters.map((ch) => {
+              const statusUI = getChapterStatusUI(ch.id);
+              return (
+                <div key={ch.id} className={`p-4 rounded-2xl border ${statusUI.color} flex flex-col gap-3 shadow-sm transition-all hover:shadow-md bg-white/50 backdrop-blur-md`}>
+                  <div className="flex justify-between items-start">
+                    <span className="font-bold text-lg opacity-80">B{ch.id}</span>
+                    <span className="text-xl">{statusUI.icon}</span>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider mb-1 opacity-75">{statusUI.label}</p>
+                    <div className="h-1.5 w-full bg-slate-200/50 rounded-full overflow-hidden"><div className={`h-full ${statusUI.bar} rounded-full`}></div></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
 
-        {/* TAB TINGKATAN (KEKAL) */}
+        {/* 🌟 BANNER SOAL SELIDIK KAJIAN (DYNAMIK UNTUK PRA & PASCA) 🌟 */}
+        {(showPreSurveyBanner || showPostSurveyBanner) && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="mb-8 rounded-3xl bg-gradient-to-r from-purple-600 to-fuchsia-600 p-1 flex flex-col md:flex-row items-center justify-between shadow-xl shadow-purple-900/20">
+            <div className="p-5 md:p-6 flex items-center gap-4 text-white w-full">
+              <div className="bg-white/20 p-3 rounded-2xl shrink-0"><ClipboardList className="w-8 h-8" /></div>
+              <div className="flex-1">
+                <h3 className="font-bold text-lg md:text-xl flex items-center gap-2">
+                  Tugasan Kajian: {showPreSurveyBanner ? 'Soal Selidik Awalan (Pre-Survey)' : 'Soal Selidik Akhir (Post-Survey)'} <Sparkles className="w-5 h-5 text-yellow-300"/>
+                </h3>
+                <p className="text-purple-100 text-xs md:text-sm mt-1 leading-relaxed">
+                  {showPreSurveyBanner ? 
+                    "Sila luangkan masa 3 minit menjawab soal selidik ringkas ini sebelum menggunakan sistem sepenuhnya." : 
+                    "Terima kasih atas dedikasi anda. Sila lengkapkan soal selidik akhir ini sebagai tanda maklum balas sistem."}
+                </p>
+              </div>
+              <button 
+                onClick={() => { setSurveyType(showPreSurveyBanner ? "pre" : "post"); tarikSoalanSelidik(showPreSurveyBanner ? "Pra" : "Pasca"); setShowSurvey(true); }} 
+                className="hidden md:flex px-6 py-3 bg-white text-purple-700 hover:bg-purple-50 font-bold rounded-xl items-center gap-2 shadow-md transition-transform hover:scale-105 shrink-0"
+              >
+                Mula Jawab <ArrowRight className="w-5 h-5"/>
+              </button>
+            </div>
+            <button 
+              onClick={() => { setSurveyType(showPreSurveyBanner ? "pre" : "post"); tarikSoalanSelidik(showPreSurveyBanner ? "Pra" : "Pasca"); setShowSurvey(true); }} 
+              className="md:hidden w-full px-6 py-4 bg-white text-purple-700 font-bold rounded-b-3xl flex items-center justify-center gap-2 shadow-inner"
+            >
+              Mula Jawab Sekarang <ArrowRight className="w-5 h-5"/>
+            </button>
+          </motion.div>
+        )}
+
+        {/* TAB TINGKATAN */}
         <div className="mb-6 flex gap-3">
           {(userData?.tingkatan?.toString() === "5" ? ["t4", "t5"] : ["t4"]).map((level) => (
             <button key={level} onClick={() => { setActiveLevel(level as "t4" | "t5"); setExpandedChapter(null); }}
-              className={`px-10 py-3 rounded-full font-black shadow-sm transition-all ${activeLevel === level ? "bg-sky-600 text-white" : "bg-white/90 text-slate-600 border border-slate-200"}`}>
+              className={`px-8 py-3 rounded-full font-bold shadow-sm transition-all ${activeLevel === level ? "bg-sky-600 text-white" : "bg-white/90 backdrop-blur-sm text-slate-600 hover:bg-slate-50 border border-slate-200"}`}>
               Tingkatan {level === "t4" ? "4" : "5"}
             </button>
           ))}
         </div>
 
-        {/* SENARAI BAB (Sequential Unlocking) */}
+        {userData?.kumpulan === "Kawalan" && (
+           <div className="mb-6 bg-slate-100/90 backdrop-blur-sm border border-slate-300 p-4 rounded-xl flex gap-3 items-center text-slate-600 shadow-sm">
+             <Info className="shrink-0 text-slate-500" />
+             <p className="text-sm font-medium">Anda adalah murid kumpulan Konvensional. Sila lengkapkan Ujian Diagnostik dan Ujian Pasca mengikut arahan guru. Jangan lupa tekan <strong>Segar Semula</strong> jika arahan bertukar.</p>
+           </div>
+        )}
+
+        {/* SENARAI BAB (SEQUENTIAL UNLOCKING) */}
         <div className="space-y-4">
           {currentChapters.map((chapter: any, index: number) => {
             const logic = getChapterLogic(chapter.id);
             const statusUI = getChapterStatusUI(chapter.id);
             const isKawalan = userData?.kumpulan === "Kawalan";
             
-            // KUNCI BERURUTAN
+            // LOGIK KUNCI BERURUTAN
             let isLocked = false;
             if (index > 0 && !isKawalan) {
-                const prevLogic = getChapterLogic(currentChapters[index-1].id);
+                const prevChapterId = currentChapters[index - 1].id;
+                const prevLogic = getChapterLogic(prevChapterId);
                 if (!prevLogic.isClearedForNext) isLocked = true;
             }
-            const subSemasa = getCurrentSubtopic(chapter.id, chapter);
+            
+            const subSemasa = getCurrentSubtopic(chapter.id, chapter, logic.attempt === 1);
+            const ralatMenghalangBimbingan = logic.attempt === 0 ? logic.adaRalatSemakanPre : logic.adaRalatSemakanPost;
             const preTelahDinilai = logic.pre !== undefined && !logic.adaRalatSemakanPre;
 
             return (
-              <div key={chapter.id} className={`rounded-3xl border transition-all duration-300 ${isLocked ? 'bg-slate-100/60 opacity-80' : 'bg-white shadow-sm'}`}>
+              <div key={chapter.id} className={`rounded-2xl border overflow-hidden transition-all duration-300 ${
+                  isLocked ? 'bg-slate-100/60 border-slate-200 opacity-80 shadow-none' : 'bg-white/95 backdrop-blur-md border-white/40 shadow-sm'
+              }`}>
+                
                 <button 
-                  onClick={() => isLocked ? alert(`Sila selesaikan Bab ${currentChapters[index-1].id} terlebih dahulu.`) : setExpandedChapter(expandedChapter === chapter.id ? null : chapter.id)} 
-                  className="w-full px-8 py-7 flex items-center justify-between"
+                  onClick={() => {
+                    if (isLocked) {
+                       alert(`KUNCI AKTIF: Sila selesaikan kitaran modul / pemulihan wajib untuk Bab ${currentChapters[index-1].id} terlebih dahulu.`);
+                       return;
+                    }
+                    setExpandedChapter(expandedChapter === chapter.id ? null : chapter.id)
+                  }} 
+                  className={`w-full px-6 py-5 flex items-center justify-between ${isLocked ? 'cursor-not-allowed grayscale' : 'hover:bg-slate-50/50'}`}
                 >
-                  <div className="flex items-center gap-5">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl ${isLocked ? 'bg-slate-200 text-slate-400' : statusUI.color}`}>
-                        {isLocked ? <Lock /> : statusUI.icon}
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${isLocked ? 'bg-slate-200 text-slate-400' : statusUI.color}`}>
+                        {isLocked ? <Lock className="w-5 h-5"/> : statusUI.icon}
                     </div>
-                    <div className="text-left text-slate-800">
-                       <h3 className={`font-black text-xl ${isLocked ? 'text-slate-500' : 'text-slate-900'}`}>{chapter.title}</h3>
-                       {isLocked && <p className="text-[10px] text-rose-500 font-bold uppercase mt-1">Selesaikan Bab {currentChapters[index-1].id}</p>}
-                       {!isLocked && logic.lencana && <span className="text-[10px] font-black uppercase text-sky-600 mt-1 block">{logic.namaLencana} ({logic.skorTertinggi}%)</span>}
+                    <div className="text-left">
+                       <h3 className={`font-bold text-lg ${isLocked ? 'text-slate-500' : 'text-slate-900'}`}>{chapter.title}</h3>
+                       {isLocked && <p className="text-xs text-rose-500 mt-1 font-bold italic">Terkunci: Lengkapkan syarat Bab {currentChapters[index-1].id}.</p>}
                     </div>
                   </div>
-                  {!isLocked && <ChevronDown className={`w-6 h-6 transition-transform ${expandedChapter === chapter.id ? "rotate-180" : ""}`} />}
+                  
+                  <div className="flex items-center gap-4 shrink-0">
+                    {!isLocked && logic.lencana ? (
+                      <span className={`px-3.5 py-1.5 rounded-full text-xs font-bold border shadow-sm flex items-center gap-1.5 ${
+                          logic.lencana === "emas" ? 'bg-yellow-50 border-yellow-300 text-yellow-700' :
+                          logic.lencana === "perak" ? 'bg-slate-100 border-slate-300 text-slate-700' :
+                          'bg-orange-50 border-orange-300 text-orange-800'
+                      }`}>
+                        {logic.namaLencana} <span className="font-black">({logic.skorTertinggi}%)</span>
+                      </span>
+                    ) : !isLocked && logic.skorTertinggi !== undefined && logic.skorTertinggi > 0 ? (
+                      <span className={`px-3.5 py-1.5 rounded-full text-xs font-bold border shadow-sm flex items-center gap-1.5 ${
+                          ralatMenghalangBimbingan ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-100 border-slate-300 text-slate-700'
+                      }`}>
+                        {ralatMenghalangBimbingan ? '⏳ Semakan Guru' : `Skor: ${logic.skorTertinggi}%`}
+                      </span>
+                    ) : !isLocked && logic.pre !== undefined && logic.pre === 0 ? (
+                      <span className={`px-3.5 py-1.5 rounded-full text-xs font-bold border shadow-sm flex items-center gap-1.5 bg-slate-100 border-slate-300 text-slate-700`}>
+                        Skor: 0%
+                      </span>
+                    ) : null}
+                    
+                    {!isLocked && (
+                      <ChevronDown className={`w-6 h-6 text-slate-400 transition-transform ${expandedChapter === chapter.id ? "rotate-180" : ""}`} />
+                    )}
+                  </div>
                 </button>
 
                 <AnimatePresence>
-                  {expandedChapter === chapter.id && (
-                    <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="border-t border-slate-100 bg-slate-50/50 p-8 overflow-hidden">
+                  {expandedChapter === chapter.id && !isLocked && (
+                    <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="border-t border-slate-200/50 bg-slate-50/50 p-6 overflow-hidden">
                       
-                      {/* CAWANGAN LULUS (SIJIL) */}
-                      {logic.isLulus && (
-                        <div className="mb-8 p-6 bg-emerald-100 border border-emerald-200 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
-                           <div className="flex items-center gap-4 text-center md:text-left text-emerald-900">
-                              <Trophy className="w-12 h-12 text-yellow-500" />
-                              <div>
-                                 <h4 className="font-black text-2xl">Tahniah! Penguasaan Bab.</h4>
-                                 <p className="text-sm opacity-90">Sila tebus sijil digital anda sekarang!</p>
-                              </div>
-                           </div>
-                           <button onClick={() => window.open(`/sijil?bab=${chapter.id}&skor=${logic.skorTertinggi}&nama=${encodeURIComponent(userData?.nama)}`, '_blank')}
-                             className="bg-slate-900 text-white font-black px-10 py-4 rounded-2xl shadow-xl hover:scale-105 transition-all flex items-center gap-3">
-                             <Award className="text-yellow-400"/> Muat Turun Sijil
-                           </button>
-                        </div>
-                      )}
-
-                      {/* 💌 CAWANGAN GAGAL (KAD RUJUK GURU) */}
-                      {logic.perluRujukGuru && !isKawalan && (
-                         <div className="col-span-full mb-8 relative">
-                            <div className="absolute -inset-1 bg-gradient-to-r from-fuchsia-600 to-rose-600 rounded-[2.5rem] blur opacity-25"></div>
-                            <div className="relative bg-white rounded-[2.5rem] border border-fuchsia-100 p-8 shadow-xl flex flex-col md:flex-row items-center gap-10 overflow-hidden">
-                                <UsersRound className="absolute -right-4 -top-4 w-40 h-40 text-fuchsia-600 opacity-5" />
-                                <div className="bg-fuchsia-100 p-6 rounded-full text-4xl shadow-inner text-fuchsia-600">💌</div>
-                                <div className="flex-1 text-center md:text-left">
-                                   <div className="bg-rose-500 text-white text-[10px] font-black px-5 py-2 rounded-full mb-4 inline-block uppercase tracking-[0.2em] shadow-lg animate-pulse">Rujukan Guru Diperlukan</div>
-                                   <h3 className="text-3xl font-black text-slate-800 mb-3">Sila Berjumpa Guru Mata Pelajaran!</h3>
-                                   <p className="text-slate-600 text-lg leading-relaxed mb-8">Anda telah berusaha sebaik mungkin bersama AI. Kini masanya untuk sesi pencerahan bersemuka bersama guru anda sebelum ke bab seterusnya. 💪</p>
-                                   <div className="flex gap-4 justify-center md:justify-start">
-                                      <div className="bg-slate-50 px-6 py-4 rounded-3xl border border-slate-100 text-slate-700">
-                                         <span className="text-xs block opacity-50 font-black uppercase">Skor Pasca</span>
-                                         <span className="text-2xl font-black text-fuchsia-600">{logic.post}%</span>
-                                      </div>
-                                      <button onClick={() => alert("Cikgu anda telah dimaklumkan.")} className="bg-fuchsia-600 text-white font-black px-10 rounded-[2rem] shadow-xl flex items-center gap-3 hover:bg-fuchsia-700 transition-colors"><Send size={20}/> Maklumkan Cikgu</button>
-                                   </div>
-                                </div>
+                      {/* TAHNIAH BERSAMA LENCANA & SIJIL (GAMIFIKASI) */}
+                      {(logic.isLulus || logic.post !== undefined) && !isKawalan && (
+                        <div className={`mb-6 p-5 rounded-xl shadow-sm border flex flex-col md:flex-row items-center justify-between gap-4 ${
+                          logic.lencana === 'emas' ? 'bg-yellow-50/80 border-yellow-200 text-yellow-800' :
+                          logic.lencana === 'perak' ? 'bg-slate-100/80 border-slate-300 text-slate-800' :
+                          'bg-orange-50/80 border-orange-200 text-orange-800'
+                        }`}>
+                          <div className="flex items-center gap-4">
+                            <Trophy className={`w-10 h-10 shrink-0 ${logic.lencana === 'emas' ? 'text-yellow-500' : logic.lencana === 'perak' ? 'text-slate-400' : 'text-orange-500'}`} />
+                            <div>
+                              <h4 className="font-black text-lg">
+                                {logic.lencana === 'emas' ? 'Luar Biasa! Anda mendapat Lencana Emas.' : 
+                                 logic.lencana === 'perak' ? 'Syabas! Anda mendapat Lencana Perak.' : 
+                                 'Tahniah! Lencana Gangsa atas usaha gigih anda.'}
+                              </h4>
+                              <p className="text-sm font-medium mt-0.5 opacity-90">
+                                {logic.lencana === 'emas' ? 'Penguasaan bab yang sangat cemerlang.' : 
+                                 logic.lencana === 'perak' ? 'Pemahaman yang memuaskan. Kelulusan dicapai.' : 
+                                 'Sistem menghargai komitmen anda menyelesaikan kitaran. Teruskan mencuba!'}
+                              </p>
                             </div>
-                         </div>
-                      )}
-
-                      {!logic.perluRujukGuru && (
-                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                          {/* LANGKAH 1: PRE-TEST */}
-                          <div className={`p-8 rounded-[2rem] border shadow-sm flex flex-col justify-between gap-8 ${logic.pre !== undefined ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white border-sky-100'}`}>
-                             <div>
-                                <div className="flex items-center gap-3 mb-4">
-                                   <div className={`p-3 rounded-xl ${logic.pre !== undefined ? 'bg-emerald-100 text-emerald-600' : 'bg-sky-100 text-sky-600'}`}><Zap /></div>
-                                   <h4 className="font-black text-slate-400 text-xs uppercase tracking-widest">Langkah 1</h4>
-                                </div>
-                                <h3 className="font-black text-xl text-slate-800 italic">Ujian Diagnostik</h3>
-                                {logic.pre !== undefined ? (
-                                   <div className="p-4 bg-white/60 rounded-2xl text-sm font-black border border-emerald-100 mt-4">
-                                      <div className="flex justify-between mb-1 opacity-50"><span>Skor Objektif:</span> <span>{logic.preObjektif}</span></div>
-                                      <div className="flex justify-between text-emerald-700"><span>Skor Keseluruhan:</span> <span>{logic.pre}%</span></div>
-                                   </div>
-                                ) : <p className="text-sm text-slate-500 leading-relaxed mt-3">Uji tahap awal sebelum anda dibimbing oleh AI.</p>}
-                             </div>
-                             {logic.pre === undefined ? <button onClick={() => window.location.href=`/jawab?bab=Bab ${chapter.id}&jenisUjian=pre_test`} className="w-full py-4 bg-sky-600 text-white font-black text-sm rounded-2xl shadow-lg hover:bg-sky-700 transition-all">Mula Diagnostik</button> :
-                             <button onClick={() => window.location.href=`/student/semakan-ujian/${logic.docIdPre}`} className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black text-sm rounded-2xl hover:bg-slate-100 flex items-center justify-center gap-3 transition-all"><FileSearch size={18}/> Semak Jawapan</button>}
                           </div>
-
-                          {/* LANGKAH 2: BIMBINGAN AI */}
-                          {logic.pre !== undefined && !logic.preLulusTerus && !isKawalan && (
-                             <div className={`p-8 rounded-[2rem] border shadow-sm flex flex-col justify-between gap-8 ${logic.aiSelesai ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white border-amber-100'}`}>
-                                <div>
-                                   <div className="flex items-center gap-3 mb-4">
-                                      <div className={`p-3 rounded-xl ${logic.aiSelesai ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}><Sparkles /></div>
-                                      <h4 className="font-black text-slate-400 text-xs uppercase tracking-widest">Langkah 2</h4>
-                                   </div>
-                                   <h3 className="font-black text-xl text-slate-800 italic">Bimbingan Tutor AI</h3>
-                                   <p className="text-sm text-slate-500 leading-relaxed mt-3">Interaksi 6 Fasa Bloom Inkuiri.</p>
-                                </div>
-                                {logic.aiSelesai ? <span className="text-sm font-black text-emerald-600 flex items-center gap-2 bg-emerald-50 w-fit px-4 py-2 rounded-full"><CheckCircle2 size={18}/> Selesai Belajar</span> :
-                                <button onClick={() => window.location.href=`/pembelajaran?bab=bab${chapter.id}&aras=${logic.aras}`} className="w-full py-4 bg-amber-500 text-white font-black text-sm rounded-2xl shadow-lg hover:bg-amber-600 transition-all">Mula Bimbingan</button>}
-                             </div>
-                          )}
-
-                          {/* LANGKAH 3: POST-TEST */}
-                          {logic.pre !== undefined && !logic.preLulusTerus && (logic.aiSelesai || isKawalan) && (
-                             <div className={`p-8 rounded-[2rem] border shadow-sm flex flex-col justify-between gap-8 ${logic.post !== undefined ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white border-indigo-100'}`}>
-                                <div>
-                                   <div className="flex items-center gap-3 mb-4">
-                                      <div className={`p-3 rounded-xl ${logic.post !== undefined ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-100 text-indigo-600'}`}><Medal /></div>
-                                      <h4 className="font-black text-slate-400 text-xs uppercase tracking-widest">Langkah 3</h4>
-                                   </div>
-                                   <h3 className="font-black text-xl text-slate-800 italic">Ujian Pasca</h3>
-                                   {logic.post !== undefined ? (
-                                      <div className="p-4 bg-white/60 rounded-2xl text-sm font-black border border-emerald-100 mt-4">
-                                         <div className="flex justify-between text-indigo-700"><span>Skor Akhir:</span> <span>{logic.post}%</span></div>
-                                         <div className="flex justify-between opacity-40 font-normal"><span>Sasaran:</span> <span>{logic.targetLulus}%</span></div>
-                                      </div>
-                                   ) : <p className="text-sm text-slate-500 leading-relaxed mt-3">Pengesahan tahap penguasaan bab.</p>}
-                                </div>
-                                <div className="flex gap-3">
-                                   {logic.post === undefined ? <button onClick={() => window.location.href=`/jawab?bab=Bab ${chapter.id}&jenisUjian=post_test`} className="w-full py-4 bg-indigo-600 text-white font-black text-sm rounded-2xl shadow-lg hover:bg-indigo-700 transition-all">Ambil Pasca</button> :
-                                   <button onClick={() => window.location.href=`/student/semakan-ujian/${logic.docIdPost}`} className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black text-sm rounded-2xl hover:bg-slate-100 flex items-center justify-center gap-3 transition-all"><FileSearch size={18}/> Semak Jawapan</button>}
-                                </div>
-                             </div>
+                          
+                          {logic.isLulus && (
+                            <button 
+                              onClick={() => window.open(`/sijil?tingkatan=${activeLevel === 't4' ? '4' : '5'}&bab=${chapter.id}&skor=${logic.skorTertinggi}&nama=${encodeURIComponent(userData?.nama || userData?.name || 'Pelajar Cemerlang')}`, '_blank')} 
+                              className="shrink-0 bg-slate-900 text-white font-bold px-6 py-2.5 rounded-xl shadow-lg hover:scale-105 hover:bg-slate-800 transition-all flex items-center gap-2"
+                            >
+                              <Award className="w-5 h-5 text-yellow-400"/> Muat Turun Sijil
+                            </button>
                           )}
                         </div>
                       )}
+
+                      {/* SURAT RUJUKAN GURU */}
+                      {logic.limitReached && !isKawalan && (
+                        <div className="col-span-full mb-6 bg-fuchsia-50/90 backdrop-blur-md rounded-2xl border border-fuchsia-200 p-6 md:p-8 shadow-md relative overflow-hidden">
+                          <div className="absolute top-0 right-0 p-6 opacity-10"><Award className="w-32 h-32 text-fuchsia-600" /></div>
+                          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
+                            <div className="bg-white p-4 rounded-full shadow-sm shrink-0"><span className="text-4xl">💌</span></div>
+                            <div className="flex-1">
+                               <div className="inline-block bg-fuchsia-200 text-fuchsia-800 text-xs font-bold px-3 py-1 rounded-full mb-3 uppercase tracking-wider border border-fuchsia-300">Surat Rujukan Guru</div>
+                               <h3 className="text-xl font-bold text-fuchsia-900 mb-2">Usaha Anda Sangat Hebat, {userData?.nama?.split(' ')[0] || "Pelajar"}!</h3>
+                               <p className="text-fuchsia-800 text-sm leading-relaxed max-w-3xl mb-4">Mendapat Lencana Gangsa bukanlah kegagalan. Anda telah menunjukkan dedikasi luar biasa dengan menghabiskan semua modul Bimbingan AI. Sistem kini menyarankan anda untuk <strong>berjumpa dengan guru mata pelajaran</strong> untuk sentuhan akhir. Tunjukkan kad laporan ini kepada guru anda! 💪</p>
+                               <div className="bg-white/60 p-4 rounded-xl border border-fuchsia-100 flex flex-col sm:flex-row gap-4 sm:gap-8 max-w-lg">
+                                  <div><span className="block text-xs text-fuchsia-600 font-bold uppercase">Skor Diagnostik</span><span className="text-lg font-black text-fuchsia-900">{logic.pre}%</span></div>
+                                  <div><span className="block text-xs text-fuchsia-600 font-bold uppercase">Skor Pasca Tertinggi</span><span className="text-lg font-black text-fuchsia-900">{logic.post}%</span></div>
+                               </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                        
+                        {/* KAD 1: UJIAN DIAGNOSTIK */}
+                        <div className={`p-5 rounded-2xl border ${logic.pre !== undefined ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-sky-200 shadow-sm'} flex flex-col justify-between gap-4 backdrop-blur-sm`}>
+                          <div>
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className={`p-2 rounded-lg ${logic.pre !== undefined ? 'bg-emerald-100 text-emerald-600' : 'bg-sky-100 text-sky-600'}`}><Zap className="w-5 h-5" /></div>
+                              <h4 className="font-bold">Ujian Diagnostik</h4>
+                            </div>
+                            <p className="text-xs text-slate-500 leading-relaxed mb-3">Penentuan aras kefahaman awal anda.</p>
+                            
+                            {logic.pre !== undefined && logic.prePenuh !== undefined && (
+                              <div className={`p-3 rounded-xl text-xs font-medium border ${logic.adaRalatSemakanPre ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-white/60 border-emerald-100 text-slate-700'}`}>
+                                <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span>Objektif:</span> <span className="font-bold">{logic.preObjektif} markah</span></p>
+                                <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span>Struktur/Esei:</span> <span className="font-bold">{logic.adaRalatSemakanPre ? '??' : logic.preStruktur} markah</span></p>
+                                <p className={`flex justify-between font-bold ${logic.adaRalatSemakanPre ? 'text-rose-700' : 'text-emerald-700'}`}><span>Jumlah Keseluruhan:</span> <span>{logic.adaRalatSemakanPre ? '??' : (logic.preObjektif! + logic.preStruktur!)} / {logic.prePenuh}</span></p>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex justify-between items-center mt-2">
+                            {logic.pre !== undefined ? (
+                                logic.adaRalatSemakanPre ? <span className="text-sm font-bold text-rose-600 flex items-center gap-1"><Clock className="w-4 h-4"/> Semakan Guru</span>
+                                : <span className="text-sm font-bold text-emerald-600">Selesai ({logic.pre}%)</span>
+                            ) : (
+                              <button onClick={() => openModule(chapter.id, "pre", "", "")} className="w-full px-5 py-2 bg-sky-600 text-white text-sm font-bold rounded-xl hover:bg-sky-700 shadow-sm">Mula Ujian</button>
+                            )}
+                            
+                            {logic.pre !== undefined && logic.docIdPre && !logic.adaRalatSemakanPre && (
+                               <button onClick={() => window.location.href = `/student/semakan-ujian/${logic.docIdPre}`} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 flex items-center gap-1 shadow-sm">
+                                 <FileSearch className="w-4 h-4"/> Semak
+                               </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* KAD 2: BIMBINGAN AI / MOD PEMULIHAN WAJIB @ PILIHAN */}
+                        {preTelahDinilai && !isKawalan && !logic.preLulusTerus && !logic.limitReached && (
+                          <div className={`p-5 rounded-2xl border backdrop-blur-sm transition-all duration-300 ${
+                              (logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.pemulihanSelesai) ? 'bg-emerald-50/80 border-emerald-200' : 
+                              (logic.attempt === 1 && logic.pemulihanWajib) ? 'bg-rose-50/90 border-rose-300 shadow-[0_5px_20px_-5px_rgba(225,29,72,0.3)]' :
+                              (logic.attempt === 1 && logic.pemulihanPilihan) ? 'bg-orange-50/90 border-orange-300 shadow-[0_5px_20px_-5px_rgba(251,146,60,0.3)]' : 
+                              'bg-white/80 border-amber-200 shadow-sm'
+                            } flex flex-col justify-between gap-4`}>
+                            
+                            <div>
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className={`p-2 rounded-lg ${ralatMenghalangBimbingan ? 'bg-rose-100 text-rose-600' : logic.attempt === 1 && logic.pemulihanWajib ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-md' : logic.attempt === 1 && logic.pemulihanPilihan ? 'bg-gradient-to-r from-orange-400 to-amber-500 text-white shadow-md' : 'bg-amber-100 text-amber-600'}`}>
+                                  {ralatMenghalangBimbingan ? <AlertTriangle className="w-5 h-5" /> : logic.attempt === 1 && logic.pemulihanWajib ? <AlertTriangle className="w-5 h-5" /> : logic.attempt === 1 && logic.pemulihanPilihan ? <Rocket className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+                                </div>
+                                <h4 className="font-bold">
+                                  {ralatMenghalangBimbingan ? "Menunggu Semakan" : 
+                                   logic.attempt === 1 && logic.pemulihanWajib ? `Pemulihan (Wajib) 🚨` :
+                                   logic.attempt === 1 && logic.pemulihanPilihan ? `Pemulihan (Pilihan) 🚀` : `Bimbingan AI (${logic.aras})`}
+                                </h4>
+                              </div>
+                              <p className={`text-xs leading-relaxed ${logic.attempt === 1 && logic.pemulihanWajib ? 'text-rose-700 font-bold' : logic.attempt === 1 && logic.pemulihanPilihan ? 'text-orange-700 font-medium' : 'text-slate-500'}`}>
+                                {ralatMenghalangBimbingan ? "Status tahap penguasaan anda sedang dikemas kini oleh guru." :
+                                 logic.attempt === 1 && logic.pemulihanWajib ? "Skor anda menurun/rendah. Anda DIWAJIBKAN buat modul ini untuk buka bab seterusnya." :
+                                 logic.attempt === 1 && logic.pemulihanPilihan ? "Tahniah, skor anda meningkat! Anda BOLEH buat modul ini jika mahu tingkatkan lagi markah." :
+                                 "Bimbingan Inkuiri bersama Tutor AI, Nota & Video."}
+                              </p>
+                            </div>
+                            
+                            <div className="mt-2">
+                              {ralatMenghalangBimbingan ? (
+                                  <button disabled className="w-full px-5 py-2 text-rose-400 bg-rose-100/50 text-sm font-bold rounded-xl cursor-not-allowed border border-rose-200">Menunggu Guru...</button>
+                              ) :
+                              (logic.attempt === 0 && logic.aiSelesai) || (logic.attempt === 1 && logic.pemulihanSelesai) ? (
+                                <span className="text-sm font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Selesai</span>
+                              ) : (
+                                <button onClick={() => {
+                                          if (logic.attempt === 1) mulaUlanganBimbingan(chapter.id, logic.aras, subSemasa);
+                                          else openModule(chapter.id, "ai", logic.aras, subSemasa);
+                                        }} 
+                                        className={`w-full px-5 py-2.5 text-white text-sm font-bold rounded-xl shadow-md transition-all ${
+                                          logic.attempt === 1 && logic.pemulihanWajib
+                                          ? 'bg-gradient-to-r from-rose-500 to-red-600 hover:scale-[1.02] hover:shadow-rose-500/30' 
+                                          : logic.attempt === 1 && logic.pemulihanPilihan
+                                          ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:scale-[1.02] hover:shadow-orange-500/30'
+                                          : 'bg-amber-500 hover:bg-amber-600'
+                                        }`}>
+                                  {logic.attempt === 1 ? "Mula Pemulihan 🌟" : "Mula Bimbingan"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* KAD 3: UJIAN PASCA */}
+                        {preTelahDinilai && !logic.preLulusTerus && !logic.limitReached && (!isKawalan && (logic.aiSelesai || logic.attempt === 1) || isKawalan) && (
+                          <div className={`p-5 rounded-2xl border backdrop-blur-sm ${
+                              logic.isLulus ? 'bg-emerald-50/80 border-emerald-200' : 'bg-white/80 border-blue-200 shadow-sm'
+                            } flex flex-col justify-between gap-4 animate-in zoom-in duration-300`}>
+                            
+                            <div>
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className={`p-2 rounded-lg ${logic.isLulus ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                                  <CheckCircle2 className="w-5 h-5" />
+                                </div>
+                                <h4 className="font-bold">Ujian Pasca {logic.attempt === 1 ? "(Cubaan 2)" : ""}</h4>
+                              </div>
+                              <p className="text-xs text-slate-500 leading-relaxed mb-3">Sasaran Sijil: {logic.targetLulus}%</p>
+                              
+                              {logic.post !== undefined && logic.postPenuh !== undefined && (
+                                <div className={`p-3 rounded-xl text-xs font-medium border ${logic.adaRalatSemakanPost ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50/60 border-blue-100 text-slate-700'}`}>
+                                  <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span>Objektif:</span> <span className="font-bold">{logic.postObjektif} markah</span></p>
+                                  <p className="flex justify-between border-b border-black/5 pb-1 mb-1"><span>Struktur/Esei:</span> <span className="font-bold">{logic.adaRalatSemakanPost ? '??' : logic.postStruktur} markah</span></p>
+                                  <p className={`flex justify-between font-bold ${logic.adaRalatSemakanPost ? 'text-rose-700' : 'text-blue-700'}`}><span>Jumlah Keseluruhan:</span> <span>{logic.adaRalatSemakanPost ? '??' : (logic.postObjektif! + logic.postStruktur!)} / {logic.postPenuh}</span></p>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex justify-between items-center mt-2">
+                              {logic.post !== undefined && logic.attempt > 0 && (logic.isLulus || isKawalan) ? (
+                                 <span className={`text-sm font-bold ${logic.isLulus ? 'text-emerald-600' : 'text-amber-600'}`}>Selesai ({logic.post}%)</span>
+                              ) : logic.adaRalatSemakanPost ? (
+                                 <span className="text-sm font-bold text-rose-600 flex items-center gap-1"><Clock className="w-4 h-4"/> Semakan Guru</span>
+                              ) : isKawalan && !userData?.bukaPostTest ? (
+                                 <button disabled className="px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-100 text-slate-400 border border-slate-200 w-full flex items-center justify-center gap-1.5 cursor-not-allowed shadow-inner">
+                                   <Lock className="w-4 h-4"/> Menunggu Arahan Guru
+                                 </button>
+                              ) : !isKawalan && logic.attempt === 1 && !logic.pemulihanSelesai && logic.pemulihanWajib ? (
+                                 <button disabled className="px-4 py-2.5 text-xs font-bold rounded-xl bg-rose-100 text-rose-500 border border-rose-200 w-full flex items-center justify-center gap-1.5 cursor-not-allowed">
+                                   <Lock className="w-4 h-4"/> Siapkan Pemulihan
+                                 </button>
+                              ) : !isKawalan && logic.attempt === 1 && !logic.pemulihanSelesai && logic.pemulihanPilihan ? (
+                                 <button disabled className="px-4 py-2.5 text-xs font-bold rounded-xl bg-orange-100 text-orange-500 border border-orange-200 w-full flex items-center justify-center gap-1.5 cursor-not-allowed">
+                                   <Lock className="w-4 h-4"/> Pemulihan (Pilihan)
+                                 </button>
+                              ) : (
+                                <button 
+                                  onClick={() => openModule(chapter.id, "post", "", "")}
+                                  className="px-5 py-2.5 text-sm font-bold rounded-xl transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-sm w-full"
+                                >
+                                  {!isKawalan && logic.attempt === 1 ? "Mula Ujian (Cubaan 2)" : "Mula Ujian"}
+                                </button>
+                              )}
+
+                              {logic.post !== undefined && logic.docIdPost && !logic.adaRalatSemakanPost && (
+                                 <button onClick={() => window.location.href = `/student/semakan-ujian/${logic.docIdPost}`} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 flex items-center gap-1 shadow-sm ml-2">
+                                   <FileSearch className="w-4 h-4"/> Semak
+                                 </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -573,66 +955,212 @@ export default function MuridDashboard() {
         </div>
       </div>
 
-      {/* 🌟 MODAL SOAL SELIDIK AWAL (WAJIB JAWAB) */}
+      {/* BUTANG TERAPUNG FEEDBACK */}
+      <button 
+        onClick={() => setShowFeedback(true)}
+        className="fixed bottom-6 right-6 bg-slate-800 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform z-50 flex items-center justify-center border-2 border-white/20 group"
+        title="Beri Maklum Balas"
+      >
+        <MessageSquare className="w-6 h-6" />
+        <span className="absolute right-14 bg-slate-800 text-amber-400 text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity border border-slate-700 whitespace-nowrap pointer-events-none">
+          Suara Pelajar
+        </span>
+      </button>
+
+      {/* 🌟 MODAL SOAL SELIDIK KAJIAN 🌟 */}
       <AnimatePresence>
         {showSurvey && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
-               <div className="bg-purple-600 p-10 text-white relative">
-                  <ClipboardList className="absolute -right-4 -top-4 w-40 h-40 opacity-10" />
-                  <h2 className="text-3xl font-black flex items-center gap-4 italic tracking-tighter">Soal Selidik Awalan <Sparkles className="text-yellow-300"/></h2>
-                  <p className="text-purple-100 text-sm mt-2 font-medium">Lengkapkan maklum balas ini sebelum menggunakan HUB I-RAGs.</p>
-               </div>
-               
-               <div className="p-8 overflow-y-auto flex-1 bg-slate-50 text-slate-800 custom-scrollbar">
-                  {loadingSurvey ? <div className="py-20 text-center"><Loader2 className="animate-spin mx-auto w-12 h-12 text-purple-600"/></div> : 
-                   surveyQuestions.map((q, idx) => (
-                     <div key={q.id} className="mb-8 bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                        <p className="font-black text-slate-800 mb-5 leading-tight"><span className="text-purple-600 mr-2">{idx+1}.</span>{q.soalan}</p>
-                        <div className="grid grid-cols-5 gap-3">
-                           {[1,2,3,4,5].map(val => (
-                              <button key={val} onClick={() => setSurveyAnswers({...surveyAnswers, [q.id]: val})} 
-                                className={`py-4 rounded-2xl text-xs font-black border-2 transition-all ${surveyAnswers[q.id] === val ? 'bg-purple-600 border-purple-600 text-white shadow-xl scale-110' : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-purple-200'}`}>
-                                {val}
-                              </button>
-                           ))}
-                        </div>
-                     </div>
-                   ))
-                  }
-               </div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm overflow-y-auto">
+            <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }} className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+              
+              {/* Header Modal */}
+              <div className="bg-gradient-to-r from-purple-700 to-fuchsia-700 p-5 md:p-6 text-white flex justify-between items-center shrink-0 shadow-md relative z-10">
+                <div>
+                  <h3 className="font-bold text-lg md:text-xl flex items-center gap-2">
+                    <ClipboardList className="w-6 h-6 text-fuchsia-200"/> 
+                    {surveyType === "pre" ? "Soal Selidik Penilaian Sistem (Awalan)" : "Soal Selidik Penilaian Sistem (Akhir)"}
+                  </h3>
+                  <p className="text-purple-100 text-xs md:text-sm mt-1">Borang Kaji Selidik Murid (Skala 1 - 5)</p>
+                </div>
+                {/* 
+                   Semasa Auto Pop-up (Pre-Survey), mungkin pelajar tak sengaja tutup.
+                   Kita benarkan butang 'Close' tapi ia akan diulang papar pada sesi login akan datang selagi tak dijawab. 
+                */}
+                <button onClick={() => setShowSurvey(false)} className="bg-white/10 p-2 rounded-xl text-purple-100 hover:text-white hover:bg-rose-500 transition-colors"><X className="w-6 h-6" /></button>
+              </div>
 
-               <div className="p-10 bg-white border-t border-slate-100">
-                  <button onClick={hantarSoalSelidik} disabled={isSubmittingSurvey} className="w-full py-5 bg-purple-600 text-white font-black rounded-[2rem] hover:bg-purple-700 shadow-2xl shadow-purple-900/40 flex items-center justify-center gap-4 transition-all active:scale-95">
-                     {isSubmittingSurvey ? <Loader2 className="animate-spin"/> : <><Send size={22}/> Hantar & Mula Belajar</>}
-                  </button>
-               </div>
+              {/* Kandungan Soalan */}
+              <div className="p-4 md:p-8 overflow-y-auto flex-1 bg-slate-50 custom-scrollbar">
+                 {loadingSurvey ? (
+                    <div className="text-center text-slate-500 py-20 flex flex-col items-center">
+                       <Loader2 className="animate-spin w-10 h-10 mb-4 text-purple-500" />
+                       <p className="font-bold">Memuat turun instrumen soal selidik...</p>
+                    </div>
+                 ) : surveyQuestions.length === 0 ? (
+                    <div className="text-center text-slate-500 py-20">
+                       <ClipboardList className="w-16 h-16 mx-auto mb-4 text-slate-300"/>
+                       <h4 className="text-lg font-bold text-slate-700 mb-2">Tiada Soal Selidik Aktif</h4>
+                       <p>Penyelidik belum memuat naik atau mengaktifkan set soalan buat masa ini.</p>
+                    </div>
+                 ) : currentSurveyCategoryIndex === -1 ? (
+                    // 🌟 PAPARAN PANDUAN RINGKAS SEBELUM MULA MENJAWAB 🌟
+                    <div className="space-y-6">
+                      <div className="bg-purple-50 p-6 rounded-2xl border border-purple-200 shadow-sm">
+                         <h4 className="text-xl font-black text-purple-800 mb-4 uppercase tracking-wider flex items-center gap-2">
+                           <Info className="w-6 h-6" /> Panduan Ringkas
+                         </h4>
+                         <ul className="list-disc ml-5 space-y-3 text-slate-700 text-sm md:text-base leading-relaxed">
+                           <li>Soal selidik ini menggunakan bahasa yang mudah dan terus merujuk kepada <strong>pengalaman sebenar</strong> anda menggunakan sistem ini.</li>
+                           <li>Setiap item hanya menanyakan satu perkara utama. <strong>Tiada jawapan yang betul atau salah.</strong></li>
+                           <li>Sila jawab dengan jujur untuk membantu guru menambah baik laman web pembelajaran ini.</li>
+                         </ul>
+                      </div>
+                      
+                      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                         <h4 className="font-bold text-slate-800 mb-4">Petunjuk Skala Jawapan:</h4>
+                         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"><span className="block text-2xl font-black text-purple-600 mb-1">1</span><span className="text-[10px] font-bold uppercase text-slate-600">Sangat Tidak Setuju</span></div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"><span className="block text-2xl font-black text-purple-600 mb-1">2</span><span className="text-[10px] font-bold uppercase text-slate-600">Tidak Setuju</span></div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"><span className="block text-2xl font-black text-purple-600 mb-1">3</span><span className="text-[10px] font-bold uppercase text-slate-600">Tidak Pasti</span></div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"><span className="block text-2xl font-black text-purple-600 mb-1">4</span><span className="text-[10px] font-bold uppercase text-slate-600">Setuju</span></div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center col-span-2 sm:col-span-1"><span className="block text-2xl font-black text-purple-600 mb-1">5</span><span className="text-[10px] font-bold uppercase text-slate-600">Sangat Setuju</span></div>
+                         </div>
+                      </div>
+                    </div>
+                 ) : (
+                    <div className="space-y-6">
+                      
+                      {/* Sub-Header Kategori (Pagination) */}
+                      <div className="mb-6 border-b border-slate-200 pb-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-xl font-extrabold text-purple-800 uppercase tracking-wide">
+                            Bahagian {currentSurveyCategoryIndex + 1}
+                          </h4>
+                          <span className="text-xs font-bold text-slate-400 bg-slate-200 px-3 py-1 rounded-full">
+                             {currentSurveyCategoryIndex + 1} / {surveyCategories.length}
+                          </span>
+                        </div>
+                        {/* Progress Bar Halaman */}
+                        <div className="h-2 bg-slate-200 rounded-full w-full overflow-hidden">
+                          <div className="h-full bg-purple-500 transition-all duration-300" style={{ width: `${((currentSurveyCategoryIndex + 1) / surveyCategories.length) * 100}%` }}></div>
+                        </div>
+                      </div>
+
+                      {/* Senarai Soalan Untuk Kategori Semasa */}
+                      {questionsInCurrentCategory.map((q, idx) => {
+                        // Kenal pasti indeks keseluruhan untuk paparan nombor
+                        const globalIndex = surveyQuestions.findIndex(sq => sq.id === q.id) + 1;
+
+                        return (
+                           <div key={q.id} className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-purple-300 transition-colors">
+                              <p className="font-semibold text-slate-800 mb-5 leading-relaxed text-sm md:text-base">
+                                <span className="text-purple-600 font-black mr-2 text-lg">{globalIndex}.</span> {q.soalan}
+                              </p>
+                              
+                              <div className="grid grid-cols-5 gap-2 md:gap-4">
+                                 {[1,2,3,4,5].map(score => {
+                                    const isSelected = surveyAnswers[q.id] === score;
+                                    let label = "";
+                                    if(score === 1) label = "Sangat Tidak Setuju";
+                                    else if(score === 2) label = "Tidak Setuju";
+                                    else if(score === 3) label = "Tidak Pasti"; // 🌟 Ditukar ke Tidak Pasti
+                                    else if(score === 4) label = "Setuju";
+                                    else label = "Sangat Setuju";
+
+                                    return (
+                                      <button 
+                                        key={score} 
+                                        onClick={() => setSurveyAnswers({...surveyAnswers, [q.id]: score})}
+                                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${
+                                          isSelected 
+                                          ? 'bg-purple-100 border-purple-500 text-purple-800 shadow-md transform scale-105' 
+                                          : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:border-slate-300'
+                                        }`}
+                                      >
+                                         <span className={`text-xl md:text-2xl font-black mb-1.5 ${isSelected ? 'text-purple-700' : 'text-slate-400'}`}>{score}</span>
+                                         <span className="text-[9px] md:text-[10px] text-center font-bold leading-tight h-6 flex items-center justify-center uppercase">{label}</span>
+                                      </button>
+                                    )
+                                 })}
+                              </div>
+                           </div>
+                        )
+                      })}
+                    </div>
+                 )}
+              </div>
+
+              {/* Footer Modal (Butang Navigasi / Hantar) */}
+              {surveyQuestions.length > 0 && !loadingSurvey && (
+                <div className="bg-white p-5 border-t border-slate-200 flex justify-between items-center shrink-0">
+                  {currentSurveyCategoryIndex === -1 ? (
+                    // Butang Mula Menjawab (Di halaman Panduan)
+                    <button 
+                      onClick={() => setCurrentSurveyCategoryIndex(0)}
+                      className="w-full py-3.5 bg-purple-600 text-white hover:bg-purple-700 font-bold rounded-xl shadow-md transition-all text-center flex items-center justify-center gap-2"
+                    >
+                      Faham & Mula Menjawab <ArrowRight className="w-5 h-5"/>
+                    </button>
+                  ) : (
+                    <>
+                      {/* Butang Kembali */}
+                      <button 
+                        onClick={() => setCurrentSurveyCategoryIndex(prev => prev - 1)}
+                        className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      >
+                        <ArrowLeft className="w-4 h-4"/> Kembali
+                      </button>
+                      
+                      {/* Butang Seterusnya / Hantar */}
+                      {currentSurveyCategoryIndex === surveyCategories.length - 1 ? (
+                        <button 
+                          onClick={hantarSoalSelidik} 
+                          disabled={isSubmittingSurvey}
+                          className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md ${isSubmittingSurvey ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+                        >
+                          {isSubmittingSurvey ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5"/>}
+                          {isSubmittingSurvey ? 'Menyimpan...' : 'Hantar Kaji Selidik'}
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            const unanswered = questionsInCurrentCategory.filter(q => !surveyAnswers[q.id]);
+                            if(unanswered.length > 0) {
+                               alert(`Sila jawab baki ${unanswered.length} soalan dalam bahagian ini sebelum ke halaman seterusnya.`);
+                               return;
+                            }
+                            setCurrentSurveyCategoryIndex(prev => prev + 1);
+                          }}
+                          className="px-6 py-3 bg-purple-600 text-white hover:bg-purple-700 font-bold rounded-xl flex items-center gap-2 shadow-md transition-all"
+                        >
+                          Seterusnya <ArrowRight className="w-4 h-4"/>
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* FLOATING FEEDBACK (KEKAL) */}
-      <button onClick={() => setShowFeedback(true)} className="fixed bottom-8 right-8 bg-slate-900 text-white p-5 rounded-full shadow-2xl hover:scale-110 active:scale-90 transition-all z-50 group border-4 border-white/20">
-         <MessageSquare size={26}/>
-         <span className="absolute right-20 bg-slate-900 px-5 py-3 rounded-2xl text-xs font-black text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity shadow-2xl border border-white/10 whitespace-nowrap">Suara Pelajar</span>
-      </button>
-
-      {/* MODAL FEEDBACK (KEKAL) */}
+      {/* MODAL FEEDBACK (Sedia Ada) */}
       <AnimatePresence>
         {showFeedback && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 text-slate-800">
-              <div className="bg-slate-800 p-8 text-white flex justify-between items-center">
-                <h3 className="font-black text-xl flex items-center gap-3"><MessageSquare className="text-amber-400"/> Suara Pelajar</h3>
-                <button onClick={() => setShowFeedback(false)} className="text-slate-400 hover:text-rose-400 transition-colors"><X size={24} /></button>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+              <div className="bg-slate-800 p-5 text-white flex justify-between items-center">
+                <h3 className="font-bold text-lg flex items-center gap-2"><MessageSquare className="w-5 h-5 text-amber-400"/> Suara Pelajar</h3>
+                <button onClick={() => setShowFeedback(false)} className="text-slate-400 hover:text-rose-400 transition-colors"><X className="w-6 h-6" /></button>
               </div>
-              <div className="p-10">
-                <div className="mb-6">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Kategori</label>
+              <div className="p-6">
+                <p className="text-sm text-slate-600 mb-6">Kongsi pandangan, aduan masalah, atau pujian tentang Hub I-RAGs. Cikgu akan membaca dan mengambil maklum!</p>
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Kategori</label>
                   <select 
                     value={feedbackJenis} onChange={(e) => setFeedbackJenis(e.target.value)}
-                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-slate-700 text-sm font-black focus:border-sky-500 outline-none"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-700 text-sm focus:border-sky-500 outline-none font-medium"
                   >
                     <option value="Pujian">🌟 Pujian / Berpuas Hati</option>
                     <option value="Cadangan">💡 Cadangan Penambahbaikan</option>
@@ -640,27 +1168,26 @@ export default function MuridDashboard() {
                     <option value="Lain-lain">💬 Lain-lain</option>
                   </select>
                 </div>
-                <div className="mb-8">
-                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Mesej Anda</label>
+                <div className="mb-2">
+                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Mesej Anda</label>
                    <textarea
                      value={feedbackMsg} onChange={(e) => setFeedbackMsg(e.target.value)}
-                     placeholder="Tulis di sini..."
-                     className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-sky-500 outline-none resize-none min-h-[150px] text-sm text-slate-800 font-bold"
+                     placeholder="Contoh: Saya suka main game tadi! Tapi kadang-kadang AI lambat sikit balas..."
+                     className="w-full p-4 bg-slate-50 border border-slate-300 rounded-xl focus:border-sky-500 outline-none resize-y min-h-30 text-sm text-slate-800"
                    ></textarea>
                 </div>
                 <button 
                   onClick={hantarMaklumBalas} disabled={isSubmitting || !feedbackMsg.trim()}
-                  className={`w-full py-5 rounded-[2rem] font-black text-white flex items-center justify-center gap-3 transition-all ${isSubmitting || !feedbackMsg.trim() ? 'bg-slate-200' : 'bg-slate-900 hover:bg-slate-800 shadow-2xl shadow-slate-900/30'}`}
+                  className={`w-full mt-4 py-3.5 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-colors ${isSubmitting || !feedbackMsg.trim() ? 'bg-slate-300 cursor-not-allowed text-slate-500' : 'bg-slate-800 hover:bg-slate-700 shadow-md'}`}
                 >
-                  {isSubmitting ? <Loader2 className="animate-spin" /> : <Send size={20} />}
-                  {isSubmitting ? 'Menghantar...' : 'Hantar Sekarang'}
+                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  {isSubmitting ? 'Menghantar...' : 'Hantar Maklum Balas'}
                 </button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }
