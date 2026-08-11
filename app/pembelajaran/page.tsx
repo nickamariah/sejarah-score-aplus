@@ -11,7 +11,6 @@ function KomponenPembelajaran() {
   const babDariURL = searchParams.get("bab") || "tingkatan4_bab1_sub1.1"; 
   const arasDariURL = (searchParams.get("aras") || "rendah").toLowerCase();
   
-  // 🌟 PERBAIKAN: Tangkap rujukGuru dari Dashboard untuk tukar ke mod Pemulihan automatik
   const modeDariURL = (searchParams.get("mode") || "normal").toLowerCase();
   const isRujukGuru = searchParams.get("rujukGuru") === "true";
   const isPemulihan = modeDariURL === "pemulihan" || isRujukGuru;
@@ -20,7 +19,8 @@ function KomponenPembelajaran() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
-  const [activeView, setActiveView] = useState<"nota" | "video" | "bukuTeks">("bukuTeks");
+  // 🌟 PERUBAHAN: Paparan lalai (default) ditukar kepada "nota"
+  const [activeView, setActiveView] = useState<"nota" | "video" | "bukuTeks">("nota");
   const [currentPhase, setCurrentPhase] = useState(1);
   const [isMastered, setIsMastered] = useState(false);
   const [showPdfMobile, setShowPdfMobile] = useState(false);
@@ -57,11 +57,10 @@ function KomponenPembelajaran() {
   };
 
   useEffect(() => {
-    // 🌟 PERBAIKAN ID MURID: Pastikan sistem tangkap ID Pengguna Sebenar jika ada (Elak mismatch dengan Dashboard)
     const rawUser = localStorage.getItem("currentUser");
     if (rawUser) {
         const userLokal = JSON.parse(rawUser);
-        setStudentId(userLokal.idPengguna || userLokal.id);
+        setStudentId(userLokal.id);
     }
   }, []);
 
@@ -133,7 +132,7 @@ function KomponenPembelajaran() {
   }, [chapterId, currentSub]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-  useEffect(() => { if (!isLoading && inputRef.current && !isMastered) setTimeout(() => { inputRef.current?.focus(); }, 100); }, [isLoading, isMastered]);
+  useEffect(() => { if (!isLoading && inputRef.current) setTimeout(() => { inputRef.current?.focus(); }, 100); }, [isLoading, isMastered]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -198,7 +197,6 @@ function KomponenPembelajaran() {
     } else { window.location.href = '/murid'; }
   };
 
-  // 🌟 PENGURUSAN SESI YANG LEBIH SELAMAT & STABIL
   useEffect(() => {
     if (studentId === "murid_test") return; 
 
@@ -209,7 +207,6 @@ function KomponenPembelajaran() {
       try {
         const docSnap = await getDoc(sessionDocRef);
         
-        // JIKA SESI BELUM WUJUD (MULA BARU)
         if (!docSnap.exists()) {
           let ayatPertamaAI = `Hai! Saya Cikgu AI I-RAGs 👋. Kita akan mulakan sesi untuk **${namaBabSebenar} (${currentSub} ${namaSubtopikSebenar})**.\n\nBerdasarkan nota di sebelah, apa yang awak paling ingat atau faham tentang tajuk ini? Cuba kongsikan.`;
           
@@ -217,7 +214,6 @@ function KomponenPembelajaran() {
             ayatPertamaAI = `Hai awak! 🌟 Jangan risau kalau skor ujian pasca masih kurang. Cikgu ada di sini untuk bantu. Kita bincang santai-santai je untuk topik **${namaBabSebenar} (${currentSub} ${namaSubtopikSebenar})**.\n\nCuba awak tengok nota di sebelah sekejap, lepas tu beritahu cikgu kalau awak dah sedia! 😊`;
           }
 
-          // Cipta sesi induk
           await setDoc(sessionDocRef, { 
              studentId, 
              chapterId, 
@@ -227,21 +223,18 @@ function KomponenPembelajaran() {
              mode: isPemulihan ? "pemulihan" : "normal" 
           });
 
-          // Cipta sapaan pertama dengan ID tetap 'greeting' untuk elak duplicate/kosong
           await setDoc(doc(messagesCollectionRef, "greeting"), { 
              role: "assistant", 
              content: ayatPertamaAI, 
              timestamp: serverTimestamp() 
           });
         } 
-        // JIKA SESI SUDAH WUJUD (SAMBUNG ATAU ULANG KAJI)
         else {
           const dataSesi = docSnap.data();
           let fasaTerkini = dataSesi.currentPhase || 1;
           if (fasaTerkini > maxFasa) fasaTerkini = maxFasa;
           setCurrentPhase(fasaTerkini);
           
-          // Semak jika sudah selesai / sudah di tahap akhir
           if (dataSesi.status === "completed" || fasaTerkini >= maxFasa) {
              setIsMastered(true);
              if (dataSesi.status !== "completed") {
@@ -334,10 +327,12 @@ function KomponenPembelajaran() {
       await addDoc(messagesCollectionRef, { role: "user", content: teksMurid, timestamp: serverTimestamp() });
       const teksRujukanAI = currentSubInfo?.teksAI || "";
 
+      const promptDihantar = isMastered ? `[SESI ULANG KAJI BEBAS - Jawab segala soalan murid tentang Sejarah dengan mesra tanpa memaksa mereka ikut fasa inkuiri]: ${teksMurid}` : teksMurid;
+
       const response = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          studentId, chapterId, text: teksMurid, currentPhase, aras: arasDariURL, soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema,
+          studentId, chapterId, text: promptDihantar, currentPhase, aras: arasDariURL, soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema,
           tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, 
           mode: isPemulihan ? "pemulihan" : "normal",
           previousMessages: messages.slice(-4).map(m => ({ role: m.role, content: m.content })) 
@@ -349,7 +344,7 @@ function KomponenPembelajaran() {
       if (data.reply) {
         await addDoc(messagesCollectionRef, { role: "assistant", content: data.reply, timestamp: serverTimestamp() });
 
-        if (data.isPhaseComplete) {
+        if (!isMastered && data.isPhaseComplete) {
           if (currentPhase < maxFasa) {
             const nextPhase = currentPhase + 1;
             setCurrentPhase(nextPhase);
@@ -373,7 +368,8 @@ function KomponenPembelajaran() {
           } else if (currentPhase >= maxFasa) {
             setIsMastered(true);
             await updateDoc(sessionDocRef, { status: "completed" });
-            await addDoc(messagesCollectionRef, { role: "assistant", content: `🎉 **SYABAS!** Kefahaman awak sangat cemerlang. Bimbingan subtopik ini selesai. Sila tekan butang Seterusnya.`, timestamp: serverTimestamp() });
+            
+            await addDoc(messagesCollectionRef, { role: "assistant", content: `🎉 **SYABAS!** Kefahaman awak sangat cemerlang. Bimbingan subtopik ini selesai.\n\n*(Nota: Awak dah boleh tekan butang Seterusnya. Tapi kalau ada soalan tambahan, cikgu masih ada di sini tau! 😊)*`, timestamp: serverTimestamp() });
           }
         }
       }
@@ -398,18 +394,16 @@ function KomponenPembelajaran() {
             <ArrowLeft size={14}/> Kembali
           </button>
           
+          {/* 🌟 PERUBAHAN: Susunan Ditukar (Nota | Video | Buku Teks | Cetak) */}
           <div className="flex bg-black/40 p-1 rounded-lg border border-white/10 shrink-0">
-            
             <button onClick={() => setActiveView("nota")} className={`px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${activeView === "nota" ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`} title="Nota Spesifik Subtopik">
               <BookOpen size={14}/> Nota
             </button>
-
-            <button onClick={() => setActiveView("bukuTeks")} className={`px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${activeView === "bukuTeks" ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`} title="Rujuk Buku Teks / Nota Induk Bab">
-              <Library size={14}/> Buku Teks
-            </button>
-            
             <button onClick={() => setActiveView("video")} className={`px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${activeView === "video" ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`}>
               <PlayCircle size={14}/> Video
+            </button>
+            <button onClick={() => setActiveView("bukuTeks")} className={`px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${activeView === "bukuTeks" ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`} title="Rujuk Buku Teks / Nota Induk Bab">
+              <Library size={14}/> Buku Teks
             </button>
             
             <div className="w-px h-5 bg-white/20 mx-1 self-center"></div>
@@ -428,7 +422,6 @@ function KomponenPembelajaran() {
         <div className="flex-1 w-full h-full bg-white/50 backdrop-blur-sm relative flex flex-col">
           {isDragging && <div className="absolute inset-0 z-50 cursor-col-resize"></div>}
           
-          {/* PAPARAN VIDEO */}
           <div className={`absolute inset-0 z-40 flex flex-col bg-slate-900/95 backdrop-blur-md transition-all duration-300 ${activeView === "video" ? "opacity-100 visible pointer-events-auto" : "opacity-0 invisible pointer-events-none"}`}>
                <div className="flex-1 w-full h-full flex items-center justify-center p-4 relative bg-black/50">
                   {videoKhas ? (
@@ -443,7 +436,6 @@ function KomponenPembelajaran() {
                </div>
           </div>
           
-          {/* PAPARAN BUKU TEKS & NOTA */}
           <div className={`absolute inset-0 w-full h-full z-10 bg-white transition-opacity ${activeView !== "video" ? "opacity-100" : "opacity-0"}`}>
              <iframe src={activeView === "bukuTeks" ? getBukuTeksUrl() : getNotaUrl()} className="w-full h-full border-0" title="Dokumen Rujukan"/>
           </div>
@@ -483,7 +475,6 @@ function KomponenPembelajaran() {
                 </select>
               </div>
 
-              {/* TEKS FASA DINAMIK */}
               <div className="flex flex-col items-end w-32 lg:w-48">
                  <div className="text-[8px] lg:text-[9px] font-bold text-blue-100 uppercase tracking-wider mb-1 flex justify-between w-full gap-2">
                     <span className="truncate" title={isPemulihan ? "Fasa Santai" : `Fasa ${phaseNames[currentPhase - 1] || "Inkuiri"}`}>
@@ -505,10 +496,25 @@ function KomponenPembelajaran() {
             {subtopicsList.length > 0 ? subtopicsList.map((sub: any, index: number) => {
               const isPast = index < currentIndex;
               const isActive = index === currentIndex;
-              let style = "bg-white/10 text-white/50 border border-white/5"; 
-              if (isPast) style = "bg-emerald-500 text-white border-emerald-400 font-bold shadow-sm"; 
-              if (isActive) style = "bg-white/30 text-white font-bold border-white/50 shadow-sm ring-1 ring-white/30"; 
-              return <div key={sub.id} className={`flex-1 text-center py-1 rounded-sm text-[9px] lg:text-[10px] truncate px-1.5 transition-all min-w-[45px] ${style}`} title={sub.title}>{sub.id}</div>;
+              let style = "bg-white/10 text-white/50 border border-white/5 cursor-not-allowed"; 
+              if (isPast) style = "bg-emerald-500 text-white border-emerald-400 font-bold shadow-sm cursor-pointer hover:bg-emerald-400"; 
+              if (isActive) style = "bg-white/30 text-white font-bold border-white/50 shadow-sm ring-1 ring-white/30 cursor-pointer"; 
+              if (isMastered) style = "bg-emerald-500/80 text-white border-emerald-400 font-bold shadow-sm cursor-pointer hover:bg-emerald-500"; 
+
+              return (
+                <button 
+                  key={sub.id} 
+                  onClick={() => {
+                     if (isPast || isActive || isMastered) {
+                        window.location.href = `?bab=${pdfFileName}_sub${sub.id}&aras=${arasDariURL}&mode=${modeDariURL}`;
+                     }
+                  }}
+                  className={`flex-1 text-center py-1 rounded-sm text-[9px] lg:text-[10px] truncate px-1.5 transition-all min-w-[45px] ${style}`} 
+                  title={sub.title}
+                >
+                  {sub.id}
+                </button>
+              );
             }) : <div className="text-[10px] text-white/70 italic text-center w-full">Memuatkan...</div>}
           </div>
         </div>
@@ -541,15 +547,16 @@ function KomponenPembelajaran() {
         {/* INPUT TERLEKAT DI BAWAH */}
         <div className="bg-white/90 backdrop-blur-md border-t border-white/50 shadow-[0_-4px_10px_-10px_rgba(0,0,0,0.1)] shrink-0 z-20">
             
-            {!isLoading && !isMastered && (
+            {!isLoading && (
               <div className="flex flex-wrap gap-2 px-3 py-2.5 bg-white/50 border-b border-white/50 items-center justify-between">
                 
+                {/* 🌟 PERUBAHAN VERSI MOBILE: Susunan (Nota | Video | Buku Teks) */}
                 <div className="flex items-center gap-2">
-                  <button onClick={() => { setShowPdfMobile(true); setActiveView("bukuTeks"); }} className="lg:hidden bg-emerald-100 text-emerald-700 text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-emerald-200 transition-colors flex items-center gap-1.5 shadow-sm border border-emerald-200"><Library size={14}/> Buku</button>
                   <button onClick={() => { setShowPdfMobile(true); setActiveView("nota"); }} className="lg:hidden bg-amber-400 text-amber-950 text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-amber-500 transition-colors flex items-center gap-1.5 shadow-sm"><BookOpen size={14}/> Nota</button>
                   {(arasDariURL === "rendah" || arasDariURL === "sederhana") && (
                     <button onClick={() => { setShowPdfMobile(true); setActiveView("video"); }} className="lg:hidden bg-red-600 text-white text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-red-700 transition-all flex items-center gap-1.5 shadow-sm"><PlayCircle size={14}/> Video</button>
                   )}
+                  <button onClick={() => { setShowPdfMobile(true); setActiveView("bukuTeks"); }} className="lg:hidden bg-emerald-100 text-emerald-700 text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-emerald-200 transition-colors flex items-center gap-1.5 shadow-sm border border-emerald-200"><Library size={14}/> Buku</button>
                 </div>
 
                 <div className="flex items-center gap-2 ml-auto">
@@ -560,46 +567,52 @@ function KomponenPembelajaran() {
               </div>
             )}
 
-            {isMastered ? (
-              <div className="p-3 lg:p-4 bg-emerald-50/90 backdrop-blur-sm text-center flex flex-col md:flex-row items-center justify-center gap-3">
-                <div className="flex items-center gap-2"><CheckCircle2 className="w-6 h-6 text-emerald-500" /><div className="text-left"><h3 className="text-sm font-bold text-emerald-800 leading-tight">Dikuasai!</h3><p className="text-emerald-700 font-medium text-[10px]">Pemerhatian atau Ulang kaji perbualan ini ditutup untuk penyuntingan.</p></div></div>
-                <button onClick={gotoNextSubtopic} className="w-full md:w-auto bg-emerald-600 text-white text-[11px] lg:text-xs font-bold px-6 py-2 rounded-lg shadow-md hover:bg-emerald-700 transition-all flex items-center justify-center gap-1.5 ml-auto">
+            {isMastered && (
+              <div className="px-3 py-2 bg-emerald-50 text-center flex flex-col md:flex-row items-center justify-between gap-3 border-b border-emerald-100 shadow-inner">
+                <div className="flex items-center gap-2">
+                   <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                   <div className="text-left">
+                     <h3 className="text-sm font-bold text-emerald-800 leading-none mb-0.5">Dikuasai!</h3>
+                     <p className="text-emerald-600 font-medium text-[10px] leading-tight">Klik tab subtopik di atas jika ingin menyemak nota bab lain.</p>
+                   </div>
+                </div>
+                <button onClick={gotoNextSubtopic} className="w-full md:w-auto shrink-0 bg-emerald-600 text-white text-[11px] lg:text-xs font-bold px-5 py-2 rounded-lg shadow-sm hover:bg-emerald-700 transition-all flex items-center justify-center gap-1.5">
                   {currentIndex !== -1 && currentIndex + 1 < subtopicsList.length ? <>Seterusnya <ArrowLeft className="w-4 h-4 rotate-180"/></> : "Tamat & Kembali"}
                 </button>
               </div>
-            ) : (
-              <form onSubmit={sendMessage} className="p-2 lg:p-3 flex gap-2 items-end relative">
-                
-                <textarea
-                   ref={inputRef}
-                   value={input}
-                   onChange={handleInput}
-                   disabled={isLoading}
-                   onKeyDown={(e) => {
-                     if (e.key === 'Enter' && !e.shiftKey) {
-                       e.preventDefault();
-                       sendMessage();
-                     }
-                   }}
-                   onPaste={(e) => {
-                     e.preventDefault();
-                     alert("💡 CIKGU AI PESAN:\n\nFungsi 'Paste' (Tampal) ditutup ya. \n\nCikgu nak awak taip jawapan tu sendiri atau guna butang Suara (Mic). Bila kita taip atau sebut sendiri, otak kita akan lebih cepat ingat fakta Sejarah tau. Jom cuba! 💪");
-                   }}
-                   onDrop={(e) => e.preventDefault()}
-                   placeholder="Taip mesej di sini..."
-                   rows={1}
-                   className="w-full bg-white/70 backdrop-blur-sm border border-slate-300 text-sm lg:text-base text-slate-800 p-3 lg:p-3.5 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-inner resize-none max-h-32 transition-colors"
-                />
-                
-                <button type="button" onClick={toggleListening} disabled={isLoading} title="Gunakan Suara" className={`rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center transition-colors mb-0.5 shadow-sm border ${isListening ? 'bg-red-500 text-white border-red-600 animate-pulse shadow-red-500/50' : 'bg-white/80 text-slate-600 border-white/60 hover:bg-white hover:text-blue-600'}`}>
-                  <Mic size={18} />
-                </button>
-
-                <button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-600 text-white rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-600/20 transition-all active:scale-95 mb-0.5 border border-blue-500">
-                  <Send size={16} className={input.trim() && !isLoading ? "translate-x-0.5" : ""} />
-                </button>
-              </form>
             )}
+
+            <form onSubmit={sendMessage} className="p-2 lg:p-3 flex gap-2 items-end relative bg-white/50 backdrop-blur-sm">
+              <textarea
+                 ref={inputRef}
+                 value={input}
+                 onChange={handleInput}
+                 disabled={isLoading}
+                 onKeyDown={(e) => {
+                   if (e.key === 'Enter' && !e.shiftKey) {
+                     e.preventDefault();
+                     sendMessage();
+                   }
+                 }}
+                 onPaste={(e) => {
+                   e.preventDefault();
+                   alert("💡 CIKGU AI PESAN:\n\nFungsi 'Paste' (Tampal) ditutup ya. \n\nCikgu nak awak taip jawapan tu sendiri atau guna butang Suara (Mic). Bila kita taip atau sebut sendiri, otak kita akan lebih cepat ingat fakta Sejarah tau. Jom cuba! 💪");
+                 }}
+                 onDrop={(e) => e.preventDefault()}
+                 placeholder="Taip mesej atau soalan di sini..."
+                 rows={1}
+                 className="w-full bg-white/90 backdrop-blur-sm border border-slate-300 text-sm lg:text-base text-slate-800 p-3 lg:p-3.5 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-inner resize-none max-h-32 transition-colors"
+              />
+              
+              <button type="button" onClick={toggleListening} disabled={isLoading} title="Gunakan Suara" className={`rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center transition-colors mb-0.5 shadow-sm border ${isListening ? 'bg-red-500 text-white border-red-600 animate-pulse shadow-red-500/50' : 'bg-white/80 text-slate-600 border-white/60 hover:bg-white hover:text-blue-600'}`}>
+                <Mic size={18} />
+              </button>
+
+              <button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-600 text-white rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-600/20 transition-all active:scale-95 mb-0.5 border border-blue-500">
+                <Send size={16} className={input.trim() && !isLoading ? "translate-x-0.5" : ""} />
+              </button>
+            </form>
+            
         </div>
       </div>
     </div>
