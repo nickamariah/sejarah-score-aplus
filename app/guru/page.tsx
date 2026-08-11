@@ -234,7 +234,7 @@ export default function GuruDashboard() {
       });
 
       await Promise.all([...deleteSkorPromises, ...deleteChatPromises]);
-      showToastMessage(`Berjaya reset data ${babName} untuk pelajar ini.`, "success");
+      showToastMessage(`Berjaya reset semua data ${babName} untuk pelajar ini.`, "success");
 
       await tarikDetailMurid(murid);
       tarikDataSemakan(); 
@@ -280,6 +280,47 @@ export default function GuruDashboard() {
       await tarikDetailMurid(murid);
     } catch (error) {
       console.error("Gagal reset chat:", error);
+      showToastMessage("Gagal memadam rekod pangkalan data.", "error");
+    } finally {
+      setLoadingStudentProgress(false);
+    }
+  };
+
+  // 🌟 FUNGSI BARU: RESET UJIAN PASCA SAHAJA
+  const handleResetUjianPasca = async (murid: any, ting: string, num: number) => {
+    const babName = `Bab ${num}`;
+    const sah = window.confirm(`Pasti mahu RESET UJIAN PASCA SAHAJA untuk ${babName} bagi pelajar ${murid.nama}?\n\nMarkah Diagnostik dan Chat AI tidak akan terjejas. Sila guna ini jika murid mahu mengambil semula ujian.`);
+    if (!sah) return;
+
+    try {
+      setLoadingStudentProgress(true); 
+      const targetIds = [murid.id];
+      if (murid.idPengguna) targetIds.push(murid.idPengguna);
+      const uniqueIds = [...new Set(targetIds)];
+
+      const qSkor = query(
+        collection(db, "skor_murid"), 
+        where("idMurid", "in", uniqueIds),
+        where("tingkatan", "==", ting),
+        where("bab", "==", babName),
+        where("jenisUjian", "==", "post_test")
+      );
+      const snapSkor = await getDocs(qSkor);
+      
+      if (snapSkor.empty) {
+        showToastMessage(`Tiada rekod Ujian Pasca ditemui untuk ${babName}.`, "info");
+        setLoadingStudentProgress(false);
+        return;
+      }
+
+      const deleteSkorPromises = snapSkor.docs.map(d => deleteDoc(doc(db, "skor_murid", d.id)));
+      await Promise.all(deleteSkorPromises);
+
+      showToastMessage(`Berjaya memadam markah Ujian Pasca untuk ${babName}.`, "success");
+      await tarikDetailMurid(murid);
+      tarikDataSemakan();
+    } catch (error) {
+      console.error("Gagal reset Ujian Pasca:", error);
       showToastMessage("Gagal memadam rekod pangkalan data.", "error");
     } finally {
       setLoadingStudentProgress(false);
@@ -1745,13 +1786,19 @@ export default function GuruDashboard() {
                                                          </div>
                                                        </div>
 
-                                                       <div className="flex items-center justify-between border-t border-indigo-800/30 pt-4 mt-2 print:hidden w-full">
+                                                       <div className="flex items-center justify-between border-t border-indigo-800/30 pt-4 mt-2 print:hidden w-full flex-wrap gap-2">
                                                           <div className="flex gap-2">
                                                             {preTestRecord && <a href={`/guru/semakan/${preTestRecord.id}`} target="_blank" rel="noreferrer" className="text-xs bg-indigo-600/80 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg shadow flex items-center gap-1.5 font-bold transition-all"><Eye size={14}/> Esei Pre-Test</a>}
                                                             {postTestRecord && <a href={`/guru/semakan/${postTestRecord.id}`} target="_blank" rel="noreferrer" className="text-xs bg-emerald-600/80 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg shadow flex items-center gap-1.5 font-bold transition-all"><Eye size={14}/> Esei Post-Test</a>}
                                                           </div>
                                                           
-                                                          <div className="flex gap-2 ml-auto">
+                                                          <div className="flex gap-2 ml-auto flex-wrap justify-end">
+                                                            <button 
+                                                              onClick={(e) => { e.stopPropagation(); handleResetUjianPasca(selectedStudentDetail, ting, num); }} 
+                                                              className="text-xs bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 font-bold transition-all hover:shadow-fuchsia-900/50 border border-fuchsia-500"
+                                                            >
+                                                              <RefreshCw size={14}/> Reset Pasca
+                                                            </button>
                                                             <button 
                                                               onClick={(e) => { e.stopPropagation(); handleResetChatSahaja(selectedStudentDetail, ting, num); }} 
                                                               className="text-xs bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 font-bold transition-all hover:shadow-amber-900/50 border border-amber-500"
@@ -1762,7 +1809,7 @@ export default function GuruDashboard() {
                                                               onClick={(e) => { e.stopPropagation(); handleResetBabMurid(selectedStudentDetail, ting, num); }} 
                                                               className="text-xs bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 font-bold transition-all hover:shadow-rose-900/50 border border-rose-500"
                                                             >
-                                                              <Trash2 size={14}/> Reset Data Bab
+                                                              <Trash2 size={14}/> Reset Semua
                                                             </button>
                                                           </div>
                                                        </div>
