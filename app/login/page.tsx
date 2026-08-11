@@ -16,7 +16,7 @@ export default function LogMasuk() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // 🌟 Kosongkan sesi lama setiap kali buka halaman ini
+  // Kosongkan sesi lama setiap kali buka halaman ini
   useEffect(() => {
     const clearOldSessions = async () => {
       try {
@@ -35,9 +35,7 @@ export default function LogMasuk() {
     setLoading(true);
     setRalat("");
 
-    // 🌟 KOD PEMBERSIHAN DATA (SANITIZATION)
-    // Menggantikan trim() biasa. Ini akan membuang SEMUA jarak (space) 
-    // walaupun murid tersilap taip di tengah (Cth: "ME5 001" jadi "ME5001")
+    // Pembersihan Data: Buang jarak (space) yang tidak sengaja ditaip
     const rawId = idPengguna.replace(/\s+/g, '');
 
     if (!rawId || !kataLaluan.trim()) {
@@ -47,47 +45,57 @@ export default function LogMasuk() {
     }
 
     try {
-      // 1. Format Email (Sama ada cikgu masuk ID biasa atau emel penuh)
       const isEmail = rawId.includes("@");
       const formatEmail = isEmail ? rawId.toLowerCase() : `${rawId.toLowerCase()}@irags.edu`;
 
-      // 2. Log masuk menggunakan Firebase Authentication
-      await signInWithEmailAndPassword(auth, formatEmail, kataLaluan);
-      
-      // 3. Tarik data dari Firestore (Guna ID Huruf Besar, cth: A002)
       let docId = rawId.toUpperCase();
       if (isEmail) {
          docId = rawId.split("@")[0].toUpperCase();
       }
 
+      // 🌟 PERUBAHAN: Tarik data dari Firestore DAHULU (Bypass Auth check)
       const docRef = doc(db, "users", docId);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
         const userData = docSnap.data();
         
-        // 4. Simpan dalam Local Storage
-        localStorage.setItem("currentUser", JSON.stringify({
-          id: docId,
-          nama: userData.nama || userData.name,
-          tingkatan: userData.tingkatan,
-          kumpulan: userData.kumpulan,
-          role: userData.role // Menyimpan "admin" atau "murid"
-        }));
+        // 🌟 SEMAKAN KATA LALUAN DARI DATABASE (FIRESTORE)
+        if (userData.kataLaluan === kataLaluan) {
+          
+          // Cuba log masuk ke Firebase Auth secara senyap
+          // Jika gagal (sebab password Auth masih password lama), kita ABAIKAN dan teruskan login!
+          try {
+            await signInWithEmailAndPassword(auth, formatEmail, kataLaluan);
+          } catch (err) {
+            console.log("Bypass Firebase Auth: Login diteruskan menggunakan pengesahan Database.");
+          }
 
-        // 5. HALA TUJU PINTAR (SMART ROUTING)
-        if (userData.role === "murid") {
-          router.push("/murid"); 
-        } else if (userData.role === "guru" || userData.role === "admin") {
-          router.push("/guru");  // Bawa admin/guru ke portal dashboard guru
+          // Simpan dalam Local Storage
+          localStorage.setItem("currentUser", JSON.stringify({
+            id: docId,
+            idPengguna: userData.idPengguna || docId,
+            nama: userData.nama || userData.name,
+            tingkatan: userData.tingkatan,
+            kumpulan: userData.kumpulan,
+            sekolah: userData.sekolah,
+            role: userData.role // "admin", "guru", "pembantu", atau "murid"
+          }));
+
+          // HALA TUJU PINTAR (SMART ROUTING)
+          if (userData.role === "murid") {
+            router.push("/murid"); 
+          } else {
+            router.push("/guru");  // Bawa admin, guru, pembantu ke dashboard
+          }
+          
         } else {
-          router.push("/guru");  // Fallback
+          setRalat("Kata Laluan salah. Sila cuba lagi.");
         }
-        
       } else {
-        await signOut(auth);
+        await signOut(auth).catch(() => {});
         localStorage.removeItem("currentUser");
-        setRalat("Akaun anda tiada dalam pangkalan data rasmi (Koleksi Users). Sila rujuk admin.");
+        setRalat("Akaun anda tiada dalam pangkalan data rasmi. Sila rujuk guru.");
       }
       
     } catch (error: any) {
@@ -95,10 +103,8 @@ export default function LogMasuk() {
       await signOut(auth).catch(() => {});
       localStorage.removeItem("currentUser");
 
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        setRalat("ID Pengguna atau Kata Laluan salah. Sila cuba lagi.");
-      } else if (error.code === 'auth/invalid-email') {
-        setRalat("Format ID Pengguna tidak sah.");
+      if (error.code === 'permission-denied') {
+        setRalat("Ralat Akses Pangkalan Data. Sila maklumkan kepada Pembangun (Firestore Rules).");
       } else {
         setRalat("Berlaku ralat sistem. Sila pastikan maklumat anda betul.");
       }
@@ -114,7 +120,7 @@ export default function LogMasuk() {
         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl -mr-10 -mt-10"></div>
         
         <div className="text-center mb-8 relative z-10">
-          <div className="w-16 h-16 bg-linear-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
             <span className="text-white text-3xl font-black">H</span>
           </div>
           <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">HUB I-RAGS</h1>
@@ -170,7 +176,7 @@ export default function LogMasuk() {
             type="submit"
             disabled={loading}
             className={`w-full text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition-all active:scale-95 mt-2 flex items-center justify-center gap-2 ${
-              loading ? "bg-blue-400 cursor-not-allowed shadow-none" : "bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/30 hover:shadow-blue-600/40"
+              loading ? "bg-blue-400 cursor-not-allowed shadow-none" : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/30 hover:shadow-blue-600/40"
             }`}
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
