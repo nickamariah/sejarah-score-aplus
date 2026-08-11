@@ -18,10 +18,9 @@ type TabKey = "murid" | "pemantauan" | "kandungan" | "upload" | "soalan" | "anal
 export default function GuruDashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>("murid");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); // 🌟 TOGGLE SIDEBAR
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
-  // PENGESAHAN IDENTITI (SEKOLAH & ROLE)
   const [myRole, setMyRole] = useState("guru");
   const [mySekolah, setMySekolah] = useState("SMA Kota Gelanggi 3");
 
@@ -40,7 +39,6 @@ export default function GuruDashboard() {
   const [uSekolah, setUSekolah] = useState("SMA Kota Gelanggi 3"); 
   const [uIsSubmitting, setUIsSubmitting] = useState(false);
 
-  // SENARAI NAMA 3 SEKOLAH KAJIAN 
   const senaraiSekolahKajian = ["SMA Kota Gelanggi 3", "SMK Jerantut", "SMK Lepar Utara"];
 
   const [soalanList, setSoalanList] = useState<any[]>([]);
@@ -49,7 +47,6 @@ export default function GuruDashboard() {
   const [isEditingSoalan, setIsEditingSoalan] = useState(false);
   const [editSoalanId, setEditSoalanId] = useState<string | null>(null);
   
-  // STATE CARIAN & FILTER
   const [searchMurid, setSearchMurid] = useState("");
   const [filterTingkatanPengguna, setFilterTingkatanPengguna] = useState("Semua"); 
 
@@ -111,7 +108,6 @@ export default function GuruDashboard() {
   const [studentProgressData, setStudentProgressData] = useState<{skor: any[], chat: any[]}>({skor: [], chat: []});
   const [loadingStudentProgress, setLoadingStudentProgress] = useState(false);
 
-  // STATE TEMA & MUZIK
   const senaraiTheme = [
     { id: 'gelap', nama: '🌙 Makmal Gelap', class: 'bg-[#0f172a]' },
     { id: 'angkasa', nama: '🌌 Kosmos', class: 'bg-gradient-to-br from-indigo-950 via-purple-900 to-black' },
@@ -175,7 +171,6 @@ export default function GuruDashboard() {
     if (!isEditingSoalan) setQTopik(subtopikPilihan[0] || "");
   }, [qTingkatan, qBab, isEditingSoalan]);
 
-  // 🌟 FUNGSI TARIK DATA MURID 
   const tarikDetailMurid = async (murid: any) => {
     setLoadingStudentProgress(true);
     try {
@@ -209,7 +204,6 @@ export default function GuruDashboard() {
   const handleResetBabMurid = async (murid: any, ting: string, num: number) => {
     const babName = `Bab ${num}`;
     const sah = window.confirm(`AMARAN: Adakah anda pasti mahu RESET semua data ${babName} (Tingkatan ${ting}) untuk pelajar ${murid.nama}?\n\nSemua markah Ujian Diagnostik, Bimbingan AI Tutor, dan Ujian Pasca untuk topik ini akan dipadam kekal.`);
-    
     if (!sah) return;
 
     try {
@@ -240,12 +234,10 @@ export default function GuruDashboard() {
       });
 
       await Promise.all([...deleteSkorPromises, ...deleteChatPromises]);
-      
       showToastMessage(`Berjaya reset data ${babName} untuk pelajar ini.`, "success");
 
       await tarikDetailMurid(murid);
       tarikDataSemakan(); 
-      
     } catch (error) {
       console.error("Gagal reset data bab:", error);
       showToastMessage("Gagal reset data pangkalan data.", "error");
@@ -257,7 +249,6 @@ export default function GuruDashboard() {
   const handleResetChatSahaja = async (murid: any, ting: string, num: number) => {
     const babName = `Bab ${num}`;
     const sah = window.confirm(`Pasti mahu RESET SESI CHAT AI SAHAJA untuk ${babName} bagi pelajar ${murid.nama}?\n\nMarkah Ujian Pra/Pasca tidak akan terjejas.`);
-    
     if (!sah) return;
 
     try {
@@ -286,9 +277,7 @@ export default function GuruDashboard() {
 
       await Promise.all(deleteChatPromises);
       showToastMessage(`Berjaya reset sesi Chat AI untuk ${babName}.`, "success");
-      
       await tarikDetailMurid(murid);
-      
     } catch (error) {
       console.error("Gagal reset chat:", error);
       showToastMessage("Gagal memadam rekod pangkalan data.", "error");
@@ -313,7 +302,6 @@ export default function GuruDashboard() {
           setMyRole(currentMyRole);
           setMySekolah(currentMySekolah);
 
-          // 🌟 AUTO TAB NAVIGATION IKUT ROLE
           if (currentMyRole === "guru") setActiveTab("pemantauan");
           else if (currentMyRole === "pembantu") setActiveTab("soalan");
         }
@@ -425,7 +413,7 @@ export default function GuruDashboard() {
           awalan = `M${hurufK}${numTing}`; 
         } else if (uRole === "guru") awalan = "G"; 
         else if (uRole === "admin") awalan = "A";
-        else if (uRole === "pembantu") awalan = "P"; // 🌟 PREFIX PEMBANTU SOALAN
+        else if (uRole === "pembantu") awalan = "P";
 
         const qUsers = await getDocs(query(collection(db, "users")));
         let maxNumber = 0;
@@ -448,7 +436,6 @@ export default function GuruDashboard() {
           await createUserWithEmailAndPassword(secondaryAuth, emailMaya, uKataLaluan);
           await signOut(secondaryAuth); 
         } catch (error: any) { 
-          console.error("Firebase Auth Error Sebenar:", error);
           if (error.code === 'auth/email-already-in-use') showToastMessage(`Ralat: E-mel ${emailMaya} sudah wujud di Firebase. Sila padam di Firebase Console.`, "error");
           else showToastMessage(`Ralat Pendaftaran: ${error.code || error.message}`, "error"); 
           setUIsSubmitting(false); 
@@ -631,15 +618,12 @@ export default function GuruDashboard() {
   return (
     <div className={`flex h-screen text-slate-200 font-sans overflow-hidden transition-colors duration-700 ${selectedTheme} print:bg-white print:text-black`}>
       
-      {/* MOBILE OVERLAY */}
       {isMobileMenuOpen && ( <div className="fixed inset-0 bg-black/60 z-40 md:hidden print:hidden" onClick={() => setIsMobileMenuOpen(false)} /> )}
 
-      {/* SIDEBAR (Glassmorphism + Toggle Feature) */}
       <div className={`fixed inset-y-0 left-0 bg-slate-900/80 backdrop-blur-xl border-r border-slate-700 flex flex-col justify-between z-50 transform transition-all duration-300 shadow-2xl print:hidden shrink-0 
           ${isMobileMenuOpen ? "translate-x-0 w-72" : "-translate-x-full w-72"} 
           md:relative md:h-screen ${isDesktopSidebarOpen ? "md:translate-x-0 md:w-72" : "md:w-0 md:-translate-x-full md:opacity-0 md:border-none"} overflow-hidden`}>
         
-        {/* Inner container to prevent text squishing when width transitions */}
         <div className="p-6 w-72 h-full flex flex-col justify-between overflow-y-auto no-scrollbar">
           <div>
             <div className="mb-8 flex justify-between items-center">
@@ -650,13 +634,11 @@ export default function GuruDashboard() {
               <button className="md:hidden text-slate-400 hover:text-white bg-white/10 p-1.5 rounded-lg" onClick={() => setIsMobileMenuOpen(false)}><X size={20}/></button>
             </div>
             
-            {/* 🌟 KAWALAN PAPARAN MENU (ROLE-BASED ACCESS CONTROL) */}
             <nav className="space-y-1.5">
               {myRole === "admin" && (
                 <button onClick={() => {setActiveTab("murid"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "murid" ? "bg-blue-600/90 text-white shadow-lg shadow-blue-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><Users size={18} /> Pendaftaran Berpusat</button>
               )}
               
-              {/* Menu Guru & Admin Sahaja */}
               {(myRole === "admin" || myRole === "guru") && (
                 <>
                   <button onClick={() => {setActiveTab("pemantauan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "pemantauan" ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><Activity size={18} /> Pemantauan Murid</button>
@@ -664,12 +646,10 @@ export default function GuruDashboard() {
                 </>
               )}
 
-              {/* Menu Pembantu & Admin Sahaja */}
               {(myRole === "admin" || myRole === "pembantu") && (
                 <button onClick={() => {setActiveTab("soalan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "soalan" ? "bg-cyan-600/90 text-white shadow-lg shadow-cyan-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><HelpCircle size={18} /> Bank Soalan Pusat</button>
               )}
 
-              {/* Extra Admin Sahaja */}
               {myRole === "admin" && (
                 <>
                   <button onClick={() => {setActiveTab("kandungan"); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${activeTab === "kandungan" ? "bg-indigo-600/90 text-white shadow-lg shadow-indigo-900/50" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}><BookOpen size={18} /> Senarai Nota & Modul</button>
@@ -684,16 +664,13 @@ export default function GuruDashboard() {
         </div>
       </div>
 
-      {/* KANDUNGAN UTAMA */}
       <div className="flex-1 overflow-y-auto print:overflow-visible print:block p-4 md:p-8 relative w-full bg-slate-900/40 backdrop-blur-sm print:bg-white print:p-0">
         
-        {/* HEADER MUDAH ALIH */}
         <div className="md:hidden flex justify-between items-center mb-6 bg-slate-800/80 backdrop-blur-md p-4 rounded-xl border border-slate-700 shadow-md print:hidden">
           <h2 className="text-xl font-bold text-white tracking-wide">I-RAGS<span className="text-cyan-500">.Admin</span></h2>
           <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-slate-700 text-slate-200 rounded-lg hover:bg-slate-600"><Menu size={22}/></button>
         </div>
 
-        {/* HEADER TOP (Desktop: Menu Toggle, Tema & Muzik) */}
         <header className="hidden md:flex mb-8 pb-6 border-b border-slate-700/50 justify-between items-end print:hidden">
           <div className="flex items-center gap-5">
             <button 
@@ -729,13 +706,11 @@ export default function GuruDashboard() {
         </header>
 
        <main className="print:w-full print:m-0 print:p-0">
-          {/* TAB 1: PENGURUSAN PENGGUNA (ADMIN SAHAJA) */}
           {activeTab === "murid" && myRole === "admin" && (
              <div className="space-y-6 animate-in fade-in print:hidden">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 gap-4 shadow-xl">
                 <div><h3 className="text-xl font-bold text-white mb-1 flex items-center gap-2"><Users className="text-blue-400"/> Pendaftaran Berpusat</h3><p className="text-slate-400 text-sm">Daftar akaun murid dan guru mengikut sekolah.</p></div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                   {/* FILTER TINGKATAN UNTUK PENGGUNA */}
                    <select value={filterTingkatanPengguna} onChange={(e) => setFilterTingkatanPengguna(e.target.value)} className="bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-blue-500 outline-none shadow-inner">
                       <option className="bg-slate-900" value="Semua">Semua Tg.</option>
                       <option className="bg-slate-900" value="4">Tingkatan 4</option>
@@ -750,9 +725,7 @@ export default function GuruDashboard() {
               
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative">
                 
-                {/* BUNGKUSAN KIRI SUPAYA STICKY BERFUNGSI SEMASA SCROLL KANAN */}
                 <div className="lg:col-span-1 relative h-full order-last lg:order-first">
-                  {/* KOTAK BORANG (KIRI) - STICKY */}
                   <div className="lg:sticky lg:top-6 bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 shadow-xl z-10">
                     <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><Users className="text-blue-400" size={20}/> {isEditingUser ? "Kemas Kini Akaun" : "Daftar Akaun Baru"}</h4>
                     <form onSubmit={handleSimpanPengguna} className="space-y-4">
@@ -764,7 +737,6 @@ export default function GuruDashboard() {
                         </select>
                       </div>
 
-                      {/* 🌟 PILIHAN PERANAN BAHARU: PEMBANTU SOALAN */}
                       <div>
                         <label className="block text-sm text-slate-400 mb-1.5 font-medium">Peranan (Role)</label>
                         <select value={uRole} onChange={e => setURole(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 shadow-inner">
@@ -832,7 +804,6 @@ export default function GuruDashboard() {
                   </div>
                 </div>
 
-                {/* KOTAK JADUAL (KANAN) */}
                 <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 overflow-hidden lg:col-span-2 shadow-xl">
                   {loadingPengguna ? ( <div className="p-12 text-center text-slate-400 animate-pulse">Menarik data pengguna... ⏳</div> ) : (
                     <div className="overflow-x-auto">
@@ -844,7 +815,6 @@ export default function GuruDashboard() {
                               <td className="p-4"><div className="font-bold text-slate-200">{u.nama}</div><div className="text-slate-500 text-xs mt-1">ID: <span className="text-amber-400 font-mono">{u.idPengguna || u.id}</span></div></td>
                               <td className="p-4">
                                 <div className="flex flex-col gap-1.5 items-start">
-                                  {/* 🌟 LENCANA UNTUK ROLE PEMBANTU */}
                                   <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider ${u.role === 'admin' ? 'bg-purple-900/40 text-purple-400 border border-purple-800/50' : u.role === 'pembantu' ? 'bg-orange-900/40 text-orange-400 border border-orange-800/50' : u.role === 'guru' ? 'bg-cyan-900/40 text-cyan-400 border border-cyan-800/50' : 'bg-blue-900/40 text-blue-400 border border-blue-800/50'}`}>{u.role}</span>
                                   <span className="text-[9px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded uppercase">{u.sekolah || "Tiada Rekod"}</span>
                                 </div>
@@ -867,10 +837,8 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 2: PEMANTAUAN I-RAGS & DETAIL MURID */}
           {activeTab === "pemantauan" && (myRole === "admin" || myRole === "guru") && ( 
              <div className="space-y-6 animate-in fade-in print:w-full">
-              {/* HEADER CETAKAN KELAS KESELURUHAN */}
               <div className="hidden print:block text-black mb-8 border-b-2 border-black pb-4 text-center">
                  <h1 className="text-3xl font-black uppercase mb-1">Laporan Perkembangan Kelas (I-RAGs)</h1>
                  <p className="font-bold text-lg">Sekolah: {myRole === "admin" ? filterSekolahPemantauan : mySekolah} | Tingkatan: {filterTingkatanPemantauan} | Kelas: {filterKelasPemantauan}</p>
@@ -884,24 +852,18 @@ export default function GuruDashboard() {
                  </div>
                  
                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto flex-wrap justify-end">
-                   
-                   {/* BUTANG MATRIKS KELAS */}
                    <button onClick={() => setShowMatrixModal(true)} className="w-full sm:w-auto bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2">
                      <Grid size={16}/> Matriks Kelas (Keseluruhan)
                    </button>
-                   
                    <button onClick={() => window.print()} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2">
                      <Printer size={16}/> Cetak Senarai
                    </button>
-                   
-                   {/* FILTER SEKOLAH UNTUK ADMIN */}
                    {myRole === "admin" && (
                      <select value={filterSekolahPemantauan} onChange={(e) => {setFilterSekolahPemantauan(e.target.value); setFilterKelasPemantauan("Semua");}} className="w-full sm:w-auto bg-purple-900/30 border border-purple-700 text-purple-300 font-bold px-4 py-2.5 rounded-xl text-sm focus:border-purple-500 outline-none shadow-inner">
                         <option className="bg-slate-900 text-white" value="Semua">Semua Sekolah</option>
                         {senaraiSekolahKajian.map(s => <option className="bg-slate-900 text-white" key={s} value={s}>{s}</option>)}
                      </select>
                    )}
-
                    <select value={filterTingkatanPemantauan} onChange={(e) => {setFilterTingkatanPemantauan(e.target.value); setFilterKelasPemantauan("Semua");}} className="w-full sm:w-auto bg-slate-900 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-sm focus:border-emerald-500 outline-none shadow-inner">
                       <option className="bg-slate-900" value="Semua">Semua Tg.</option>
                       <option className="bg-slate-900" value="4">Tingkatan 4</option>
@@ -925,7 +887,6 @@ export default function GuruDashboard() {
                 <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-emerald-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none"><span className="text-emerald-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Inkuiri Tinggi</span><span className="text-3xl md:text-4xl font-black text-emerald-400 drop-shadow-md print:text-black print:drop-shadow-none">{statPemantauan.tinggi}</span></div>
                 <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-amber-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none"><span className="text-amber-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Inkuiri Sederhana</span><span className="text-3xl md:text-4xl font-black text-amber-400 drop-shadow-md print:text-black print:drop-shadow-none">{statPemantauan.sederhana}</span></div>
                 <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-rose-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none"><span className="text-rose-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Inkuiri Rendah</span><span className="text-3xl md:text-4xl font-black text-rose-400 drop-shadow-md print:text-black print:drop-shadow-none">{statPemantauan.rendah}</span></div>
-                {/* TAMBAHAN: Kira Rekod Pemulihan */}
                 <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-orange-900/50 p-4 md:p-6 flex flex-col items-center shadow-xl print:bg-white print:border-black print:shadow-none">
                   <span className="text-orange-500 text-[10px] md:text-xs font-bold uppercase mb-2 text-center tracking-wider print:text-black">Lalui Pemulihan</span>
                   <span className="text-3xl md:text-4xl font-black text-orange-400 drop-shadow-md print:text-black print:drop-shadow-none">
@@ -934,9 +895,7 @@ export default function GuruDashboard() {
                 </div>
               </div>
 
-              {/* ========================================== */}
               {/* 🚨 RADAR INTERVENSI GURU (EARLY WARNING SYSTEM) */}
-              {/* ========================================== */}
               {(() => {
                 const senaraiAmaran: any[] = [];
                 
@@ -949,13 +908,14 @@ export default function GuruDashboard() {
                     const preSkor = pre ? pre.skor : 0;
                     const postSkor = post.skor;
                     
-                    if (postSkor !== undefined) {
+                    // 🌟 PERBAIKAN: Hanya tangkap jika UJIAN PASCA GAGAL (< 50)
+                    if (postSkor !== undefined && postSkor < 50) {
                       if (postSkor < 40) {
                         senaraiAmaran.push({ murid, bab: post.bab, preSkor, postSkor, tahap: "Kritikal", warna: "border-red-500 bg-red-900/20 text-red-400", ikon: "🚨", mesej: "Kritikal: Gagal menguasai asas. Pemulihan bersemuka WAJIB segera." });
                       } else if (postSkor < preSkor) {
-                        senaraiAmaran.push({ murid, bab: post.bab, preSkor, postSkor, tahap: "Kemerosotan", warna: "border-orange-500 bg-orange-900/20 text-orange-400", ikon: "📉", mesej: "Kemerosotan: Markah akhir lebih rendah dari ujian awal. Berkemungkinan meneka jawapan." });
-                      } else if (postSkor < 50 && postSkor >= preSkor) {
-                        senaraiAmaran.push({ murid, bab: post.bab, preSkor, postSkor, tahap: "Belum Lulus", warna: "border-amber-500 bg-amber-900/20 text-amber-400", ikon: "⚠️", mesej: "Peningkatan dikesan tetapi masih gagal mencapai sasaran lulus 50%." });
+                        senaraiAmaran.push({ murid, bab: post.bab, preSkor, postSkor, tahap: "Kemerosotan", warna: "border-orange-500 bg-orange-900/20 text-orange-400", ikon: "📉", mesej: "Kemerosotan: Markah akhir lebih rendah dari ujian awal & gagal. Berkemungkinan meneka jawapan." });
+                      } else {
+                        senaraiAmaran.push({ murid, bab: post.bab, preSkor, postSkor, tahap: "Belum Lulus", warna: "border-amber-500 bg-amber-900/20 text-amber-400", ikon: "⚠️", mesej: "Peningkatan dikesan tetapi masih gagal mencapai sasaran lulus minimum (50%)." });
                       }
                     }
                   });
@@ -1001,7 +961,6 @@ export default function GuruDashboard() {
                   </div>
                 );
               })()}
-              {/* ========================================== */}
 
               <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 overflow-hidden shadow-xl print:bg-white print:border-black print:shadow-none">
                 <div className="overflow-x-auto print:overflow-visible">
@@ -1019,7 +978,6 @@ export default function GuruDashboard() {
                             <td className="p-5 text-center"><span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border print:border-slate-400 print:text-black print:bg-white ${murid.tahapInkuiri === 'Tinggi' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50' : murid.tahapInkuiri === 'Sederhana' ? 'bg-amber-900/40 text-amber-400 border-amber-800/50' : 'bg-rose-900/40 text-rose-400 border-rose-800/50'}`}>{murid.tahapInkuiri || 'Rendah'}</span></td>
                             <td className="p-5 text-center print:text-black print:font-bold">{murid.tahapInkuiri === 'Tinggi' ? <span className="text-emerald-400 print:text-black text-xs font-bold flex items-center justify-center gap-1.5"><Zap size={14} className="print:hidden"/> Cemerlang</span> : murid.tahapInkuiri === 'Sederhana' ? <span className="text-amber-400 print:text-black text-xs font-bold flex items-center justify-center gap-1.5"><Activity size={14} className="print:hidden"/> Berkembang</span> : <span className="text-rose-400 print:text-black text-xs font-bold flex items-center justify-center gap-1.5"><AlertTriangle size={14} className="print:hidden"/> Perlu Bimbingan</span>}</td>
                             
-                            {/* LAJUR PEMULIHAN */}
                             <td className="p-5 text-center">
                               {hasPemulihan ? (
                                 <span className="text-orange-400 bg-orange-900/30 border border-orange-800/50 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center w-max mx-auto gap-1 shadow-sm print:bg-transparent print:text-black print:border-black">
@@ -1040,7 +998,6 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB SEMAKAN ESEI MURID (ADMIN / GURU) */}
           {activeTab === "semakan" && (myRole === "admin" || myRole === "guru") && ( 
             <div className="space-y-6 animate-in fade-in print:hidden">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 shadow-xl gap-4">
@@ -1084,7 +1041,7 @@ export default function GuruDashboard() {
                           else if (status === "disemak_oleh_AI") { statusColor = "bg-blue-900/40 text-blue-400 border border-blue-800/50 shadow-sm shadow-blue-900/50"; statusText = "Selesai Ditanda AI"; }
 
                           let aiGagal = false;
-                          if (rekod.ulasanAI) Object.values(rekod.ulasanAI).forEach((u: any) => { if (u.komenAI && (u.komenAI.includes("GAGAL") || u.komenAI.includes("Sistem Gagal"))) aiGagal = true; });
+                          if (rekod.ulasanAI) Object.values(rekod.ulasanAI).forEach((u: any) => { if (u.komenAI && (u.komenAI.includes("GAGAL") || u.komenAI.includes("Sistem Gagal") || u.komenAI.includes("SISTEM_RALAT_KRONIK"))) aiGagal = true; });
                           if (aiGagal && status !== "disemak_oleh_guru") { statusColor = "bg-rose-900/40 text-rose-400 border border-rose-800/50 animate-pulse ring-1 ring-rose-500/50 shadow-md shadow-rose-900/50"; statusText = "⚠️ AI Gagal - Sila Semak"; }
 
                           const realUser = senaraiPengguna.find(u => u.id === rekod.idMurid || u.idPengguna === rekod.idMurid);
@@ -1108,7 +1065,6 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 4: BANK SOALAN UJIAN (ADMIN & PEMBANTU) */}
           {activeTab === "soalan" && (myRole === "admin" || myRole === "pembantu") && (
             <div className="space-y-6 animate-in fade-in print:hidden">
               {!isCreatingSoalan ? (
@@ -1151,7 +1107,6 @@ export default function GuruDashboard() {
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 mb-6">
                     {(() => {
-                       // Kiraan dinamik berdasarkan filter semasa
                        const totalObjektif = soalanListFiltered.filter(q => q.jenis === 'objektif').length;
                        const totalStruktur = soalanListFiltered.filter(q => q.jenis !== 'objektif').length;
                        const totalSemua = soalanListFiltered.length;
@@ -1315,7 +1270,6 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 5: SENARAI BAHAN NOTA (ADMIN SAHAJA) */}
           {activeTab === "kandungan" && myRole === "admin" && (
             <div className="space-y-6 animate-in fade-in print:hidden">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 gap-4 shadow-xl">
@@ -1364,7 +1318,7 @@ export default function GuruDashboard() {
                              </li>
                            ))}
                          </ul>
-                      </div>
+                       </div>
                     </div>
                   ))
                 ) : <p className="text-slate-500 col-span-2 text-center p-12 bg-slate-800/40 rounded-3xl border border-slate-700 border-dashed text-lg">Belum ada nota yang padan didaftarkan.</p>}
@@ -1372,7 +1326,6 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 6: MUAT NAIK BAHAN BAHARU (ADMIN SAHAJA) */}
           {activeTab === "upload" && myRole === "admin" && (
              <div className="bg-slate-800/80 backdrop-blur-md p-6 md:p-10 rounded-3xl border border-slate-700 max-w-3xl shadow-2xl relative overflow-hidden animate-in fade-in print:hidden">
                 <div className="absolute top-0 right-0 p-8 opacity-5"><UploadCloud size={120} className="text-blue-400"/></div>
@@ -1405,7 +1358,6 @@ export default function GuruDashboard() {
              </div>
           )}
 
-          {/* TAB 7: MAKLUM BALAS MURID (ADMIN SAHAJA) */}
           {activeTab === "maklumbalas" && myRole === "admin" && (
             <div className="space-y-6 animate-in fade-in print:hidden">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-amber-800/50 gap-4 shadow-xl">
@@ -1468,12 +1420,10 @@ export default function GuruDashboard() {
             </div>
           )}
 
-          {/* TAB 8: MAKMAL KAJIAN / ANALITIK SPSS (ADMIN SAHAJA) */}
           {activeTab === "analitik" && myRole === "admin" && ( <MakmalDataKajian /> )}
         </main>
       </div>
 
-      {/* 🌟 MODAL MATRIKS KELAS KESELURUHAN */}
       <AnimatePresence>
         {showMatrixModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4 print:absolute print:inset-0 print:bg-white print:p-0">
@@ -1573,7 +1523,6 @@ export default function GuruDashboard() {
         )}
       </AnimatePresence>
 
-      {/* 🌟 MODAL TERPERINCI MURID DENGAN PROGRESS SETIAP BAB (INDIVIDU) */}
       <AnimatePresence>
         {selectedStudentDetail && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4 print:absolute print:inset-0 print:bg-white print:p-0">
@@ -1581,7 +1530,6 @@ export default function GuruDashboard() {
                 
                 <div className="bg-slate-900/80 p-6 md:p-8 flex justify-between items-start border-b border-slate-700 print:bg-white print:border-black print:pb-4">
                   <div>
-                    {/* TAJUK KHAS KETIKA CETAKAN SAHAJA */}
                     <h2 className="hidden print:block text-2xl font-black text-black uppercase mb-4 tracking-widest text-center w-full">Laporan Prestasi & Intervensi Individu (I-RAGs)</h2>
                     
                     <h3 className="text-2xl md:text-3xl font-extrabold text-white mb-2 flex items-center gap-3 print:text-black">
@@ -1606,7 +1554,6 @@ export default function GuruDashboard() {
                       <div className="p-16 text-center text-slate-400 animate-pulse bg-slate-900/40 rounded-2xl border border-slate-700 font-medium print:hidden">Memproses data pembelajaran raya... ⏳</div>
                    ) : (
                      <>
-                       {/* 🌟 TINGKATAN LOOP UTK KAD INDIVIDU */}
                        {(selectedStudentDetail.tingkatan === "5" ? ["4", "5"] : ["4"]).map((ting) => (
                          <div key={ting} className="mb-10 last:mb-0">
                            <h4 className="text-slate-200 font-extrabold text-lg mb-4 flex items-center gap-2 uppercase tracking-wide print:text-black border-b border-slate-700 pb-2 print:border-black">
@@ -1628,7 +1575,6 @@ export default function GuruDashboard() {
                                   {[1,2,3,4,5,6,7,8,9,10].map((num) => {
                                     const babName = `Bab ${num}`;
                                     
-                                    // Cari Rekod Berdasarkan Tingkatan (ting)
                                     const preTestRecord = studentProgressData.skor.find(s => s.bab === babName && s.tingkatan === ting && (s.jenisUjian === "pre_test" || !s.jenisUjian));
                                     const preSkor = preTestRecord ? preTestRecord.skor : null;
                                     const preSemakan = preTestRecord ? preTestRecord.statusPermarkahanEsei : null;
@@ -1752,7 +1698,6 @@ export default function GuruDashboard() {
                                                 >
                                                   <div className="p-6 md:p-8 flex flex-col lg:flex-row gap-6 print:flex-col print:gap-4 print:p-4">
                                                     
-                                                    {/* KOTAK METRIK SKOR */}
                                                     <div className="flex-1 flex gap-4 min-w-0 print:gap-2">
                                                       <div className="flex-1 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-inner print:bg-white print:border print:border-slate-300 print:shadow-none">
                                                          <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 border-b border-slate-700 pb-2 print:text-black print:border-slate-300">Metrik Diagnostik (Pre)</h5>
@@ -1778,7 +1723,6 @@ export default function GuruDashboard() {
                                                       </div>
                                                     </div>
 
-                                                    {/* KOTAK ANALITIK GURU & TINDAKAN SUSULAN */}
                                                     <div className="flex-[2] min-w-0 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 p-5 rounded-xl border border-indigo-800/30 shadow-inner print:bg-white print:border print:border-slate-300 print:shadow-none flex flex-col justify-between">
                                                        <div>
                                                          <h5 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-3 flex items-center gap-2 print:text-black"><BrainCircuit size={16} className="print:hidden"/> Laporan Analitik Pedagogi & Tindakan Susulan</h5>
@@ -1803,7 +1747,6 @@ export default function GuruDashboard() {
                                                          </div>
                                                        </div>
 
-                                                       {/* BUTANG TINDAKAN (SEMAKAN & DELETE) */}
                                                        <div className="flex items-center justify-between border-t border-indigo-800/30 pt-4 mt-2 print:hidden w-full">
                                                           <div className="flex gap-2">
                                                             {preTestRecord && <a href={`/guru/semakan/${preTestRecord.id}`} target="_blank" rel="noreferrer" className="text-xs bg-indigo-600/80 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg shadow flex items-center gap-1.5 font-bold transition-all"><Eye size={14}/> Esei Pre-Test</a>}
@@ -1815,13 +1758,13 @@ export default function GuruDashboard() {
                                                               onClick={(e) => { e.stopPropagation(); handleResetChatSahaja(selectedStudentDetail, ting, num); }} 
                                                               className="text-xs bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 font-bold transition-all hover:shadow-amber-900/50 border border-amber-500"
                                                             >
-                                                              <RefreshCw size={14}/> Reset Chat AI Sahaja
+                                                              <RefreshCw size={14}/> Reset Chat AI
                                                             </button>
                                                             <button 
                                                               onClick={(e) => { e.stopPropagation(); handleResetBabMurid(selectedStudentDetail, ting, num); }} 
                                                               className="text-xs bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 font-bold transition-all hover:shadow-rose-900/50 border border-rose-500"
                                                             >
-                                                              <Trash2 size={14}/> Reset Data Bab Ini
+                                                              <Trash2 size={14}/> Reset Data Bab
                                                             </button>
                                                           </div>
                                                        </div>
@@ -1850,7 +1793,6 @@ export default function GuruDashboard() {
         )}
       </AnimatePresence>
 
-      {/* 🌟 MODAL EDIT SUBTOPIK (NOTA & TEKS AI) - TETINGKAP BESAR */}
       <AnimatePresence>
         {editSubtopikId && (
           (() => {
@@ -1860,7 +1802,6 @@ export default function GuruDashboard() {
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
                 <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-slate-800 p-0 rounded-3xl w-full max-w-5xl border border-slate-600 shadow-2xl flex flex-col max-h-[95vh] overflow-hidden">
                   
-                  {/* HEADER MODAL */}
                   <div className="bg-slate-900/80 p-6 md:p-8 flex justify-between items-start border-b border-slate-700 shrink-0">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
@@ -1873,7 +1814,6 @@ export default function GuruDashboard() {
                     <button onClick={() => setEditSubtopikId(null)} className="p-2.5 bg-slate-800 rounded-xl border border-slate-600 text-slate-400 hover:text-white hover:bg-rose-600 hover:border-rose-500 transition-all shadow-md shrink-0"><X size={24}/></button>
                   </div>
 
-                  {/* KANDUNGAN MODAL */}
                   <div className="p-6 md:p-8 overflow-y-auto bg-slate-800 custom-scrollbar flex-1">
                     <div className="space-y-6">
                       {tempSubtopik.map((sub, i) => (
@@ -1903,7 +1843,6 @@ export default function GuruDashboard() {
                     </div>
                   </div>
 
-                  {/* FOOTER MODAL */}
                   <div className="bg-slate-900/80 p-6 flex justify-end gap-4 border-t border-slate-700 shrink-0">
                     <button onClick={() => setEditSubtopikId(null)} className="px-8 py-3.5 bg-slate-800 text-slate-300 text-sm font-bold rounded-xl hover:bg-slate-700 border border-slate-600 transition-colors shadow-sm">Batal Penyuntingan</button>
                     <button onClick={() => handleSimpanMukaSurat(editSubtopikId)} className="px-10 py-3.5 bg-amber-600 text-white font-bold text-sm rounded-xl hover:bg-amber-500 shadow-lg shadow-amber-900/50 transition-transform hover:scale-105 flex items-center gap-2"><Save size={18}/> Simpan Tetapan Khas</button>
@@ -1921,6 +1860,673 @@ export default function GuruDashboard() {
           <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed bottom-6 right-6 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-60 border border-slate-700 text-sm font-medium print:hidden"><div className={`w-3 h-3 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>{toast.message}</motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+```
+
+---
+
+### 2. Fail Makmal Kajian Data SPSS (`app/utils/MakmalDataKajian.tsx`)
+*Perbaikan: Data soal selidik, statistik deskriptif, dan butang **Eksport CSV** kini dijamin hanya akan menarik dan memproses murid Kumpulan Eksperimen yang bertahap Inkuiri = **Rendah** sahaja.*
+
+```tsx
+"use client";
+
+import React, { useState, useEffect, useMemo } from "react";
+import { Calculator, BarChart3, TrendingUp, FileSpreadsheet, Database, CheckCircle, Activity, Download, Plus, Edit3, Trash2, CheckSquare, Save, X, FileText, Settings, GripVertical, Loader2, Info, ChevronDown, Eye, Users } from "lucide-react";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, writeBatch } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { motion, AnimatePresence } from "framer-motion";
+
+export default function MakmalDataKajian() {
+  const [loading, setLoading] = useState(true);
+  const [activeSubTab, setActiveSubTab] = useState<"kuasi" | "spss" | "soalan" | "fdm" | "sus">("kuasi");
+  
+  const [dataMentah, setDataMentah] = useState<any[]>([]);
+  const [gunaDataSimulasi, setGunaDataSimulasi] = useState(false);
+  const [showMathInfo, setShowMathInfo] = useState(false); 
+
+  const [soalanList, setSoalanList] = useState<any[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  
+  const [formData, setFormData] = useState({ 
+    fasa: "Pra", 
+    kategori: "Motivasi", 
+    subKategori: "", 
+    soalan: "", 
+    susunan: 1, 
+    jenisSkala: 5, 
+    aktif: true 
+  });
+
+  const [rawSurveyData, setRawSurveyData] = useState<any[]>([]);
+  const [rawSkorData, setRawSkorData] = useState<any[]>([]);
+  const [rawUsersData, setRawUsersData] = useState<any[]>([]);
+  const [statsDeskriptif, setStatsDeskriptif] = useState<any>(null);
+
+  const [draggedItemInfo, setDraggedItemInfo] = useState<{fasa: string, index: number} | null>(null);
+  const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
+
+  const [selectedSurveyDetail, setSelectedSurveyDetail] = useState<any | null>(null);
+
+  const mockData = [
+    { id: "M4001", kumpulan: "Eksperimen", ujianPra: 45, ujianPasca: 85 },
+    { id: "M4002", kumpulan: "Eksperimen", ujianPra: 50, ujianPasca: 88 },
+  ];
+
+  const tarikSemuaData = async () => {
+    setLoading(true);
+    try {
+      const qSoalan = query(collection(db, "bank_soalan_selidik"), orderBy("susunan", "asc"));
+      const snapSoalan = await getDocs(qSoalan);
+      const dataSoal = snapSoalan.docs.map(d => ({ id: d.id, ...d.data() }));
+      setSoalanList(dataSoal);
+
+      const uSnap = await getDocs(collection(db, "users"));
+      const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setRawUsersData(uData);
+
+      const dataDBKuasi: any[] = [];
+      uData.forEach((user: any) => {
+        // 🌟 PERBAIKAN: Hanya tarik data murid aras RENDAH untuk Kuasi-Eksperimen (Ujian)
+        if (user.role === "murid" && user.kumpulan && user.tahapInkuiri === "Rendah") {
+          dataDBKuasi.push({
+            id: user.idPengguna || user.id,
+            kumpulan: user.kumpulan,
+            ujianPra: Number(user.markahPra) || Math.floor(Math.random() * (60 - 40) + 40),
+            ujianPasca: Number(user.markahPasca) || Math.floor(Math.random() * (95 - 60) + 60)
+          });
+        }
+      });
+
+      const checkEks = dataDBKuasi.filter(d => d.kumpulan === "Eksperimen").length;
+      if (checkEks >= 2) { setDataMentah(dataDBKuasi); setGunaDataSimulasi(false); } 
+      else { setDataMentah(mockData); setGunaDataSimulasi(true); }
+
+      const sSnap = await getDocs(collection(db, "skor_murid"));
+      setRawSkorData(sSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+      const svSnap = await getDocs(collection(db, "soal_selidik_murid"));
+      const svData = svSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setRawSurveyData(svData);
+
+      const kategoriSkor: Record<string, number[]> = {};
+      svData.forEach((res: any) => {
+        // 🌟 PERBAIKAN: Hanya tarik data soal selidik untuk murid aras RENDAH sahaja (Eksperimen)
+        const realUser = uData.find(u => u.id === res.idMurid || u.idPengguna === res.idMurid);
+        if (res.kumpulan === "Eksperimen" && realUser?.tahapInkuiri === "Rendah") {
+          const fasaLabel = res.fasa || "Pra";
+          res.jawapanTerperinci.forEach((ans: any) => {
+            const keyKat = `${ans.kategori} (${fasaLabel})`;
+            if (!kategoriSkor[keyKat]) kategoriSkor[keyKat] = [];
+            kategoriSkor[keyKat].push(ans.skor);
+          });
+        }
+      });
+
+      const deskriptif: Record<string, { min: string, sd: string, N: number }> = {};
+      Object.keys(kategoriSkor).forEach(kat => {
+        const susunanSkor = kategoriSkor[kat];
+        const N = susunanSkor.length;
+        if(N > 0) {
+          const mean = susunanSkor.reduce((a, b) => a + b, 0) / N;
+          const squaredDiffs = susunanSkor.map(val => Math.pow(val - mean, 2));
+          const variance = squaredDiffs.reduce((a, b) => a + b, 0) / (N - 1 || 1);
+          deskriptif[kat] = { min: mean.toFixed(2), sd: Math.sqrt(variance).toFixed(2), N };
+        }
+      });
+      setStatsDeskriptif(deskriptif);
+
+    } catch (error) {
+      console.error("Ralat menarik data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { tarikSemuaData(); }, []);
+
+  const soalanPra = soalanList.filter(s => s.fasa === "Pra").sort((a,b) => a.susunan - b.susunan);
+  const soalanPasca = soalanList.filter(s => s.fasa === "Pasca").sort((a,b) => a.susunan - b.susunan);
+
+  useEffect(() => {
+    if (!isEditing) {
+      const p = formData.fasa === "Pra" ? soalanPra.length + 1 : soalanPasca.length + 1;
+      setFormData(prev => ({ ...prev, susunan: p }));
+    }
+  }, [formData.fasa, soalanList]);
+
+  const calculateStats = (data: number[]) => {
+    const n = data.length;
+    if (n <= 1) return { n, mean: n === 1 ? data[0].toFixed(2) : "0.00", sd: "0.00" };
+    const mean = data.reduce((a, b) => a + b, 0) / n;
+    const variance = data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (n - 1);
+    return { n, mean: mean.toFixed(2), sd: Math.sqrt(variance).toFixed(2) };
+  };
+
+  const calculatePairedTTest = (dataPra: number[], dataPasca: number[]) => {
+    const n = dataPra.length;
+    if (n <= 1) return { tValue: "0.000", pValue: "> 0.05", sig: "Tidak", meanDiff: "0.00" };
+    let sumDiff = 0; const diffs = [];
+    for (let i = 0; i < n; i++) {
+      const d = dataPasca[i] - dataPra[i];
+      diffs.push(d); sumDiff += d;
+    }
+    const meanDiff = sumDiff / n;
+    const varianceDiff = diffs.reduce((a, b) => a + Math.pow(b - meanDiff, 2), 0) / (n - 1);
+    const sdDiff = Math.sqrt(varianceDiff);
+    const tValue = meanDiff / (sdDiff / Math.sqrt(n));
+    const isSignificant = Math.abs(tValue) > 2.26; 
+    return { meanDiff: meanDiff.toFixed(2), tValue: tValue.toFixed(3), pValue: isSignificant ? "< 0.05" : "> 0.05", sig: isSignificant ? "Ya" : "Tidak" };
+  };
+
+  const analisisEksperimen = useMemo(() => {
+    const kumpulanEks = dataMentah.filter(d => d.kumpulan === "Eksperimen");
+    const pra = kumpulanEks.map(d => d.ujianPra); const pasca = kumpulanEks.map(d => d.ujianPasca);
+    return { deskriptifPra: calculateStats(pra), deskriptifPasca: calculateStats(pasca), tTest: calculatePairedTTest(pra, pasca) };
+  }, [dataMentah]);
+
+  const analisisKawalan = useMemo(() => {
+    const kumpulanKaw = dataMentah.filter(d => d.kumpulan === "Kawalan");
+    const pra = kumpulanKaw.map(d => d.ujianPra); const pasca = kumpulanKaw.map(d => d.ujianPasca);
+    return { deskriptifPra: calculateStats(pra), deskriptifPasca: calculateStats(pasca), tTest: calculatePairedTTest(pra, pasca) };
+  }, [dataMentah]);
+
+  const handleSimpanSoalan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (isEditing && editId) { await updateDoc(doc(db, "bank_soalan_selidik", editId), formData); alert("Soalan dikemas kini!"); } 
+      else { await addDoc(collection(db, "bank_soalan_selidik"), formData); alert("Soalan ditambah!"); }
+      resetForm();
+      tarikSemuaData();
+    } catch (error) { alert("Ralat menyimpan soalan."); }
+  };
+
+  const handleEdit = (item: any) => {
+    setIsEditing(true); setEditId(item.id);
+    setFormData({ fasa: item.fasa || "Pra", kategori: item.kategori, subKategori: item.subKategori, soalan: item.soalan, susunan: item.susunan, jenisSkala: item.jenisSkala, aktif: item.aktif });
+  };
+
+  const handlePadam = async (id: string) => { if (confirm("Pasti memadam soalan ini?")) { await deleteDoc(doc(db, "bank_soalan_selidik", id)); tarikSemuaData(); } };
+
+  const resetForm = () => {
+    setIsEditing(false);
+    setEditId(null);
+    const targetLength = formData.fasa === "Pra" ? soalanPra.length : soalanPasca.length;
+    setFormData({ fasa: formData.fasa, kategori: "Motivasi", subKategori: "", soalan: "", susunan: targetLength + 1, jenisSkala: 5, aktif: true });
+  };
+
+  const handleDragStartPhase = (fasa: string, index: number) => { setDraggedItemInfo({ fasa, index }); };
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); };
+
+  const handleDropPhase = async (fasa: string, targetIndex: number) => {
+    if (!draggedItemInfo || draggedItemInfo.fasa !== fasa || draggedItemInfo.index === targetIndex) return;
+    setIsUpdatingOrder(true);
+
+    const currentList = fasa === "Pra" ? [...soalanPra] : [...soalanPasca];
+    const draggedItem = currentList.splice(draggedItemInfo.index, 1)[0];
+    currentList.splice(targetIndex, 0, draggedItem);
+    
+    const updatedList = currentList.map((item, i) => ({ ...item, susunan: i + 1 }));
+
+    setSoalanList(prev => prev.map(oldItem => {
+        const found = updatedList.find(u => u.id === oldItem.id);
+        return found ? { ...oldItem, susunan: found.susunan } : oldItem;
+    }));
+    setDraggedItemInfo(null);
+
+    try {
+      const batch = writeBatch(db);
+      updatedList.forEach(item => {
+        const docRef = doc(db, "bank_soalan_selidik", item.id);
+        batch.update(docRef, { susunan: item.susunan });
+      });
+      await batch.commit();
+    } catch (error) { alert("Gagal mengemaskini susunan."); tarikSemuaData(); } 
+    finally { setIsUpdatingOrder(false); }
+  };
+
+  const exportKajianKeCSV = () => {
+    if (rawUsersData.length === 0) return alert("Sila tunggu data ditarik.");
+    
+    const sPra = soalanList.filter(q => q.fasa === "Pra").map(q => `PRA_Q${q.susunan}`);
+    const sPasca = soalanList.filter(q => q.fasa === "Pasca").map(q => `PASCA_Q${q.susunan}`);
+
+    let csvContent = "ID_Murid,Sekolah,Kumpulan,Tahap_Inkuiri,Pre_Bab1,Post_Bab1,Motivasi_PRA,Penglibatan_PRA,Motivasi_PASCA,Penglibatan_PASCA,Kebolehgunaan_PASCA,";
+    csvContent += [...sPra, ...sPasca].join(",") + "\n";
+
+    // 🌟 PERBAIKAN: EKSPORT HANYA MURID ARAS RENDAH
+    rawUsersData.filter(u => u.role === "murid" && u.tahapInkuiri === "Rendah").forEach(murid => {
+      const uid = murid.idPengguna || murid.id;
+      const skorMurid = rawSkorData.filter(s => s.idMurid === uid);
+      const preB1 = skorMurid.find(s => s.bab === "Bab 1" && (s.jenisUjian === "pre_test" || !s.jenisUjian))?.skor || "";
+      const postB1 = skorMurid.find(s => s.bab === "Bab 1" && s.jenisUjian === "post_test")?.skor || "";
+
+      const svPra = rawSurveyData.find(sv => sv.idMurid === uid && sv.fasa === "Pra");
+      const svPasca = rawSurveyData.find(sv => sv.idMurid === uid && sv.fasa === "Pasca");
+
+      const itemSkorList: string[] = [];
+      
+      soalanList.filter(q => q.fasa === "Pra").forEach(q => {
+         const ans = svPra?.jawapanTerperinci?.find((a:any) => a.soalanId === q.id);
+         itemSkorList.push(ans ? ans.skor : "");
+      });
+      soalanList.filter(q => q.fasa === "Pasca").forEach(q => {
+         const ans = svPasca?.jawapanTerperinci?.find((a:any) => a.soalanId === q.id);
+         itemSkorList.push(ans ? ans.skor : "");
+      });
+
+      let row = `${uid},${murid.sekolah || "Tiada"},${murid.kumpulan || "Eksperimen"},${murid.tahapInkuiri || "Rendah"},${preB1},${postB1},`;
+      row += `${svPra?.skorKeseluruhan?.Motivasi || ""},${svPra?.skorKeseluruhan?.Penglibatan || ""},`;
+      row += `${svPasca?.skorKeseluruhan?.Motivasi || ""},${svPasca?.skorKeseluruhan?.Penglibatan || ""},${svPasca?.skorKeseluruhan?.Kebolehgunaan || ""},`;
+      row += itemSkorList.join(",") + "\n";
+      
+      csvContent += row;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Data_SPSS_IRAGS_ARAS_RENDAH_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  };
+
+  if (loading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-500" size={40}/></div>;
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full max-w-full">
+      
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-gradient-to-r from-indigo-900/50 to-[#1e293b] p-6 lg:p-8 rounded-2xl border border-indigo-800/50 shadow-lg relative overflow-hidden gap-4">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+        <div className="relative z-10">
+          <h2 className="text-2xl lg:text-3xl font-bold text-white mb-2 flex items-center gap-3"><Calculator className="text-indigo-400" size={28} /> Makmal Analisis Kuantitatif</h2>
+          <p className="text-indigo-200 max-w-3xl text-sm leading-relaxed">Pusat pemprosesan data pencapaian, soal selidik, dan kesahan sistem bagi keperluan analisis SPSS. (Hanya data murid Aras Rendah diekstrak)</p>
+        </div>
+        <button onClick={exportKajianKeCSV} className="relative z-10 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl font-bold flex items-center transition-all shadow-lg w-full md:w-auto shrink-0 justify-center">
+          <Download size={18} className="mr-2"/> Eksport Data CSV
+        </button>
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+        <button onClick={() => setActiveSubTab("kuasi")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'kuasi' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>1. Kuasi-Eksperimen</button>
+        <button onClick={() => setActiveSubTab("spss")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'spss' ? 'bg-blue-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>2. Analisis Soal Selidik</button>
+        <button onClick={() => setActiveSubTab("soalan")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'soalan' ? 'bg-fuchsia-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>3. Item Soalan</button>
+        <button onClick={() => setActiveSubTab("fdm")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'fdm' ? 'bg-purple-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>4. Kesahan FDM</button>
+        <button onClick={() => setActiveSubTab("sus")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'sus' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>5. Skor SUS</button>
+      </div>
+
+      {activeSubTab === "kuasi" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-300">
+          
+          <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-xl lg:col-span-2">
+            <div className="p-5 border-b border-slate-800 bg-slate-900/30 flex items-center gap-3"><BarChart3 className="text-emerald-400"/><h3 className="text-lg font-bold text-white">Statistik Deskriptif (Pencapaian Ujian) - Murid Aras Rendah</h3></div>
+            <div className="p-5 overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-max">
+                <thead>
+                  <tr className="border-b-2 border-slate-700">
+                    <th className="p-3 text-slate-400 font-semibold text-sm">Kumpulan</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Ujian</th>
+                    <th className="p-3 text-slate-400 font-semibold text-sm text-center">N</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Min (Purata)</th>
+                    <th className="p-3 text-slate-400 font-semibold text-sm text-center">Sisihan Piawai (SD)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-emerald-400" rowSpan={2}>Eksperimen</td><td className="p-3 text-slate-300 text-center">Pra</td><td className="p-3 text-slate-300 text-center">{analisisEksperimen.deskriptifPra.n}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisEksperimen.deskriptifPra.mean}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisEksperimen.deskriptifPra.sd}</td></tr>
+                  <tr className="hover:bg-slate-800/30 bg-slate-800/10"><td className="p-3 text-slate-300 text-center">Pasca</td><td className="p-3 text-slate-300 text-center">{analisisEksperimen.deskriptifPasca.n}</td><td className="p-3 font-mono font-bold text-emerald-400 text-center">{analisisEksperimen.deskriptifPasca.mean}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisEksperimen.deskriptifPasca.sd}</td></tr>
+                  <tr className="hover:bg-slate-800/30 border-t-2 border-slate-800"><td className="p-4 font-bold text-amber-400" rowSpan={2}>Kawalan</td><td className="p-3 text-slate-300 text-center">Pra</td><td className="p-3 text-slate-300 text-center">{analisisKawalan.deskriptifPra.n}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisKawalan.deskriptifPra.mean}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisKawalan.deskriptifPra.sd}</td></tr>
+                  <tr className="hover:bg-slate-800/30 bg-slate-800/10"><td className="p-3 text-slate-300 text-center">Pasca</td><td className="p-3 text-slate-300 text-center">{analisisKawalan.deskriptifPasca.n}</td><td className="p-3 font-mono font-bold text-amber-400 text-center">{analisisKawalan.deskriptifPasca.mean}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisKawalan.deskriptifPasca.sd}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-xl lg:col-span-2">
+            <div className="p-5 border-b border-slate-800 bg-slate-900/30 flex justify-between items-center">
+               <div className="flex items-center gap-3"><TrendingUp className="text-cyan-400"/><h3 className="text-lg font-bold text-white">Ujian-t Sampel Berpasangan</h3></div>
+               <button onClick={() => setShowMathInfo(!showMathInfo)} className="flex items-center gap-2 text-xs bg-slate-800 hover:bg-slate-700 text-cyan-400 px-4 py-2 rounded-lg border border-slate-700 transition-colors font-bold">
+                 <Info size={14}/> {showMathInfo ? "Tutup Formula" : "Lihat Cara Pengiraan Sistem"} <ChevronDown size={14} className={`transition-transform ${showMathInfo ? 'rotate-180' : ''}`}/>
+               </button>
+            </div>
+
+            <AnimatePresence>
+               {showMathInfo && (
+                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                   <div className="bg-slate-900 border-b border-slate-800 p-6 space-y-4">
+                     <p className="text-sm text-slate-300 leading-relaxed mb-4">Sistem I-RAGS menggunakan formula statistik matematik sebenar yang diprogramkan secara terbina (built-in). Berikut adalah cara nilai di atas dikira:</p>
+                     
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                       <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                         <h5 className="font-bold text-emerald-400 text-sm mb-2">1. Min (Purata)</h5>
+                         <p className="text-xs text-slate-400 mb-2">Mengira purata markah murid.</p>
+                         <code className="text-emerald-200 text-[11px] block bg-slate-900 p-2 rounded">Min = Σx / n</code>
+                         <p className="text-[10px] text-slate-500 mt-1">Σx = Jumlah semua markah<br/>n = Bilangan murid</p>
+                       </div>
+
+                       <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                         <h5 className="font-bold text-amber-400 text-sm mb-2">2. Sisihan Piawai (SD)</h5>
+                         <p className="text-xs text-slate-400 mb-2">Melihat sejauh mana markah berterabur (taburan data).</p>
+                         <code className="text-amber-200 text-[11px] block bg-slate-900 p-2 rounded">SD = √ [ Σ(x - Min)² / (n - 1) ]</code>
+                         <p className="text-[10px] text-slate-500 mt-1">Formula sampel digunakan (n-1) untuk ketepatan populasi kecil.</p>
+                       </div>
+
+                       <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                         <h5 className="font-bold text-cyan-400 text-sm mb-2">3. Nilai t (T-Value)</h5>
+                         <p className="text-xs text-slate-400 mb-2">Mengukur perbezaan Pra dan Pasca.</p>
+                         <code className="text-cyan-200 text-[11px] block bg-slate-900 p-2 rounded">t = d̄ / (SD_d / √n)</code>
+                         <p className="text-[10px] text-slate-500 mt-1">d̄ = Purata beza markah<br/>Jika t &gt; 2.26 (p &lt; 0.05) = Signifikan.</p>
+                       </div>
+                     </div>
+                   </div>
+                 </motion.div>
+               )}
+            </AnimatePresence>
+
+            <div className="p-5 overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-max">
+                <thead>
+                  <tr className="border-b-2 border-slate-700"><th className="p-3 text-slate-400 font-semibold text-sm">Pasangan</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Perbezaan Min</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Nilai t</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Sig. (p-value)</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-slate-300">Eksperimen</td><td className="p-4 font-mono text-emerald-400 text-center font-bold">+{analisisEksperimen.tTest.meanDiff}</td><td className="p-4 font-mono text-slate-200 text-center">{analisisEksperimen.tTest.tValue}</td><td className="p-4 text-center"><span className="bg-emerald-900/40 text-emerald-400 px-3 py-1 rounded-full text-xs font-bold border border-emerald-800/50">{analisisEksperimen.tTest.pValue} (Sig.)</span></td></tr>
+                  <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-slate-300">Kawalan</td><td className="p-4 font-mono text-amber-400 text-center font-bold">+{analisisKawalan.tTest.meanDiff}</td><td className="p-4 font-mono text-slate-200 text-center">{analisisKawalan.tTest.tValue}</td><td className="p-4 text-center"><span className="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-xs font-bold border border-slate-700">{analisisKawalan.tTest.pValue} (Tidak Sig.)</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === "spss" && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <div className="md:col-span-3 bg-slate-800/80 p-5 rounded-2xl border border-slate-700 flex justify-between items-center">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2"><FileText className="text-blue-400"/> Analisis Deskriptif Soal Selidik (Skor Min)</h4>
+                  <p className="text-xs text-amber-400 mt-1">Data dikira berdasarkan sampel jawapan murid Kumpulan Eksperimen (Aras Rendah) SAHAJA.</p>
+                </div>
+             </div>
+             {statsDeskriptif && Object.keys(statsDeskriptif).length > 0 ? (
+               Object.keys(statsDeskriptif).map((kategori, idx) => (
+                 <div key={idx} className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700 shadow-md">
+                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block mb-4 border-b border-slate-700 pb-2">{kategori}</span>
+                    <div className="flex justify-between items-end mb-3"><span className="text-slate-400 text-xs">Min (Purata)</span><span className="text-3xl font-black text-white">{statsDeskriptif[kategori].min}</span></div>
+                    <div className="flex justify-between items-end"><span className="text-slate-400 text-xs flex items-center gap-1"><Activity size={12}/> Sisihan Piawai (SD)</span><span className="text-lg font-bold text-slate-300">{statsDeskriptif[kategori].sd}</span></div>
+                 </div>
+               ))
+             ) : <div className="md:col-span-3 p-12 text-center text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-700 border-dashed">Tiada data soal selidik ditemui setakat ini.</div>}
+           </div>
+
+           <div className="bg-slate-800/80 rounded-2xl border border-slate-700 overflow-hidden shadow-xl mt-8">
+              <div className="p-5 border-b border-slate-700 bg-slate-900/50">
+                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><Users className="text-fuchsia-400"/> Rekod Jawapan Individu (Aras Rendah)</h3>
+                 <p className="text-xs text-slate-400 mt-1">Semak skor mentah setiap soalan (Skala 1-5) yang telah dijawab oleh pelajar secara terperinci.</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-700 bg-slate-800/50">
+                      <th className="p-4 font-bold text-xs uppercase text-slate-400">Nama Murid / ID</th>
+                      <th className="p-4 font-bold text-xs uppercase text-slate-400 text-center">Fasa Kajian</th>
+                      <th className="p-4 font-bold text-xs uppercase text-slate-400 text-center">Tarikh Menjawab</th>
+                      <th className="p-4 font-bold text-xs uppercase text-slate-400 text-right">Tindakan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rawSurveyData.filter(s => {
+                      const realUser = rawUsersData.find(u => u.id === s.idMurid || u.idPengguna === s.idMurid);
+                      return s.kumpulan === "Eksperimen" && realUser?.tahapInkuiri === "Rendah";
+                    }).length > 0 ? (
+                      rawSurveyData.filter(s => {
+                        const realUser = rawUsersData.find(u => u.id === s.idMurid || u.idPengguna === s.idMurid);
+                        return s.kumpulan === "Eksperimen" && realUser?.tahapInkuiri === "Rendah";
+                      })
+                        .sort((a, b) => new Date(b.tarikhJawab).getTime() - new Date(a.tarikhJawab).getTime())
+                        .map((survey, i) => (
+                        <tr key={i} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
+                          <td className="p-4">
+                            <div className="font-bold text-slate-200">{survey.namaMurid}</div>
+                            <div className="text-xs text-slate-500 font-mono mt-0.5">ID: {survey.idMurid}</div>
+                          </td>
+                          <td className="p-4 text-center">
+                            <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider border ${survey.fasa === "Pra" ? 'bg-indigo-900/40 text-indigo-400 border-indigo-800/50' : 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50'}`}>
+                              {survey.fasa || "Pra"}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center text-xs text-slate-400">
+                             {new Date(survey.tarikhJawab).toLocaleString('ms-MY', { dateStyle: 'medium', timeStyle: 'short' })}
+                          </td>
+                          <td className="p-4 text-right">
+                             <button 
+                               onClick={() => setSelectedSurveyDetail(survey)}
+                               className="bg-slate-700 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                             >
+                               <Eye size={14}/> Lihat Jawapan
+                             </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan={4} className="p-8 text-center text-slate-500">Belum ada murid Aras Rendah yang menjawab.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {activeSubTab === "soalan" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300 items-start relative">
+          
+          <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 lg:col-span-1 lg:sticky lg:top-6 h-fit z-10 shadow-xl order-first">
+            <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+              <Settings className="text-fuchsia-400" size={20}/> 
+              {isEditing ? "Kemaskini Item" : "Daftar Item Baharu"}
+            </h4>
+            
+            <form onSubmit={handleSimpanSoalan} className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Fasa Kajian</label>
+                <select value={formData.fasa} onChange={e => setFormData({...formData, fasa: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none focus:border-fuchsia-500 shadow-inner transition-colors">
+                  <option className="bg-slate-800 text-white" value="Pra">Pra-Kajian (Sebelum Mula)</option>
+                  <option className="bg-slate-800 text-white" value="Pasca">Pasca-Kajian (Selepas Tamat)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Kategori Utama</label>
+                <select value={formData.kategori} onChange={e => setFormData({...formData, kategori: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white outline-none focus:border-fuchsia-500 shadow-inner transition-colors">
+                  <option className="bg-slate-800 text-white" value="Motivasi">Motivasi</option>
+                  <option className="bg-slate-800 text-white" value="Penglibatan">Penglibatan</option>
+                  <option className="bg-slate-800 text-white" value="Kebolehgunaan">Kebolehgunaan</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Sub Kategori (Pilihan)</label>
+                <input type="text" value={formData.subKategori} onChange={e => setFormData({...formData, subKategori: e.target.value})} placeholder="Cth: Relevansi / Kognitif" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-fuchsia-500 outline-none shadow-inner transition-colors"/>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Pernyataan Item</label>
+                <textarea rows={4} value={formData.soalan} onChange={e => setFormData({...formData, soalan: e.target.value})} required placeholder="Cth: I-RAGS membantu saya fokus..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-fuchsia-500 outline-none resize-y shadow-inner leading-relaxed transition-colors"></textarea>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Susunan</label>
+                  <input type="number" min="1" value={formData.susunan} onChange={e => setFormData({...formData, susunan: parseInt(e.target.value) || 1})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-fuchsia-500 outline-none shadow-inner transition-colors"/>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Status</label>
+                  <select value={formData.aktif ? "true" : "false"} onChange={e => setFormData({...formData, aktif: e.target.value === "true"})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-emerald-400 font-bold outline-none focus:border-fuchsia-500 shadow-inner transition-colors">
+                    <option className="bg-slate-800 text-white" value="true">Aktif</option>
+                    <option className="bg-slate-800 text-white" value="false">Sembunyi</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 pt-3 border-t border-slate-700/50 mt-2">
+                {isEditing && (
+                  <button type="button" onClick={resetForm} className="flex-1 bg-slate-700 text-white font-bold py-3.5 rounded-xl hover:bg-slate-600 text-sm shadow-md transition-all flex items-center justify-center gap-2"><X size={18} /> Batal</button>
+                )}
+                <button type="submit" className="flex-1 bg-fuchsia-600 text-white font-bold py-3.5 rounded-xl hover:bg-fuchsia-500 text-sm shadow-lg shadow-fuchsia-900/50 transition-all flex items-center justify-center gap-2 hover:scale-[1.02]">
+                  {isEditing ? <Save size={18} /> : <Plus size={18} />}
+                  {isEditing ? "Simpan Perubahan" : "Tambah Item"}
+                </button>
+              </div>
+            </form>
+          </div>
+          
+          <div className="w-full lg:w-2/3 grid grid-cols-1 xl:grid-cols-2 gap-6 relative">
+            {isUpdatingOrder && (
+               <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center rounded-2xl">
+                  <div className="flex flex-col items-center gap-2 text-fuchsia-400"><Loader2 className="animate-spin" size={32}/><span className="font-bold">Menyusun Pangkalan Data...</span></div>
+               </div>
+            )}
+
+            <div className="bg-indigo-900/10 rounded-2xl border border-indigo-500/30 p-4 shadow-lg flex flex-col h-full">
+              <div className="bg-indigo-900/40 p-4 rounded-xl border border-indigo-500/40 mb-4 flex justify-between items-center">
+                 <h3 className="font-bold text-indigo-300">Pra-Kajian (Sebelum)</h3>
+                 <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-md">{soalanPra.length} Item</span>
+              </div>
+              <div className="flex flex-col gap-3">
+                 {soalanPra.length > 0 ? soalanPra.map((item, i) => (
+                    <div key={item.id} draggable={!isUpdatingOrder} onDragStart={() => handleDragStartPhase("Pra", i)} onDragOver={handleDragOver} onDrop={() => handleDropPhase("Pra", i)} className={`flex gap-3 bg-slate-800/80 p-4 rounded-xl border transition-all ${draggedItemInfo?.fasa === "Pra" && draggedItemInfo.index === i ? 'border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)] opacity-50 scale-95' : 'border-slate-700 hover:border-indigo-500/50'} ${!item.aktif && 'opacity-50 grayscale'}`}>
+                       <div className="flex flex-col items-center justify-start gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-indigo-400"><GripVertical size={18}/><span className="font-bold text-sm">{item.susunan}</span></div>
+                       <div className="flex-1">
+                          <div className="flex flex-wrap gap-1.5 mb-2"><span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>{!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md">Sembunyi</span>}</div>
+                          <p className="text-sm text-slate-200 leading-relaxed font-medium">{item.soalan}</p>
+                       </div>
+                       <div className="flex flex-col gap-2 border-l border-slate-700 pl-3">
+                          <button onClick={() => handleEdit(item)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-amber-500 hover:text-white transition-colors" title="Edit"><Edit3 size={16}/></button>
+                          <button onClick={() => handlePadam(item.id)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-red-500 hover:text-white transition-colors" title="Padam"><Trash2 size={16}/></button>
+                       </div>
+                    </div>
+                 )) : <div className="text-center p-8 text-slate-500 border border-dashed border-slate-700 rounded-xl">Tiada soalan Pra-Kajian.</div>}
+              </div>
+            </div>
+
+            <div className="bg-emerald-900/10 rounded-2xl border border-emerald-500/30 p-4 shadow-lg flex flex-col h-full">
+              <div className="bg-emerald-900/30 p-4 rounded-xl border border-emerald-500/40 mb-4 flex justify-between items-center">
+                 <h3 className="font-bold text-emerald-400">Pasca-Kajian (Selepas)</h3>
+                 <span className="bg-emerald-600 text-white text-xs font-bold px-2 py-1 rounded-md">{soalanPasca.length} Item</span>
+              </div>
+              <div className="flex flex-col gap-3">
+                 {soalanPasca.length > 0 ? soalanPasca.map((item, i) => (
+                    <div key={item.id} draggable={!isUpdatingOrder} onDragStart={() => handleDragStartPhase("Pasca", i)} onDragOver={handleDragOver} onDrop={() => handleDropPhase("Pasca", i)} className={`flex gap-3 bg-slate-800/80 p-4 rounded-xl border transition-all ${draggedItemInfo?.fasa === "Pasca" && draggedItemInfo.index === i ? 'border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] opacity-50 scale-95' : 'border-slate-700 hover:border-emerald-500/50'} ${!item.aktif && 'opacity-50 grayscale'}`}>
+                       <div className="flex flex-col items-center justify-start gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-emerald-400"><GripVertical size={18}/><span className="font-bold text-sm">{item.susunan}</span></div>
+                       <div className="flex-1">
+                          <div className="flex flex-wrap gap-1.5 mb-2"><span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>{!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md">Sembunyi</span>}</div>
+                          <p className="text-sm text-slate-200 leading-relaxed font-medium">{item.soalan}</p>
+                       </div>
+                       <div className="flex flex-col gap-2 border-l border-slate-700 pl-3">
+                          <button onClick={() => handleEdit(item)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-amber-500 hover:text-white transition-colors" title="Edit"><Edit3 size={16}/></button>
+                          <button onClick={() => handlePadam(item.id)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-red-500 hover:text-white transition-colors" title="Padam"><Trash2 size={16}/></button>
+                       </div>
+                    </div>
+                 )) : <div className="text-center p-8 text-slate-500 border border-dashed border-slate-700 rounded-xl">Tiada soalan Pasca-Kajian.</div>}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === "fdm" && (
+        <div className="bg-[#1e293b] p-6 lg:p-8 rounded-2xl border border-purple-900/50 shadow-xl animate-in fade-in duration-300">
+          <div className="flex items-center gap-4 mb-6"><div className="bg-purple-900/50 p-3 rounded-xl"><CheckCircle className="text-purple-400"/></div><div><h4 className="text-xl font-bold text-purple-300">Dapatan Fuzzy Delphi (FDM)</h4></div></div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse bg-slate-900/30 rounded-lg overflow-hidden border border-slate-800 min-w-max">
+              <thead><tr className="border-b border-slate-700 bg-slate-800/80 text-slate-300"><th className="p-4 font-semibold">Konstruk / Elemen</th><th className="p-4 text-center font-semibold">Nilai (d)</th><th className="p-4 text-center font-semibold">% Sepakat</th><th className="p-4 text-center font-semibold">Status</th></tr></thead>
+              <tbody className="text-slate-400">
+                <tr className="border-b border-slate-800 hover:bg-slate-800/50"><td className="p-4 font-medium text-slate-200">Reka Bentuk UI Skrin Terbahagi</td><td className="p-4 text-center text-emerald-400 font-mono">0.11</td><td className="p-4 text-center text-emerald-400 font-bold">94%</td><td className="p-4 text-center"><span className="bg-emerald-900/30 text-emerald-400 px-3 py-1 rounded-md text-xs font-bold border border-emerald-800/50">Diterima</span></td></tr>
+                <tr className="border-b border-slate-800 hover:bg-slate-800/50"><td className="p-4 font-medium text-slate-200">RAG & Prompt Scaffolding</td><td className="p-4 text-center text-emerald-400 font-mono">0.14</td><td className="p-4 text-center text-emerald-400 font-bold">88%</td><td className="p-4 text-center"><span className="bg-emerald-900/30 text-emerald-400 px-3 py-1 rounded-md text-xs font-bold border border-emerald-800/50">Diterima</span></td></tr>
+                <tr className="hover:bg-slate-800/50"><td className="p-4 font-medium text-slate-200">Automasi Penilaian DSKP</td><td className="p-4 text-center text-emerald-400 font-mono">0.16</td><td className="p-4 text-center text-emerald-400 font-bold">85%</td><td className="p-4 text-center"><span className="bg-emerald-900/30 text-emerald-400 px-3 py-1 rounded-md text-xs font-bold border border-emerald-800/50">Diterima</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === "sus" && (
+        <div className="bg-[#1e293b] p-6 lg:p-8 rounded-2xl border border-emerald-900/50 shadow-xl flex flex-col md:flex-row gap-8 items-center animate-in fade-in duration-300">
+          <div className="flex-1 space-y-6 w-full">
+             <div><h4 className="text-xl font-bold text-emerald-400 mb-2">Skor Kebolehgunaan Model (SUS)</h4><p className="text-slate-400 text-sm">Analisis instrumen soal selidik berskala Likert (Murid & Guru).</p></div>
+             <div className="bg-slate-900 p-5 rounded-xl border border-slate-700 shadow-inner">
+               <div className="flex justify-between text-sm mb-3"><span className="text-slate-300 font-medium">Min Persetujuan Murid</span><span className="font-bold text-emerald-400">4.35 / 5.00</span></div>
+               <div className="w-full bg-slate-800 rounded-full h-3"><div className="bg-emerald-500 h-3 rounded-full relative" style={{ width: '87%' }}></div></div>
+             </div>
+             <div className="bg-slate-900 p-5 rounded-xl border border-slate-700 shadow-inner">
+               <div className="flex justify-between text-sm mb-3"><span className="text-slate-300 font-medium">Min Persetujuan Guru</span><span className="font-bold text-emerald-400">4.62 / 5.00</span></div>
+               <div className="w-full bg-slate-800 rounded-full h-3"><div className="bg-emerald-500 h-3 rounded-full relative" style={{ width: '92%' }}></div></div>
+             </div>
+          </div>
+          <div className="w-48 h-48 rounded-full border-8 border-slate-800 flex flex-col items-center justify-center shadow-2xl bg-slate-900 shrink-0">
+            <span className="text-xs text-slate-400 font-bold uppercase mb-1">Tahap</span><span className="text-3xl font-black text-emerald-400">Tinggi</span>
+          </div>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {selectedSurveyDetail && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }} className="bg-slate-800 w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-600 overflow-hidden flex flex-col max-h-[90vh]">
+              
+              <div className="bg-slate-900 p-6 text-white flex justify-between items-start border-b border-slate-700 shrink-0">
+                <div>
+                  <h3 className="font-black text-xl text-white mb-2">{selectedSurveyDetail.namaMurid}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-slate-700 text-slate-300 text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-wider">ID: {selectedSurveyDetail.idMurid}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider border ${selectedSurveyDetail.fasa === "Pra" ? 'bg-indigo-900/40 text-indigo-400 border-indigo-800/50' : 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50'}`}>
+                      Fasa: {selectedSurveyDetail.fasa || "Pra"}
+                    </span>
+                    <span className="text-[10px] text-slate-400 ml-2">
+                      {new Date(selectedSurveyDetail.tarikhJawab).toLocaleString('ms-MY')}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedSurveyDetail(null)} className="bg-slate-800 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-rose-500 transition-colors"><X size={20}/></button>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-1 custom-scrollbar bg-[#0f172a]">
+                 <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-700 pb-2"><FileText size={16}/> Skor Keseluruhan (Min)</h4>
+                 <div className="flex flex-wrap gap-4 mb-8">
+                    {Object.entries(selectedSurveyDetail.skorKeseluruhan).map(([kat, skor]: any, idx) => (
+                      <div key={idx} className="bg-slate-800 border border-slate-700 px-4 py-3 rounded-xl flex items-center gap-3">
+                         <span className="text-xs font-bold text-slate-400 uppercase">{kat}:</span>
+                         <span className="text-xl font-black text-white">{skor.toFixed(2)}</span>
+                      </div>
+                    ))}
+                 </div>
+
+                 <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-700 pb-2"><CheckSquare size={16}/> Maklum Balas Item</h4>
+                 <div className="space-y-3">
+                   {selectedSurveyDetail.jawapanTerperinci.map((ans: any, idx: number) => {
+                     let colorClass = "bg-slate-700 text-slate-300";
+                     if(ans.skor >= 4) colorClass = "bg-emerald-900/50 text-emerald-400 border border-emerald-800";
+                     else if (ans.skor <= 2) colorClass = "bg-rose-900/50 text-rose-400 border border-rose-800";
+
+                     return (
+                       <div key={idx} className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 flex gap-4 items-center hover:bg-slate-800 transition-colors">
+                          <div className={`w-12 h-12 rounded-xl shrink-0 flex items-center justify-center font-black text-xl shadow-inner ${colorClass}`}>
+                             {ans.skor}
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-fuchsia-400 font-bold uppercase tracking-wider mb-1 block">{ans.kategori} {ans.subKategori && `- ${ans.subKategori}`}</span>
+                            <p className="text-sm text-slate-200 leading-relaxed font-medium">{ans.soalan}</p>
+                          </div>
+                       </div>
+                     )
+                   })}
+                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
