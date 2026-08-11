@@ -210,9 +210,14 @@ export default function MuridDashboard() {
         if (!tempProgress[babNum]) tempProgress[babNum] = { aiSelesai: false, gameSelesai: false };
         
         let adaRalat = false;
+        // 🌟 PERUBAHAN DI SINI: Hanya sekat jika sistem AI 'crash' (SISTEM_RALAT_KRONIK). 
+        // Jika markah 0 biasa, sistem akan proses macam biasa supaya murid nampak markah.
         if (data.ulasanAI && data.statusPermarkahanEsei !== "disemak_oleh_guru") {
            for (const key in data.ulasanAI) {
-              if (typeof data.ulasanAI[key].komenAI === 'string' && data.ulasanAI[key].komenAI.includes("GAGAL")) { adaRalat = true; break; }
+              if (typeof data.ulasanAI[key].komenAI === 'string' && data.ulasanAI[key].komenAI.includes("SISTEM_RALAT_KRONIK")) { 
+                  adaRalat = true; 
+                  break; 
+              }
            }
         }
 
@@ -740,7 +745,7 @@ export default function MuridDashboard() {
                                  {logic.gagalKategori === "Sederhana" && "Skor anda sedikit menurun berbanding ujian awal. Jangan risau, jumpa guru anda untuk semak bahagian mana yang terkeliru."}
                                  {logic.gagalKategori === "Rendah" && "Anda hampir mencapai sasaran minimum! Sila berjumpa dengan guru untuk mendapatkan tip dan latihan tambahan."}
                                </p>
-                               <p className="text-sky-700 text-xs font-bold italic mb-4 bg-white/50 p-2 rounded-lg border border-sky-100 inline-block">Nota: Ujian susulan akan dibuka oleh guru selepas bimbingany</p>
+                               <p className="text-sky-700 text-xs font-bold italic mb-4 bg-white/50 p-2 rounded-lg border border-sky-100 inline-block">Nota: Ujian susulan akan dibuka oleh guru selepas bimbingan</p>
                                <div className="bg-white/60 p-4 rounded-xl border border-sky-100 flex flex-col sm:flex-row gap-4 sm:gap-8 max-w-lg">
                                   <div><span className="block text-xs text-sky-600 font-bold uppercase">Skor Diagnostik</span><span className="text-lg font-black text-sky-900">{logic.pre}%</span></div>
                                   <div><span className="block text-xs text-sky-600 font-bold uppercase">Skor Pasca</span><span className="text-lg font-black text-sky-900">{logic.post}%</span></div>
