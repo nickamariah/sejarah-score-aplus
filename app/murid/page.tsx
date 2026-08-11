@@ -578,7 +578,7 @@ export default function MuridDashboard() {
               <div className="bg-white/20 p-3 rounded-2xl shrink-0"><ClipboardList className="w-8 h-8" /></div>
               <div className="flex-1">
                 <h3 className="font-bold text-lg md:text-xl flex items-center gap-2">
-                  Tugasan Kajian: Soal Selidik Akhir (Post-Survey) <Sparkles className="w-5 h-5 text-yellow-300"/>
+                  TUGASAN KAJIAN: SOAL SELIDIK MOTIVASI & PENGLIBATAN <Sparkles className="w-5 h-5 text-yellow-300"/>
                 </h3>
                 <p className="text-purple-100 text-xs md:text-sm mt-1 leading-relaxed">
                   Terima kasih atas dedikasi anda. Sila lengkapkan soal selidik akhir ini sebagai tanda maklum balas keberkesanan sistem.
