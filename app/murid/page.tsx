@@ -798,7 +798,7 @@ export default function MuridDashboard() {
                                   {logic.adaRalatSemakanPre ? <AlertTriangle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
                                 </div>
                                 <h4 className="font-bold text-slate-800">
-                                  {logic.adaRalatSemakanPre ? "Menunggu Semakan" : `Bimbingan AI (${logic.aras})`}
+                                  {logic.adaRalatSemakanPre ? "Menunggu Semakan" : `Bimbingan HUB I-RAGS (${logic.aras})`}
                                </h4>
                               </div>
                               <p className="text-xs text-slate-500 leading-relaxed">
@@ -909,9 +909,12 @@ export default function MuridDashboard() {
                 <div>
                   <h3 className="font-bold text-lg md:text-xl flex items-center gap-2">
                     <ClipboardList className="w-6 h-6 text-fuchsia-200"/> 
-                    {surveyType === "pre" ? "Soal Selidik Penilaian Sistem (Awalan)" : "Soal Selidik Penilaian Sistem (Akhir)"}
+                    SOAL SELIDIK MOTIVASI DAN PENGLIBATAN
                   </h3>
-                  <p className="text-purple-100 text-xs md:text-sm mt-1">Borang Kaji Selidik Murid (Skala 1 - 5)</p>
+                  <p className="text-purple-100 text-xs md:text-sm mt-1 font-medium">
+                    {surveyType === "pre" ? "Sebelum Penggunaan HUB I-RAGS" : "Selepas Penggunaan HUB I-RAGS"} (Skala 1 - 5)
+                  </p>
+               
                 </div>
                 {/* TUTUP BUTTON HANYA JIKA BUKAN PRE-SURVEY WAJIB */}
                 {(surveyType === "post" || hasPreSurvey) && (
