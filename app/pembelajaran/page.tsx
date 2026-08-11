@@ -11,14 +11,15 @@ function KomponenPembelajaran() {
   const babDariURL = searchParams.get("bab") || "tingkatan4_bab1_sub1.1"; 
   const arasDariURL = (searchParams.get("aras") || "rendah").toLowerCase();
   
+  // 🌟 PERBAIKAN: Tangkap rujukGuru dari Dashboard untuk tukar ke mod Pemulihan automatik
   const modeDariURL = (searchParams.get("mode") || "normal").toLowerCase();
-  const isPemulihan = modeDariURL === "pemulihan";
+  const isRujukGuru = searchParams.get("rujukGuru") === "true";
+  const isPemulihan = modeDariURL === "pemulihan" || isRujukGuru;
 
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
-  // 🌟 PENGURUSAN TAB BARU: bukuTeks | nota | video
   const [activeView, setActiveView] = useState<"nota" | "video" | "bukuTeks">("bukuTeks");
   const [currentPhase, setCurrentPhase] = useState(1);
   const [isMastered, setIsMastered] = useState(false);
@@ -56,8 +57,12 @@ function KomponenPembelajaran() {
   };
 
   useEffect(() => {
+    // 🌟 PERBAIKAN ID MURID: Pastikan sistem tangkap ID Pengguna Sebenar jika ada (Elak mismatch dengan Dashboard)
     const rawUser = localStorage.getItem("currentUser");
-    if (rawUser) setStudentId(JSON.parse(rawUser).id);
+    if (rawUser) {
+        const userLokal = JSON.parse(rawUser);
+        setStudentId(userLokal.idPengguna || userLokal.id);
+    }
   }, []);
 
   const chapterId = babDariURL; 
@@ -66,7 +71,6 @@ function KomponenPembelajaran() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const isInitializing = useRef(false);
   
   let maxFasa = arasDariURL === "rendah" ? 2 : arasDariURL === "sederhana" ? 3 : 6;
   if (isPemulihan) maxFasa = 3; 
@@ -154,7 +158,6 @@ function KomponenPembelajaran() {
   const namaBabSebenar = chapterData?.title || "";
   const namaSubtopikSebenar = currentSubInfo?.title || "";
 
-  // 🌟 FUNGSI URL UNTUK VIDEO KHAS
   const getBimbinganVideoUrl = () => {
     const rawUrl = currentSubInfo?.videoUrl;
     if (!rawUrl) return null;
@@ -167,7 +170,6 @@ function KomponenPembelajaran() {
   };
   const videoKhas = getBimbinganVideoUrl();
 
-  // 🌟 FUNGSI URL UNTUK BUKU TEKS (PAUTAN INDUK BAB)
   const getBukuTeksUrl = () => {
     const mainUrl = chapterData?.chapterUrl;
     if (!mainUrl) return `/${pdfFileName}.pdf#page=1&toolbar=1&view=FitH`;
@@ -176,14 +178,12 @@ function KomponenPembelajaran() {
     return mainUrl;
   };
 
-  // 🌟 FUNGSI URL UNTUK NOTA SUBTOPIK
   const getNotaUrl = () => {
     const subtopicUrl = currentSubInfo?.notaUrl;
     if (subtopicUrl && subtopicUrl.trim() !== "") {
       if (subtopicUrl.includes("drive.google.com")) return subtopicUrl.replace(/\/view.*/, "/preview");
       return subtopicUrl;
     }
-    // Jatuh balik ke buku teks jika tiada link khas subtopik
     const mainUrl = chapterData?.chapterUrl;
     if (!mainUrl) return `/${pdfFileName}.pdf#page=${pageNumber}&toolbar=1&view=FitH`;
     if (mainUrl.includes("drive.google.com")) return mainUrl.replace(/\/view.*/, "/preview");
@@ -198,6 +198,7 @@ function KomponenPembelajaran() {
     } else { window.location.href = '/murid'; }
   };
 
+  // 🌟 PENGURUSAN SESI YANG LEBIH SELAMAT & STABIL
   useEffect(() => {
     if (studentId === "murid_test") return; 
 
@@ -205,27 +206,51 @@ function KomponenPembelajaran() {
     const messagesCollectionRef = collection(sessionDocRef, "messages");
 
     const inisialisasiSesi = async () => {
-      if (isInitializing.current) return; 
-      isInitializing.current = true;
+      try {
+        const docSnap = await getDoc(sessionDocRef);
+        
+        // JIKA SESI BELUM WUJUD (MULA BARU)
+        if (!docSnap.exists()) {
+          let ayatPertamaAI = `Hai! Saya Cikgu AI I-RAGs 👋. Kita akan mulakan sesi untuk **${namaBabSebenar} (${currentSub} ${namaSubtopikSebenar})**.\n\nBerdasarkan nota di sebelah, apa yang awak paling ingat atau faham tentang tajuk ini? Cuba kongsikan.`;
+          
+          if (isPemulihan) {
+            ayatPertamaAI = `Hai awak! 🌟 Jangan risau kalau skor ujian pasca masih kurang. Cikgu ada di sini untuk bantu. Kita bincang santai-santai je untuk topik **${namaBabSebenar} (${currentSub} ${namaSubtopikSebenar})**.\n\nCuba awak tengok nota di sebelah sekejap, lepas tu beritahu cikgu kalau awak dah sedia! 😊`;
+          }
 
-      const docSnap = await getDoc(sessionDocRef);
-      if (!docSnap.exists()) {
-        
-        let ayatPertamaAI = `Hai! Saya Cikgu AI I-RAGs 👋. Kita akan mulakan sesi untuk **${namaBabSebenar} (${currentSub} ${namaSubtopikSebenar})**.\n\nBerdasarkan nota di sebelah, apa yang awak paling ingat atau faham tentang tajuk ini? Cuba kongsikan.`;
-        
-        if (isPemulihan) {
-          ayatPertamaAI = `Hai awak! 🌟 Jangan risau kalau tak lulus ujian tadi, cikgu ada di sini untuk bantu. Kita buat santai-santai je untuk topik **${namaBabSebenar} (${currentSub} ${namaSubtopikSebenar})**.\n\nCuba awak tengok nota di sebelah sekejap, lepas tu beritahu cikgu kalau awak dah sedia! 😊`;
+          // Cipta sesi induk
+          await setDoc(sessionDocRef, { 
+             studentId, 
+             chapterId, 
+             currentPhase: 1, 
+             status: "in_progress", 
+             startedAt: serverTimestamp(), 
+             mode: isPemulihan ? "pemulihan" : "normal" 
+          });
+
+          // Cipta sapaan pertama dengan ID tetap 'greeting' untuk elak duplicate/kosong
+          await setDoc(doc(messagesCollectionRef, "greeting"), { 
+             role: "assistant", 
+             content: ayatPertamaAI, 
+             timestamp: serverTimestamp() 
+          });
+        } 
+        // JIKA SESI SUDAH WUJUD (SAMBUNG ATAU ULANG KAJI)
+        else {
+          const dataSesi = docSnap.data();
+          let fasaTerkini = dataSesi.currentPhase || 1;
+          if (fasaTerkini > maxFasa) fasaTerkini = maxFasa;
+          setCurrentPhase(fasaTerkini);
+          
+          // Semak jika sudah selesai / sudah di tahap akhir
+          if (dataSesi.status === "completed" || fasaTerkini >= maxFasa) {
+             setIsMastered(true);
+             if (dataSesi.status !== "completed") {
+                await updateDoc(sessionDocRef, { status: "completed" });
+             }
+          }
         }
-
-        await setDoc(sessionDocRef, { studentId, chapterId, currentPhase: 1, status: "in_progress", startedAt: serverTimestamp(), mode: modeDariURL });
-        await addDoc(messagesCollectionRef, { role: "assistant", content: ayatPertamaAI, timestamp: serverTimestamp() });
-      
-      } else {
-        const dataSesi = docSnap.data();
-        let fasaTerkini = dataSesi.currentPhase || 1;
-        if (fasaTerkini > maxFasa) fasaTerkini = maxFasa;
-        setCurrentPhase(fasaTerkini);
-        if (dataSesi.status === "completed" || (fasaTerkini >= maxFasa && dataSesi.status === "completed")) setIsMastered(true);
+      } catch (err) {
+        console.error("Ralat memuatkan sesi:", err);
       }
     };
     
@@ -238,7 +263,7 @@ function KomponenPembelajaran() {
     });
 
     return () => unsubscribe();
-  }, [sessionId, chapterId, studentId, chapterData, maxFasa, currentSub, namaBabSebenar, namaSubtopikSebenar, isPemulihan, modeDariURL]); 
+  }, [sessionId, chapterId, studentId, chapterData, maxFasa, currentSub, namaBabSebenar, namaSubtopikSebenar, isPemulihan]); 
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
@@ -314,7 +339,7 @@ function KomponenPembelajaran() {
         body: JSON.stringify({ 
           studentId, chapterId, text: teksMurid, currentPhase, aras: arasDariURL, soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema,
           tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, 
-          mode: modeDariURL,
+          mode: isPemulihan ? "pemulihan" : "normal",
           previousMessages: messages.slice(-4).map(m => ({ role: m.role, content: m.content })) 
         })
       });
@@ -336,7 +361,7 @@ function KomponenPembelajaran() {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 studentId, chapterId, aras: arasDariURL, currentPhase: nextPhase, 
-                mode: modeDariURL,
+                mode: isPemulihan ? "pemulihan" : "normal",
                 text: `[SISTEM AUTO]: Murid lulus fasa tadi. Berikan SOALAN PERTAMA untuk menguji FASA ${nextPhase}. Tanya 1 soalan sahaja.`, 
                 soalanUjian: koleksiSoalan, skemaJawapan: koleksiSkema, tajukBab: namaBabSebenar, tajukSubtopik: namaSubtopikSebenar, kodSubtopik: currentSub, teksRujukanAI: teksRujukanAI, previousMessages: [] 
               })
@@ -373,35 +398,22 @@ function KomponenPembelajaran() {
             <ArrowLeft size={14}/> Kembali
           </button>
           
-          {/* 🌟 BUTANG BARU (BUKU TEKS, NOTA, VIDEO) */}
           <div className="flex bg-black/40 p-1 rounded-lg border border-white/10 shrink-0">
-            <button
-              onClick={() => setActiveView("bukuTeks")}
-              className={`px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${activeView === "bukuTeks" ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`}
-              title="Rujuk Buku Teks / Nota Induk Bab"
-            >
-              <Library size={14}/> Buku Teks
-            </button>
-            <button
-              onClick={() => setActiveView("nota")}
-              className={`px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${activeView === "nota" ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`}
-              title="Nota Spesifik Subtopik"
-            >
+            
+            <button onClick={() => setActiveView("nota")} className={`px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${activeView === "nota" ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`} title="Nota Spesifik Subtopik">
               <BookOpen size={14}/> Nota
             </button>
-            <button
-              onClick={() => setActiveView("video")}
-              className={`px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${activeView === "video" ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`}
-            >
+
+            <button onClick={() => setActiveView("bukuTeks")} className={`px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${activeView === "bukuTeks" ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`} title="Rujuk Buku Teks / Nota Induk Bab">
+              <Library size={14}/> Buku Teks
+            </button>
+            
+            <button onClick={() => setActiveView("video")} className={`px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all ${activeView === "video" ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'}`}>
               <PlayCircle size={14}/> Video
             </button>
             
             <div className="w-px h-5 bg-white/20 mx-1 self-center"></div>
-            <button
-              onClick={() => window.open(activeView === "bukuTeks" ? getBukuTeksUrl() : getNotaUrl(), '_blank')}
-              className="px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200 hover:bg-white/10"
-              title="Buka tab baru untuk Cetak Dokumen"
-            >
+            <button onClick={() => window.open(activeView === "bukuTeks" ? getBukuTeksUrl() : getNotaUrl(), '_blank')} className="px-3 md:px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200 hover:bg-white/10" title="Buka tab baru untuk Cetak Dokumen">
               <Printer size={14}/> Cetak
             </button>
           </div>
@@ -466,19 +478,12 @@ function KomponenPembelajaran() {
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex items-center bg-white/10 p-1 rounded-xl border border-white/20 shadow-sm backdrop-blur-sm">
                 <Palette size={14} className="text-white ml-2" />
-                <select 
-                  value={selectedTheme}
-                  onChange={handleThemeChange}
-                  className="bg-transparent text-[10px] md:text-xs font-bold text-white outline-none cursor-pointer py-1 pl-1 pr-2 hover:text-sky-200 transition-colors appearance-none"
-                  title="Tukar Latar Belakang"
-                >
-                  {senaraiTheme.map(theme => (
-                    <option key={theme.id} value={theme.class} className="text-slate-800">{theme.nama}</option>
-                  ))}
+                <select value={selectedTheme} onChange={handleThemeChange} className="bg-transparent text-[10px] md:text-xs font-bold text-white outline-none cursor-pointer py-1 pl-1 pr-2 hover:text-sky-200 transition-colors appearance-none" title="Tukar Latar Belakang">
+                  {senaraiTheme.map(theme => ( <option key={theme.id} value={theme.class} className="text-slate-800">{theme.nama}</option> ))}
                 </select>
               </div>
 
-              {/* 🌟 TEKS FASA DINAMIK 🌟 */}
+              {/* TEKS FASA DINAMIK */}
               <div className="flex flex-col items-end w-32 lg:w-48">
                  <div className="text-[8px] lg:text-[9px] font-bold text-blue-100 uppercase tracking-wider mb-1 flex justify-between w-full gap-2">
                     <span className="truncate" title={isPemulihan ? "Fasa Santai" : `Fasa ${phaseNames[currentPhase - 1] || "Inkuiri"}`}>
@@ -539,40 +544,17 @@ function KomponenPembelajaran() {
             {!isLoading && !isMastered && (
               <div className="flex flex-wrap gap-2 px-3 py-2.5 bg-white/50 border-b border-white/50 items-center justify-between">
                 
-                {/* 🌟 BAHAGIAN KIRI: RUJUKAN (Khas Mobile) */}
                 <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => { setShowPdfMobile(true); setActiveView("bukuTeks"); }} 
-                    className="lg:hidden bg-emerald-100 text-emerald-700 text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-emerald-200 transition-colors flex items-center gap-1.5 shadow-sm border border-emerald-200"
-                  >
-                    <Library size={14}/> Buku
-                  </button>
-
-                  <button 
-                    onClick={() => { setShowPdfMobile(true); setActiveView("nota"); }} 
-                    className="lg:hidden bg-amber-400 text-amber-950 text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-amber-500 transition-colors flex items-center gap-1.5 shadow-sm"
-                  >
-                    <BookOpen size={14}/> Nota
-                  </button>
-
+                  <button onClick={() => { setShowPdfMobile(true); setActiveView("bukuTeks"); }} className="lg:hidden bg-emerald-100 text-emerald-700 text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-emerald-200 transition-colors flex items-center gap-1.5 shadow-sm border border-emerald-200"><Library size={14}/> Buku</button>
+                  <button onClick={() => { setShowPdfMobile(true); setActiveView("nota"); }} className="lg:hidden bg-amber-400 text-amber-950 text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-amber-500 transition-colors flex items-center gap-1.5 shadow-sm"><BookOpen size={14}/> Nota</button>
                   {(arasDariURL === "rendah" || arasDariURL === "sederhana") && (
-                    <button 
-                      onClick={() => { setShowPdfMobile(true); setActiveView("video"); }} 
-                      className="lg:hidden bg-red-600 text-white text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-red-700 transition-all flex items-center gap-1.5 shadow-sm"
-                    >
-                      <PlayCircle size={14}/> Video
-                    </button>
+                    <button onClick={() => { setShowPdfMobile(true); setActiveView("video"); }} className="lg:hidden bg-red-600 text-white text-[11px] md:text-xs font-extrabold px-3 py-1.5 rounded-lg hover:bg-red-700 transition-all flex items-center gap-1.5 shadow-sm"><PlayCircle size={14}/> Video</button>
                   )}
                 </div>
 
-                {/* BAHAGIAN KANAN: BANTUAN AI */}
                 <div className="flex items-center gap-2 ml-auto">
-                  <button onClick={() => sendQuickPrompt("Boleh bagi hint atau klu sikit?")} className="bg-emerald-100/80 text-emerald-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1.5 rounded-md hover:bg-emerald-200 transition-colors flex items-center gap-1 shadow-sm border border-emerald-200/50">
-                    <Lightbulb size={12}/> Hint
-                  </button>
-                  <button onClick={() => sendQuickPrompt("Saya kurang faham, boleh cikgu terangkan?")} className="bg-rose-100/80 text-rose-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1.5 rounded-md hover:bg-rose-200 transition-colors flex items-center gap-1 shadow-sm border border-rose-200/50">
-                    <HelpCircle size={12}/> Tak Faham
-                  </button>
+                  <button onClick={() => sendQuickPrompt("Boleh bagi hint atau klu sikit?")} className="bg-emerald-100/80 text-emerald-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1.5 rounded-md hover:bg-emerald-200 transition-colors flex items-center gap-1 shadow-sm border border-emerald-200/50"><Lightbulb size={12}/> Hint</button>
+                  <button onClick={() => sendQuickPrompt("Saya kurang faham, boleh cikgu terangkan?")} className="bg-rose-100/80 text-rose-700 text-[10px] lg:text-[11px] font-bold px-2.5 py-1.5 rounded-md hover:bg-rose-200 transition-colors flex items-center gap-1 shadow-sm border border-rose-200/50"><HelpCircle size={12}/> Tak Faham</button>
                 </div>
 
               </div>
@@ -580,7 +562,7 @@ function KomponenPembelajaran() {
 
             {isMastered ? (
               <div className="p-3 lg:p-4 bg-emerald-50/90 backdrop-blur-sm text-center flex flex-col md:flex-row items-center justify-center gap-3">
-                <div className="flex items-center gap-2"><CheckCircle2 className="w-6 h-6 text-emerald-500" /><div className="text-left"><h3 className="text-sm font-bold text-emerald-800 leading-tight">Dikuasai!</h3><p className="text-emerald-700 font-medium text-[10px]">Syabas, selesai bimbingan.</p></div></div>
+                <div className="flex items-center gap-2"><CheckCircle2 className="w-6 h-6 text-emerald-500" /><div className="text-left"><h3 className="text-sm font-bold text-emerald-800 leading-tight">Dikuasai!</h3><p className="text-emerald-700 font-medium text-[10px]">Pemerhatian atau Ulang kaji perbualan ini ditutup untuk penyuntingan.</p></div></div>
                 <button onClick={gotoNextSubtopic} className="w-full md:w-auto bg-emerald-600 text-white text-[11px] lg:text-xs font-bold px-6 py-2 rounded-lg shadow-md hover:bg-emerald-700 transition-all flex items-center justify-center gap-1.5 ml-auto">
                   {currentIndex !== -1 && currentIndex + 1 < subtopicsList.length ? <>Seterusnya <ArrowLeft className="w-4 h-4 rotate-180"/></> : "Tamat & Kembali"}
                 </button>
@@ -609,17 +591,7 @@ function KomponenPembelajaran() {
                    className="w-full bg-white/70 backdrop-blur-sm border border-slate-300 text-sm lg:text-base text-slate-800 p-3 lg:p-3.5 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-inner resize-none max-h-32 transition-colors"
                 />
                 
-                <button 
-                  type="button" 
-                  onClick={toggleListening}
-                  disabled={isLoading}
-                  title="Gunakan Suara"
-                  className={`rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center transition-colors mb-0.5 shadow-sm border ${
-                    isListening 
-                      ? 'bg-red-500 text-white border-red-600 animate-pulse shadow-red-500/50' 
-                      : 'bg-white/80 text-slate-600 border-white/60 hover:bg-white hover:text-blue-600'
-                  }`}
-                >
+                <button type="button" onClick={toggleListening} disabled={isLoading} title="Gunakan Suara" className={`rounded-xl w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center transition-colors mb-0.5 shadow-sm border ${isListening ? 'bg-red-500 text-white border-red-600 animate-pulse shadow-red-500/50' : 'bg-white/80 text-slate-600 border-white/60 hover:bg-white hover:text-blue-600'}`}>
                   <Mic size={18} />
                 </button>
 
