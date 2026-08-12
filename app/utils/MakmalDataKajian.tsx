@@ -10,16 +10,10 @@ export default function MakmalDataKajian() {
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<"kuasi" | "spss" | "soalan" | "fdm" | "sus">("kuasi");
   
-  // ==========================================
-  // STATE: KUASI-EKSPERIMEN
-  // ==========================================
   const [dataMentah, setDataMentah] = useState<any[]>([]);
   const [gunaDataSimulasi, setGunaDataSimulasi] = useState(false);
-  const [showMathInfo, setShowMathInfo] = useState(false); // 🌟 Tunjuk formula Matematik
+  const [showMathInfo, setShowMathInfo] = useState(false); 
 
-  // ==========================================
-  // STATE: PENGURUSAN ITEM SOALAN & SPSS
-  // ==========================================
   const [soalanList, setSoalanList] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -42,13 +36,37 @@ export default function MakmalDataKajian() {
   const [draggedItemInfo, setDraggedItemInfo] = useState<{fasa: string, index: number} | null>(null);
   const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
 
-  // 🌟 STATE: PAPARAN JAWAPAN INDIVIDU
   const [selectedSurveyDetail, setSelectedSurveyDetail] = useState<any | null>(null);
 
   const mockData = [
     { id: "M4001", kumpulan: "Eksperimen", ujianPra: 45, ujianPasca: 85 },
     { id: "M4002", kumpulan: "Eksperimen", ujianPra: 50, ujianPasca: 88 },
   ];
+
+  const calculateStats = (data: number[]) => {
+    const n = data.length;
+    if (n <= 1) return { n, mean: n === 1 ? data[0].toFixed(2) : "0.00", sd: "0.00" };
+    const mean = data.reduce((a, b) => a + b, 0) / n;
+    const variance = data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (n - 1);
+    return { n, mean: mean.toFixed(2), sd: Math.sqrt(variance).toFixed(2) };
+  };
+
+  const calculatePairedTTest = (dataPra: number[], dataPasca: number[]) => {
+    const n = Math.min(dataPra.length, dataPasca.length);
+    if (n <= 1) return { tValue: "0.000", pValue: "> 0.05", sig: "Tidak", meanDiff: "0.00" };
+    
+    let sumDiff = 0; const diffs = [];
+    for (let i = 0; i < n; i++) {
+      const d = dataPasca[i] - dataPra[i];
+      diffs.push(d); sumDiff += d;
+    }
+    const meanDiff = sumDiff / n;
+    const varianceDiff = diffs.reduce((a, b) => a + Math.pow(b - meanDiff, 2), 0) / (n - 1);
+    const sdDiff = Math.sqrt(varianceDiff);
+    const tValue = meanDiff / (sdDiff / Math.sqrt(n));
+    const isSignificant = Math.abs(tValue) > 2.26; 
+    return { meanDiff: meanDiff.toFixed(2), tValue: tValue.toFixed(3), pValue: isSignificant ? "< 0.05" : "> 0.05", sig: isSignificant ? "Ya" : "Tidak" };
+  };
 
   const tarikSemuaData = async () => {
     setLoading(true);
@@ -64,7 +82,8 @@ export default function MakmalDataKajian() {
 
       const dataDBKuasi: any[] = [];
       uData.forEach((user: any) => {
-        if (user.role === "murid" && user.kumpulan) {
+        // EKSTRAK HANYA MURID ARAS RENDAH UNTUK KUASI-EKSPERIMEN
+        if (user.role === "murid" && user.kumpulan && user.tahapInkuiri === "Rendah") {
           dataDBKuasi.push({
             id: user.idPengguna || user.id,
             kumpulan: user.kumpulan,
@@ -85,30 +104,35 @@ export default function MakmalDataKajian() {
       const svData = svSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       setRawSurveyData(svData);
 
-      const kategoriSkor: Record<string, number[]> = {};
-      svData.forEach((res: any) => {
-        if (res.kumpulan === "Eksperimen") {
-          const fasaLabel = res.fasa || "Pra";
-          res.jawapanTerperinci.forEach((ans: any) => {
-            const keyKat = `${ans.kategori} (${fasaLabel})`;
-            if (!kategoriSkor[keyKat]) kategoriSkor[keyKat] = [];
-            kategoriSkor[keyKat].push(ans.skor);
+      // Analisis Soal Selidik (Berpasangan) HANYA Kumpulan Sasaran (Aras Rendah)
+      const validEksRendah = uData.filter(u => u.role === "murid" && u.kumpulan === "Eksperimen" && u.tahapInkuiri === "Rendah");
+      const tempPairedSurvey: Record<string, { pra: number[], pasca: number[] }> = {};
+
+      validEksRendah.forEach(user => {
+        const uid = user.idPengguna || user.id;
+        const praSurvey = svData.find(sv => sv.idMurid === uid && sv.fasa === "Pra");
+        const pascaSurvey = svData.find(sv => sv.idMurid === uid && sv.fasa === "Pasca");
+
+        if (praSurvey && pascaSurvey) {
+          Object.keys(praSurvey.skorKeseluruhan).forEach(kat => {
+            if (pascaSurvey.skorKeseluruhan[kat] !== undefined) {
+              if (!tempPairedSurvey[kat]) tempPairedSurvey[kat] = { pra: [], pasca: [] };
+              tempPairedSurvey[kat].pra.push(praSurvey.skorKeseluruhan[kat]);
+              tempPairedSurvey[kat].pasca.push(pascaSurvey.skorKeseluruhan[kat]);
+            }
           });
         }
       });
 
-      const deskriptif: Record<string, { min: string, sd: string, N: number }> = {};
-      Object.keys(kategoriSkor).forEach(kat => {
-        const susunanSkor = kategoriSkor[kat];
-        const N = susunanSkor.length;
-        if(N > 0) {
-          const mean = susunanSkor.reduce((a, b) => a + b, 0) / N;
-          const squaredDiffs = susunanSkor.map(val => Math.pow(val - mean, 2));
-          const variance = squaredDiffs.reduce((a, b) => a + b, 0) / (N - 1 || 1);
-          deskriptif[kat] = { min: mean.toFixed(2), sd: Math.sqrt(variance).toFixed(2), N };
-        }
+      const deskriptifSurvey: any = {};
+      Object.keys(tempPairedSurvey).forEach(kat => {
+        deskriptifSurvey[kat] = {
+          pra: calculateStats(tempPairedSurvey[kat].pra),
+          pasca: calculateStats(tempPairedSurvey[kat].pasca),
+          tTest: calculatePairedTTest(tempPairedSurvey[kat].pra, tempPairedSurvey[kat].pasca)
+        };
       });
-      setStatsDeskriptif(deskriptif);
+      setStatsDeskriptif(deskriptifSurvey);
 
     } catch (error) {
       console.error("Ralat menarik data:", error);
@@ -128,30 +152,6 @@ export default function MakmalDataKajian() {
       setFormData(prev => ({ ...prev, susunan: p }));
     }
   }, [formData.fasa, soalanList]);
-
-  const calculateStats = (data: number[]) => {
-    const n = data.length;
-    if (n <= 1) return { n, mean: n === 1 ? data[0].toFixed(2) : "0.00", sd: "0.00" };
-    const mean = data.reduce((a, b) => a + b, 0) / n;
-    const variance = data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (n - 1);
-    return { n, mean: mean.toFixed(2), sd: Math.sqrt(variance).toFixed(2) };
-  };
-
-  const calculatePairedTTest = (dataPra: number[], dataPasca: number[]) => {
-    const n = dataPra.length;
-    if (n <= 1) return { tValue: "0.000", pValue: "> 0.05", sig: "Tidak", meanDiff: "0.00" };
-    let sumDiff = 0; const diffs = [];
-    for (let i = 0; i < n; i++) {
-      const d = dataPasca[i] - dataPra[i];
-      diffs.push(d); sumDiff += d;
-    }
-    const meanDiff = sumDiff / n;
-    const varianceDiff = diffs.reduce((a, b) => a + Math.pow(b - meanDiff, 2), 0) / (n - 1);
-    const sdDiff = Math.sqrt(varianceDiff);
-    const tValue = meanDiff / (sdDiff / Math.sqrt(n));
-    const isSignificant = Math.abs(tValue) > 2.26; 
-    return { meanDiff: meanDiff.toFixed(2), tValue: tValue.toFixed(3), pValue: isSignificant ? "< 0.05" : "> 0.05", sig: isSignificant ? "Ya" : "Tidak" };
-  };
 
   const analisisEksperimen = useMemo(() => {
     const kumpulanEks = dataMentah.filter(d => d.kumpulan === "Eksperimen");
@@ -228,7 +228,8 @@ export default function MakmalDataKajian() {
     let csvContent = "ID_Murid,Sekolah,Kumpulan,Tahap_Inkuiri,Pre_Bab1,Post_Bab1,Motivasi_PRA,Penglibatan_PRA,Motivasi_PASCA,Penglibatan_PASCA,Kebolehgunaan_PASCA,";
     csvContent += [...sPra, ...sPasca].join(",") + "\n";
 
-    rawUsersData.filter(u => u.role === "murid").forEach(murid => {
+    // EKSPORT HANYA MURID ARAS RENDAH
+    rawUsersData.filter(u => u.role === "murid" && u.tahapInkuiri === "Rendah").forEach(murid => {
       const uid = murid.idPengguna || murid.id;
       const skorMurid = rawSkorData.filter(s => s.idMurid === uid);
       const preB1 = skorMurid.find(s => s.bab === "Bab 1" && (s.jenisUjian === "pre_test" || !s.jenisUjian))?.skor || "";
@@ -259,7 +260,7 @@ export default function MakmalDataKajian() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `Data_SPSS_IRAGS_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `Data_SPSS_IRAGS_ARAS_RENDAH_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
@@ -273,10 +274,10 @@ export default function MakmalDataKajian() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10">
           <h2 className="text-2xl lg:text-3xl font-bold text-white mb-2 flex items-center gap-3"><Calculator className="text-indigo-400" size={28} /> Makmal Analisis Kuantitatif</h2>
-          <p className="text-indigo-200 max-w-3xl text-sm leading-relaxed">Pusat pemprosesan data pencapaian, soal selidik, dan kesahan sistem bagi keperluan analisis SPSS.</p>
+          <p className="text-indigo-200 max-w-3xl text-sm leading-relaxed">Pusat pemprosesan data pencapaian, soal selidik, dan kesahan sistem bagi keperluan analisis SPSS. (Hanya data murid Aras Rendah diekstrak)</p>
         </div>
         <button onClick={exportKajianKeCSV} className="relative z-10 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl font-bold flex items-center transition-all shadow-lg w-full md:w-auto shrink-0 justify-center">
-          <Download size={18} className="mr-2"/> Eksport Data (CSV)
+          <Download size={18} className="mr-2"/> Eksport Data CSV
         </button>
       </div>
 
@@ -295,9 +296,8 @@ export default function MakmalDataKajian() {
       {activeSubTab === "kuasi" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-300">
           
-          {/* STATISTIK DESKRIPTIF */}
           <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-xl lg:col-span-2">
-            <div className="p-5 border-b border-slate-800 bg-slate-900/30 flex items-center gap-3"><BarChart3 className="text-emerald-400"/><h3 className="text-lg font-bold text-white">Statistik Deskriptif (Pencapaian Ujian)</h3></div>
+            <div className="p-5 border-b border-slate-800 bg-slate-900/30 flex items-center gap-3"><BarChart3 className="text-emerald-400"/><h3 className="text-lg font-bold text-white">Statistik Deskriptif (Pencapaian Ujian) - Murid Aras Rendah</h3></div>
             <div className="p-5 overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-max">
                 <thead>
@@ -317,17 +317,14 @@ export default function MakmalDataKajian() {
             </div>
           </div>
 
-          {/* UJIAN-T */}
           <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-xl lg:col-span-2">
             <div className="p-5 border-b border-slate-800 bg-slate-900/30 flex justify-between items-center">
                <div className="flex items-center gap-3"><TrendingUp className="text-cyan-400"/><h3 className="text-lg font-bold text-white">Ujian-t Sampel Berpasangan</h3></div>
-               {/* 🌟 BUTANG TONJOL INFO MATEMATIK */}
                <button onClick={() => setShowMathInfo(!showMathInfo)} className="flex items-center gap-2 text-xs bg-slate-800 hover:bg-slate-700 text-cyan-400 px-4 py-2 rounded-lg border border-slate-700 transition-colors font-bold">
                  <Info size={14}/> {showMathInfo ? "Tutup Formula" : "Lihat Cara Pengiraan Sistem"} <ChevronDown size={14} className={`transition-transform ${showMathInfo ? 'rotate-180' : ''}`}/>
                </button>
             </div>
 
-            {/* 🌟 KOTAK INFO MATEMATIK (EXPANDABLE) */}
             <AnimatePresence>
                {showMathInfo && (
                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
@@ -377,34 +374,79 @@ export default function MakmalDataKajian() {
       )}
 
       {/* ========================================== */}
-      {/* 📈 TAB 2: ANALISIS SOAL SELIDIK */}
+      {/* 📈 TAB 2: ANALISIS SOAL SELIDIK (TAMBAH BAIK T-TEST) */}
       {/* ========================================== */}
       {activeSubTab === "spss" && (
         <div className="space-y-6 animate-in fade-in duration-300">
            
-           {/* RINGKASAN MIN KESELURUHAN */}
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-             <div className="md:col-span-3 bg-slate-800/80 p-5 rounded-2xl border border-slate-700 flex justify-between items-center">
+           <div className="grid grid-cols-1 gap-6">
+             <div className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700 flex justify-between items-center">
                 <div>
-                  <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2"><FileText className="text-blue-400"/> Analisis Deskriptif Soal Selidik (Skor Min)</h4>
-                  <p className="text-xs text-amber-400 mt-1">Data dikira berdasarkan sampel jawapan murid Kumpulan Eksperimen SAHAJA.</p>
+                  <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2"><FileText className="text-blue-400"/> Analisis Deskriptif & Ujian-t Berpasangan Soal Selidik</h4>
+                  <p className="text-xs text-amber-400 mt-1">Data ini dianalisis hanya daripada murid Kumpulan Eksperimen (Aras Rendah) yang melengkapkan soal selidik Pra & Pasca.</p>
                 </div>
              </div>
+             
              {statsDeskriptif && Object.keys(statsDeskriptif).length > 0 ? (
-               Object.keys(statsDeskriptif).map((kategori, idx) => (
-                 <div key={idx} className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700 shadow-md">
-                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block mb-4 border-b border-slate-700 pb-2">{kategori}</span>
-                    <div className="flex justify-between items-end mb-3"><span className="text-slate-400 text-xs">Min (Purata)</span><span className="text-3xl font-black text-white">{statsDeskriptif[kategori].min}</span></div>
-                    <div className="flex justify-between items-end"><span className="text-slate-400 text-xs flex items-center gap-1"><Activity size={12}/> Sisihan Piawai (SD)</span><span className="text-lg font-bold text-slate-300">{statsDeskriptif[kategori].sd}</span></div>
+               <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-xl w-full">
+                 <div className="overflow-x-auto">
+                   <table className="w-full text-left border-collapse min-w-max">
+                     <thead>
+                       <tr className="border-b-2 border-slate-700 bg-slate-900/30">
+                         <th className="p-4 text-slate-400 font-semibold text-sm">Konstruk Soal Selidik</th>
+                         <th className="p-4 text-slate-400 font-semibold text-sm text-center border-l border-slate-800">Fasa</th>
+                         <th className="p-4 text-slate-400 font-semibold text-sm text-center">N</th>
+                         <th className="p-4 text-slate-400 font-semibold text-sm text-center">Min</th>
+                         <th className="p-4 text-slate-400 font-semibold text-sm text-center">S.Piawai (SD)</th>
+                         <th className="p-4 text-slate-400 font-semibold text-sm text-center border-l border-slate-800">Beza Min</th>
+                         <th className="p-4 text-slate-400 font-semibold text-sm text-center">Nilai t</th>
+                         <th className="p-4 text-slate-400 font-semibold text-sm text-center">Sig. (p-value)</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-800/50">
+                       {Object.keys(statsDeskriptif).map((kategori, idx) => {
+                          const data = statsDeskriptif[kategori];
+                          return (
+                            <React.Fragment key={idx}>
+                              <tr className="hover:bg-slate-800/30">
+                                <td className="p-4 font-bold text-blue-400 uppercase tracking-wide" rowSpan={2}>{kategori}</td>
+                                <td className="p-3 text-slate-300 text-center border-l border-slate-800">Pra</td>
+                                <td className="p-3 text-slate-300 text-center">{data.pra.n}</td>
+                                <td className="p-3 font-mono text-slate-200 text-center">{data.pra.mean}</td>
+                                <td className="p-3 font-mono text-slate-200 text-center">{data.pra.sd}</td>
+                                <td className="p-4 font-mono text-emerald-400 text-center font-bold border-l border-slate-800" rowSpan={2}>
+                                  {Number(data.tTest.meanDiff) > 0 ? '+' : ''}{data.tTest.meanDiff}
+                                </td>
+                                <td className="p-4 font-mono text-slate-200 text-center" rowSpan={2}>{data.tTest.tValue}</td>
+                                <td className="p-4 text-center" rowSpan={2}>
+                                   <span className={`px-3 py-1 rounded-full text-[10px] font-bold border tracking-wider uppercase ${data.tTest.sig === 'Ya' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50 shadow-sm' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
+                                      {data.tTest.pValue} ({data.tTest.sig === 'Ya' ? 'Sig.' : 'Tak Sig.'})
+                                   </span>
+                                </td>
+                              </tr>
+                              <tr className="hover:bg-slate-800/30 bg-slate-800/10">
+                                <td className="p-3 text-slate-300 text-center border-l border-slate-800">Pasca</td>
+                                <td className="p-3 text-slate-300 text-center">{data.pasca.n}</td>
+                                <td className="p-3 font-mono font-bold text-blue-400 text-center">{data.pasca.mean}</td>
+                                <td className="p-3 font-mono text-slate-200 text-center">{data.pasca.sd}</td>
+                              </tr>
+                            </React.Fragment>
+                          )
+                       })}
+                     </tbody>
+                   </table>
                  </div>
-               ))
-             ) : <div className="md:col-span-3 p-12 text-center text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-700 border-dashed">Tiada data soal selidik ditemui setakat ini.</div>}
+               </div>
+             ) : (
+               <div className="p-12 text-center text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-700 border-dashed">
+                 Tiada data soal selidik berpasangan (Pra & Pasca) ditemui setakat ini untuk dilakukan Analisis-t.
+               </div>
+             )}
            </div>
 
-           {/* 🌟 JADUAL SENARAI JAWAPAN INDIVIDU MURID */}
            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 overflow-hidden shadow-xl mt-8">
               <div className="p-5 border-b border-slate-700 bg-slate-900/50">
-                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><Users className="text-fuchsia-400"/> Rekod Jawapan Individu (Eksperimen)</h3>
+                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><Users className="text-fuchsia-400"/> Rekod Jawapan Individu (Aras Rendah Sahaja)</h3>
                  <p className="text-xs text-slate-400 mt-1">Semak skor mentah setiap soalan (Skala 1-5) yang telah dijawab oleh pelajar secara terperinci.</p>
               </div>
               <div className="overflow-x-auto">
@@ -418,8 +460,14 @@ export default function MakmalDataKajian() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rawSurveyData.filter(s => s.kumpulan === "Eksperimen").length > 0 ? (
-                      rawSurveyData.filter(s => s.kumpulan === "Eksperimen")
+                    {rawSurveyData.filter(s => {
+                      const realUser = rawUsersData.find(u => u.id === s.idMurid || u.idPengguna === s.idMurid);
+                      return s.kumpulan === "Eksperimen" && realUser?.tahapInkuiri === "Rendah";
+                    }).length > 0 ? (
+                      rawSurveyData.filter(s => {
+                        const realUser = rawUsersData.find(u => u.id === s.idMurid || u.idPengguna === s.idMurid);
+                        return s.kumpulan === "Eksperimen" && realUser?.tahapInkuiri === "Rendah";
+                      })
                         .sort((a, b) => new Date(b.tarikhJawab).getTime() - new Date(a.tarikhJawab).getTime())
                         .map((survey, i) => (
                         <tr key={i} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
@@ -446,7 +494,7 @@ export default function MakmalDataKajian() {
                         </tr>
                       ))
                     ) : (
-                      <tr><td colSpan={4} className="p-8 text-center text-slate-500">Belum ada murid Eksperimen yang menjawab.</td></tr>
+                      <tr><td colSpan={4} className="p-8 text-center text-slate-500">Belum ada murid Aras Rendah yang menjawab.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -468,14 +516,9 @@ export default function MakmalDataKajian() {
             </h4>
             
             <form onSubmit={handleSimpanSoalan} className="space-y-5">
-              
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Fasa Kajian</label>
-                <select 
-                  value={formData.fasa} 
-                  onChange={e => setFormData({...formData, fasa: e.target.value})} 
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none focus:border-fuchsia-500 shadow-inner transition-colors"
-                >
+                <select value={formData.fasa} onChange={e => setFormData({...formData, fasa: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none focus:border-fuchsia-500 shadow-inner transition-colors">
                   <option className="bg-slate-800 text-white" value="Pra">Pra-Kajian (Sebelum Mula)</option>
                   <option className="bg-slate-800 text-white" value="Pasca">Pasca-Kajian (Selepas Tamat)</option>
                 </select>
@@ -483,11 +526,7 @@ export default function MakmalDataKajian() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Kategori Utama</label>
-                <select 
-                  value={formData.kategori} 
-                  onChange={e => setFormData({...formData, kategori: e.target.value})} 
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white outline-none focus:border-fuchsia-500 shadow-inner transition-colors"
-                >
+                <select value={formData.kategori} onChange={e => setFormData({...formData, kategori: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white outline-none focus:border-fuchsia-500 shadow-inner transition-colors">
                   <option className="bg-slate-800 text-white" value="Motivasi">Motivasi</option>
                   <option className="bg-slate-800 text-white" value="Penglibatan">Penglibatan</option>
                   <option className="bg-slate-800 text-white" value="Kebolehgunaan">Kebolehgunaan</option>
@@ -496,45 +535,22 @@ export default function MakmalDataKajian() {
               
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Sub Kategori (Pilihan)</label>
-                <input 
-                  type="text" 
-                  value={formData.subKategori} 
-                  onChange={e => setFormData({...formData, subKategori: e.target.value})} 
-                  placeholder="Cth: Relevansi / Kognitif" 
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-fuchsia-500 outline-none shadow-inner transition-colors"
-                />
+                <input type="text" value={formData.subKategori} onChange={e => setFormData({...formData, subKategori: e.target.value})} placeholder="Cth: Relevansi / Kognitif" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-fuchsia-500 outline-none shadow-inner transition-colors"/>
               </div>
               
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Pernyataan Item</label>
-                <textarea 
-                  rows={4} 
-                  value={formData.soalan} 
-                  onChange={e => setFormData({...formData, soalan: e.target.value})} 
-                  required 
-                  placeholder="Cth: I-RAGS membantu saya fokus..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-fuchsia-500 outline-none resize-y shadow-inner leading-relaxed transition-colors"
-                ></textarea>
+                <textarea rows={4} value={formData.soalan} onChange={e => setFormData({...formData, soalan: e.target.value})} required placeholder="Cth: I-RAGS membantu saya fokus..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-fuchsia-500 outline-none resize-y shadow-inner leading-relaxed transition-colors"></textarea>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Susunan</label>
-                  <input 
-                    type="number" 
-                    min="1"
-                    value={formData.susunan} 
-                    onChange={e => setFormData({...formData, susunan: parseInt(e.target.value) || 1})} 
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-fuchsia-500 outline-none shadow-inner transition-colors"
-                  />
+                  <input type="number" min="1" value={formData.susunan} onChange={e => setFormData({...formData, susunan: parseInt(e.target.value) || 1})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white focus:border-fuchsia-500 outline-none shadow-inner transition-colors"/>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Status</label>
-                  <select 
-                    value={formData.aktif ? "true" : "false"} 
-                    onChange={e => setFormData({...formData, aktif: e.target.value === "true"})} 
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-emerald-400 font-bold outline-none focus:border-fuchsia-500 shadow-inner transition-colors"
-                  >
+                  <select value={formData.aktif ? "true" : "false"} onChange={e => setFormData({...formData, aktif: e.target.value === "true"})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-emerald-400 font-bold outline-none focus:border-fuchsia-500 shadow-inner transition-colors">
                     <option className="bg-slate-800 text-white" value="true">Aktif</option>
                     <option className="bg-slate-800 text-white" value="false">Sembunyi</option>
                   </select>
@@ -543,18 +559,9 @@ export default function MakmalDataKajian() {
               
               <div className="flex gap-3 pt-3 border-t border-slate-700/50 mt-2">
                 {isEditing && (
-                  <button 
-                    type="button" 
-                    onClick={resetForm} 
-                    className="flex-1 bg-slate-700 text-white font-bold py-3.5 rounded-xl hover:bg-slate-600 text-sm shadow-md transition-all flex items-center justify-center gap-2"
-                  >
-                    <X size={18} /> Batal
-                  </button>
+                  <button type="button" onClick={resetForm} className="flex-1 bg-slate-700 text-white font-bold py-3.5 rounded-xl hover:bg-slate-600 text-sm shadow-md transition-all flex items-center justify-center gap-2"><X size={18} /> Batal</button>
                 )}
-                <button 
-                  type="submit" 
-                  className="flex-1 bg-fuchsia-600 text-white font-bold py-3.5 rounded-xl hover:bg-fuchsia-500 text-sm shadow-lg shadow-fuchsia-900/50 transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
-                >
+                <button type="submit" className="flex-1 bg-fuchsia-600 text-white font-bold py-3.5 rounded-xl hover:bg-fuchsia-500 text-sm shadow-lg shadow-fuchsia-900/50 transition-all flex items-center justify-center gap-2 hover:scale-[1.02]">
                   {isEditing ? <Save size={18} /> : <Plus size={18} />}
                   {isEditing ? "Simpan Perubahan" : "Tambah Item"}
                 </button>
@@ -563,7 +570,6 @@ export default function MakmalDataKajian() {
           </div>
           
           <div className="w-full lg:w-2/3 grid grid-cols-1 xl:grid-cols-2 gap-6 relative">
-            
             {isUpdatingOrder && (
                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center rounded-2xl">
                   <div className="flex flex-col items-center gap-2 text-fuchsia-400"><Loader2 className="animate-spin" size={32}/><span className="font-bold">Menyusun Pangkalan Data...</span></div>
@@ -577,23 +583,10 @@ export default function MakmalDataKajian() {
               </div>
               <div className="flex flex-col gap-3">
                  {soalanPra.length > 0 ? soalanPra.map((item, i) => (
-                    <div 
-                      key={item.id}
-                      draggable={!isUpdatingOrder}
-                      onDragStart={() => handleDragStartPhase("Pra", i)}
-                      onDragOver={handleDragOver}
-                      onDrop={() => handleDropPhase("Pra", i)}
-                      className={`flex gap-3 bg-slate-800/80 p-4 rounded-xl border transition-all ${draggedItemInfo?.fasa === "Pra" && draggedItemInfo.index === i ? 'border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)] opacity-50 scale-95' : 'border-slate-700 hover:border-indigo-500/50'} ${!item.aktif && 'opacity-50 grayscale'}`}
-                    >
-                       <div className="flex flex-col items-center justify-start gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-indigo-400">
-                          <GripVertical size={18}/>
-                          <span className="font-bold text-sm">{item.susunan}</span>
-                       </div>
+                    <div key={item.id} draggable={!isUpdatingOrder} onDragStart={() => handleDragStartPhase("Pra", i)} onDragOver={handleDragOver} onDrop={() => handleDropPhase("Pra", i)} className={`flex gap-3 bg-slate-800/80 p-4 rounded-xl border transition-all ${draggedItemInfo?.fasa === "Pra" && draggedItemInfo.index === i ? 'border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)] opacity-50 scale-95' : 'border-slate-700 hover:border-indigo-500/50'} ${!item.aktif && 'opacity-50 grayscale'}`}>
+                       <div className="flex flex-col items-center justify-start gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-indigo-400"><GripVertical size={18}/><span className="font-bold text-sm">{item.susunan}</span></div>
                        <div className="flex-1">
-                          <div className="flex flex-wrap gap-1.5 mb-2">
-                             <span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>
-                             {!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md">Sembunyi</span>}
-                          </div>
+                          <div className="flex flex-wrap gap-1.5 mb-2"><span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>{!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md">Sembunyi</span>}</div>
                           <p className="text-sm text-slate-200 leading-relaxed font-medium">{item.soalan}</p>
                        </div>
                        <div className="flex flex-col gap-2 border-l border-slate-700 pl-3">
@@ -612,23 +605,10 @@ export default function MakmalDataKajian() {
               </div>
               <div className="flex flex-col gap-3">
                  {soalanPasca.length > 0 ? soalanPasca.map((item, i) => (
-                    <div 
-                      key={item.id}
-                      draggable={!isUpdatingOrder}
-                      onDragStart={() => handleDragStartPhase("Pasca", i)}
-                      onDragOver={handleDragOver}
-                      onDrop={() => handleDropPhase("Pasca", i)}
-                      className={`flex gap-3 bg-slate-800/80 p-4 rounded-xl border transition-all ${draggedItemInfo?.fasa === "Pasca" && draggedItemInfo.index === i ? 'border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] opacity-50 scale-95' : 'border-slate-700 hover:border-emerald-500/50'} ${!item.aktif && 'opacity-50 grayscale'}`}
-                    >
-                       <div className="flex flex-col items-center justify-start gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-emerald-400">
-                          <GripVertical size={18}/>
-                          <span className="font-bold text-sm">{item.susunan}</span>
-                       </div>
+                    <div key={item.id} draggable={!isUpdatingOrder} onDragStart={() => handleDragStartPhase("Pasca", i)} onDragOver={handleDragOver} onDrop={() => handleDropPhase("Pasca", i)} className={`flex gap-3 bg-slate-800/80 p-4 rounded-xl border transition-all ${draggedItemInfo?.fasa === "Pasca" && draggedItemInfo.index === i ? 'border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] opacity-50 scale-95' : 'border-slate-700 hover:border-emerald-500/50'} ${!item.aktif && 'opacity-50 grayscale'}`}>
+                       <div className="flex flex-col items-center justify-start gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-emerald-400"><GripVertical size={18}/><span className="font-bold text-sm">{item.susunan}</span></div>
                        <div className="flex-1">
-                          <div className="flex flex-wrap gap-1.5 mb-2">
-                             <span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>
-                             {!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md">Sembunyi</span>}
-                          </div>
+                          <div className="flex flex-wrap gap-1.5 mb-2"><span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>{!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md">Sembunyi</span>}</div>
                           <p className="text-sm text-slate-200 leading-relaxed font-medium">{item.soalan}</p>
                        </div>
                        <div className="flex flex-col gap-2 border-l border-slate-700 pl-3">
@@ -723,7 +703,6 @@ export default function MakmalDataKajian() {
                  <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-700 pb-2"><CheckSquare size={16}/> Maklum Balas Item</h4>
                  <div className="space-y-3">
                    {selectedSurveyDetail.jawapanTerperinci.map((ans: any, idx: number) => {
-                     // Skema Warna Skala
                      let colorClass = "bg-slate-700 text-slate-300";
                      if(ans.skor >= 4) colorClass = "bg-emerald-900/50 text-emerald-400 border border-emerald-800";
                      else if (ans.skor <= 2) colorClass = "bg-rose-900/50 text-rose-400 border border-rose-800";
