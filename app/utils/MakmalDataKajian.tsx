@@ -73,16 +73,17 @@ export default function MakmalDataKajian() {
     try {
       const qSoalan = query(collection(db, "bank_soalan_selidik"), orderBy("susunan", "asc"));
       const snapSoalan = await getDocs(qSoalan);
-      const dataSoal = snapSoalan.docs.map(d => ({ id: d.id, ...d.data() }));
+      // 🌟 PERBAIKAN TYPE: Letak as any untuk elak error TS
+      const dataSoal: any[] = snapSoalan.docs.map(d => ({ id: d.id, ...d.data() }));
       setSoalanList(dataSoal);
 
       const uSnap = await getDocs(collection(db, "users"));
-      const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // 🌟 PERBAIKAN TYPE: Letak as any untuk elak error TS
+      const uData: any[] = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       setRawUsersData(uData);
 
       const dataDBKuasi: any[] = [];
       uData.forEach((user: any) => {
-        // EKSTRAK HANYA MURID ARAS RENDAH UNTUK KUASI-EKSPERIMEN
         if (user.role === "murid" && user.kumpulan && user.tahapInkuiri === "Rendah") {
           dataDBKuasi.push({
             id: user.idPengguna || user.id,
@@ -93,25 +94,28 @@ export default function MakmalDataKajian() {
         }
       });
 
-      const checkEks = dataDBKuasi.filter(d => d.kumpulan === "Eksperimen").length;
+      const checkEks = dataDBKuasi.filter((d: any) => d.kumpulan === "Eksperimen").length;
       if (checkEks >= 2) { setDataMentah(dataDBKuasi); setGunaDataSimulasi(false); } 
       else { setDataMentah(mockData); setGunaDataSimulasi(true); }
 
       const sSnap = await getDocs(collection(db, "skor_murid"));
-      setRawSkorData(sSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      // 🌟 PERBAIKAN TYPE
+      const sData: any[] = sSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setRawSkorData(sData);
 
       const svSnap = await getDocs(collection(db, "soal_selidik_murid"));
-      const svData = svSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // 🌟 PERBAIKAN TYPE
+      const svData: any[] = svSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       setRawSurveyData(svData);
 
       // Analisis Soal Selidik (Berpasangan) HANYA Kumpulan Sasaran (Aras Rendah)
-      const validEksRendah = uData.filter(u => u.role === "murid" && u.kumpulan === "Eksperimen" && u.tahapInkuiri === "Rendah");
+      const validEksRendah = uData.filter((u: any) => u.role === "murid" && u.kumpulan === "Eksperimen" && u.tahapInkuiri === "Rendah");
       const tempPairedSurvey: Record<string, { pra: number[], pasca: number[] }> = {};
 
-      validEksRendah.forEach(user => {
+      validEksRendah.forEach((user: any) => {
         const uid = user.idPengguna || user.id;
-        const praSurvey = svData.find(sv => sv.idMurid === uid && sv.fasa === "Pra");
-        const pascaSurvey = svData.find(sv => sv.idMurid === uid && sv.fasa === "Pasca");
+        const praSurvey = svData.find((sv: any) => sv.idMurid === uid && sv.fasa === "Pra");
+        const pascaSurvey = svData.find((sv: any) => sv.idMurid === uid && sv.fasa === "Pasca");
 
         if (praSurvey && pascaSurvey) {
           Object.keys(praSurvey.skorKeseluruhan).forEach(kat => {
@@ -229,14 +233,14 @@ export default function MakmalDataKajian() {
     csvContent += [...sPra, ...sPasca].join(",") + "\n";
 
     // EKSPORT HANYA MURID ARAS RENDAH
-    rawUsersData.filter(u => u.role === "murid" && u.tahapInkuiri === "Rendah").forEach(murid => {
+    rawUsersData.filter((u: any) => u.role === "murid" && u.tahapInkuiri === "Rendah").forEach((murid: any) => {
       const uid = murid.idPengguna || murid.id;
-      const skorMurid = rawSkorData.filter(s => s.idMurid === uid);
-      const preB1 = skorMurid.find(s => s.bab === "Bab 1" && (s.jenisUjian === "pre_test" || !s.jenisUjian))?.skor || "";
-      const postB1 = skorMurid.find(s => s.bab === "Bab 1" && s.jenisUjian === "post_test")?.skor || "";
+      const skorMurid = rawSkorData.filter((s: any) => s.idMurid === uid);
+      const preB1 = skorMurid.find((s: any) => s.bab === "Bab 1" && (s.jenisUjian === "pre_test" || !s.jenisUjian))?.skor || "";
+      const postB1 = skorMurid.find((s: any) => s.bab === "Bab 1" && s.jenisUjian === "post_test")?.skor || "";
 
-      const svPra = rawSurveyData.find(sv => sv.idMurid === uid && sv.fasa === "Pra");
-      const svPasca = rawSurveyData.find(sv => sv.idMurid === uid && sv.fasa === "Pasca");
+      const svPra = rawSurveyData.find((sv: any) => sv.idMurid === uid && sv.fasa === "Pra");
+      const svPasca = rawSurveyData.find((sv: any) => sv.idMurid === uid && sv.fasa === "Pasca");
 
       const itemSkorList: string[] = [];
       
@@ -269,7 +273,6 @@ export default function MakmalDataKajian() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full max-w-full">
       
-      {/* HEADER MAKMAL KAJIAN */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-gradient-to-r from-indigo-900/50 to-[#1e293b] p-6 lg:p-8 rounded-2xl border border-indigo-800/50 shadow-lg relative overflow-hidden gap-4">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10">
@@ -281,7 +284,6 @@ export default function MakmalDataKajian() {
         </button>
       </div>
 
-      {/* TABS SUB-ANALISIS */}
       <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
         <button onClick={() => setActiveSubTab("kuasi")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'kuasi' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>1. Kuasi-Eksperimen</button>
         <button onClick={() => setActiveSubTab("spss")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'spss' ? 'bg-blue-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>2. Analisis Soal Selidik</button>
@@ -290,9 +292,6 @@ export default function MakmalDataKajian() {
         <button onClick={() => setActiveSubTab("sus")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeSubTab === 'sus' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}>5. Skor SUS</button>
       </div>
 
-      {/* ========================================== */}
-      {/* 📊 TAB 1: KUASI-EKSPERIMEN */}
-      {/* ========================================== */}
       {activeSubTab === "kuasi" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-300">
           
@@ -373,9 +372,6 @@ export default function MakmalDataKajian() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 📈 TAB 2: ANALISIS SOAL SELIDIK (TAMBAH BAIK T-TEST) */}
-      {/* ========================================== */}
       {activeSubTab === "spss" && (
         <div className="space-y-6 animate-in fade-in duration-300">
            
@@ -503,9 +499,6 @@ export default function MakmalDataKajian() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 📝 TAB 3: PENGURUSAN ITEM SOALAN */}
-      {/* ========================================== */}
       {activeSubTab === "soalan" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300 items-start relative">
           
@@ -624,9 +617,6 @@ export default function MakmalDataKajian() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 📋 TAB 4: KESAHAN FDM */}
-      {/* ========================================== */}
       {activeSubTab === "fdm" && (
         <div className="bg-[#1e293b] p-6 lg:p-8 rounded-2xl border border-purple-900/50 shadow-xl animate-in fade-in duration-300">
           <div className="flex items-center gap-4 mb-6"><div className="bg-purple-900/50 p-3 rounded-xl"><CheckCircle className="text-purple-400"/></div><div><h4 className="text-xl font-bold text-purple-300">Dapatan Fuzzy Delphi (FDM)</h4></div></div>
@@ -643,9 +633,6 @@ export default function MakmalDataKajian() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 🌟 TAB 5: KEBOLEHGUNAAN SUS */}
-      {/* ========================================== */}
       {activeSubTab === "sus" && (
         <div className="bg-[#1e293b] p-6 lg:p-8 rounded-2xl border border-emerald-900/50 shadow-xl flex flex-col md:flex-row gap-8 items-center animate-in fade-in duration-300">
           <div className="flex-1 space-y-6 w-full">
@@ -665,13 +652,11 @@ export default function MakmalDataKajian() {
         </div>
       )}
 
-      {/* 🌟 MODAL PAPARAN JAWAPAN INDIVIDU MURID 🌟 */}
       <AnimatePresence>
         {selectedSurveyDetail && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }} className="bg-slate-800 w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-600 overflow-hidden flex flex-col max-h-[90vh]">
               
-              {/* Header Modal */}
               <div className="bg-slate-900 p-6 text-white flex justify-between items-start border-b border-slate-700 shrink-0">
                 <div>
                   <h3 className="font-black text-xl text-white mb-2">{selectedSurveyDetail.namaMurid}</h3>
@@ -688,7 +673,6 @@ export default function MakmalDataKajian() {
                 <button onClick={() => setSelectedSurveyDetail(null)} className="bg-slate-800 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-rose-500 transition-colors"><X size={20}/></button>
               </div>
 
-              {/* Kandungan Jawapan Terperinci */}
               <div className="p-6 overflow-y-auto flex-1 custom-scrollbar bg-[#0f172a]">
                  <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-700 pb-2"><FileText size={16}/> Skor Keseluruhan (Min)</h4>
                  <div className="flex flex-wrap gap-4 mb-8">
