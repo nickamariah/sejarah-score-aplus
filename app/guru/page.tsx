@@ -182,6 +182,13 @@ export default function GuruDashboard() {
       const snapSkor = await getDocs(qSkor);
       const skorData = snapSkor.docs.map(d => ({ id: d.id, ...d.data() }));
 
+      // 🌟 FIX: Pastikan data ujian disusun ikut tarikh PALING TERKINI di atas
+      skorData.sort((a: any, b: any) => {
+        const dateA = a.tarikh ? new Date(a.tarikh).getTime() : 0;
+        const dateB = b.tarikh ? new Date(b.tarikh).getTime() : 0;
+        return dateB - dateA;
+      });
+
       const qChat = query(collection(db, "chat_sessions"), where("studentId", "in", uniqueIds));
       const snapChat = await getDocs(qChat);
       const chatData = snapChat.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -286,7 +293,6 @@ export default function GuruDashboard() {
     }
   };
 
-  // 🌟 FUNGSI BARU: RESET UJIAN PASCA SAHAJA
   const handleResetUjianPasca = async (murid: any, ting: string, num: number) => {
     const babName = `Bab ${num}`;
     const sah = window.confirm(`Pasti mahu RESET UJIAN PASCA SAHAJA untuk ${babName} bagi pelajar ${murid.nama}?\n\nMarkah Diagnostik dan Chat AI tidak akan terjejas. Sila guna ini jika murid mahu mengambil semula ujian.`);
@@ -941,9 +947,19 @@ export default function GuruDashboard() {
                 
                 filteredPemantauan.forEach(murid => {
                   const skorMuridIni = semuaSkor.filter(s => s.idMurid === murid.id || s.idMurid === murid.idPengguna);
+                  
                   const postTests = skorMuridIni.filter(s => s.jenisUjian === "post_test");
                   
-                  postTests.forEach(post => {
+                  const uniqueLatestPostTests: any[] = [];
+                  const seenBab = new Set();
+                  postTests.forEach(pt => {
+                     if(!seenBab.has(pt.bab)){
+                        seenBab.add(pt.bab);
+                        uniqueLatestPostTests.push(pt);
+                     }
+                  });
+
+                  uniqueLatestPostTests.forEach(post => {
                     const pre = skorMuridIni.find(s => s.bab === post.bab && (s.jenisUjian === "pre_test" || !s.jenisUjian));
                     const preSkor = pre ? pre.skor : 0;
                     const postSkor = post.skor;
@@ -1900,11 +1916,6 @@ export default function GuruDashboard() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {toast && (
-          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed bottom-6 right-6 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-60 border border-slate-700 text-sm font-medium print:hidden"><div className={`w-3 h-3 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>{toast.message}</motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
