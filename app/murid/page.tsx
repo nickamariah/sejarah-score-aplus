@@ -122,7 +122,7 @@ export default function MuridDashboard() {
     { 
       id: 'kartun', 
       nama: '🦄 Kartun Comel', 
-      class: 'bg-[url("https://i.pinimg.com/736x/2b/96/63/2b96637b520c4270c1d68636e0d9b4b0.jpg")] bg-cover bg-fixed bg-center' 
+      class: 'bg-[url("https://i.postimg.cc/FHh9GTv5/cute-bg-jpg.png")] bg-cover bg-fixed bg-center' 
     },
   ];
   const [selectedTheme, setSelectedTheme] = useState(senaraiTheme[0].class);
