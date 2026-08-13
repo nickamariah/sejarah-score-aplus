@@ -1640,7 +1640,13 @@ export default function GuruDashboard() {
                     <h2 className="hidden print:block text-2xl font-black text-black uppercase mb-4 tracking-widest text-center w-full">Laporan Prestasi & Intervensi Individu (I-RAGs)</h2>
                     
                     <h3 className="text-2xl md:text-3xl font-extrabold text-white mb-2 flex items-center gap-3 print:text-black">
-                      Profil Akademik: <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 print:text-black print:bg-none">{selectedStudentDetail.nama}</span>
+                     Profil Akademik: <span className={`text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 print:text-black print:bg-none transition-all duration-300 inline-block align-bottom truncate max-w-[200px] sm:max-w-[300px] md:max-w-[400px] ${
+                     (selectedStudentDetail?.nama || "").length > 25 ? "text-sm md:text-base tracking-tight" : 
+                     (selectedStudentDetail?.nama || "").length > 15 ? "text-base md:text-lg" : 
+                      "text-lg md:text-xl"
+                    }`}>
+                      {selectedStudentDetail?.nama}
+                    </span>
                     </h3>
                     <div className="flex flex-wrap items-center gap-2 mt-3">
                       <span className="bg-slate-700/50 px-3 py-1 rounded-lg border border-slate-600 text-slate-300 text-xs font-bold uppercase tracking-widest shadow-sm print:bg-white print:text-black print:border-black">Tingkatan {selectedStudentDetail.tingkatan} {selectedStudentDetail.kelas}</span> 
