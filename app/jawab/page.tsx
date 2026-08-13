@@ -4,7 +4,8 @@ import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, getDoc } from "firebase/firestore"; 
 import { db } from "../../lib/firebase";
-import { Loader2, Image as ImageIcon, ChevronRight, Volume2, VolumeX, Music, Palette, ArrowLeft, ShieldAlert } from "lucide-react";
+
+import { Loader2, Image as ImageIcon, ChevronRight, Volume2, VolumeX, Music, Palette, ArrowLeft, ShieldAlert, Mic, MicOff } from "lucide-react";
 
 // ==========================================
 // 1. KOMPONEN GAMBAR SOALAN
@@ -58,6 +59,9 @@ function KandunganUjian() {
   const [tahapMurid, setTahapMurid] = useState("Sederhana");
   const [markahLulus, setMarkahLulus] = useState(50); 
   const [percubaanTerkini, setPercubaanTerkini] = useState(0);
+  // 🌟 STATE UNTUK FUNGSI SUARA-KE-TEKS (MIC)
+  const recognitionRef = useRef<any>(null);
+  const [isListening, setIsListening] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const bgmRef = useRef<HTMLAudioElement>(null);
@@ -518,6 +522,65 @@ function KandunganUjian() {
     
     window.scrollTo({ top: 0, behavior: "smooth" }); 
   };
+  // 🌟 FUNGSI SUARA KE TEKS KHAS UNTUK UJIAN PASCA
+  const mulaMendengar = (soalanId: string) => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Maaf, pelayar (browser) anda tidak menyokong fungsi Suara-ke-Teks. Sila gunakan Google Chrome.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ms-MY'; // Set kepada Bahasa Melayu
+    recognition.continuous = true;
+    recognition.interimResults = true; 
+    
+    recognition.onstart = () => setIsListening(true);
+    
+    recognition.onresult = (event: any) => {
+       let finalTranscript = "";
+       for (let i = event.resultIndex; i < event.results.length; ++i) {
+         if (event.results[i].isFinal) {
+           finalTranscript += event.results[i][0].transcript + " ";
+         }
+       }
+       
+       if (finalTranscript) {
+         setJawapanStruktur(prev => {
+           const existingText = prev[soalanId] || "";
+           // Cantum teks sedia ada dengan teks suara baru
+           const newText = existingText.trim() + (existingText ? " " : "") + finalTranscript;
+           
+           // Simpan ke local storage supaya tak hilang jika terpadam
+           const stateBaru = { ...prev, [soalanId]: newText };
+           localStorage.setItem(`auto_str_${tingkatan}_${bab}_${jenisUjian}`, JSON.stringify(stateBaru));
+           return stateBaru;
+         });
+         
+         // Auto adjust tinggi kotak jawapan
+         if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+         }
+       }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Ralat Mic:", event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => setIsListening(false);
+
+    recognition.start();
+    recognitionRef.current = recognition;
+  };
 
   if (!isClient) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-sky-600">Memulakan Ujian...</div>;
   if (loading) return <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-sky-700 font-semibold"><Loader2 className="animate-spin w-10 h-10 mb-4 text-sky-500"/><p>Menjana Kertas Soalan Adaptif...</p><p className="text-xs text-slate-400 mt-2 font-normal">Sistem sedang memilih soalan yang sesuai dengan keupayaan anda.</p></div>;
@@ -702,7 +765,7 @@ function KandunganUjian() {
                </div>
              ) : (
                <div className="relative">
-                 <textarea
+             <textarea
                    ref={textareaRef}
                    value={jawapanStruktur[semasa.id] || ""} 
                    onChange={(e) => handleInputStruktur(e, semasa.id)}
@@ -719,10 +782,31 @@ function KandunganUjian() {
                    
                    autoComplete="off"
                    spellCheck="false"
-                   placeholder="Taip jawapan struktur/esei di sini menggunakan tulisan anda sendiri..."
+                   placeholder={jenisUjian === "post_test" ? "Taip ATAU guna fungsi Suara untuk jawapan struktur/esei..." : "Taip jawapan struktur/esei di sini menggunakan tulisan anda sendiri..."}
                    className={`w-full p-5 text-slate-900 border-2 rounded-2xl focus:ring-4 focus:ring-sky-500/20 resize-none min-h-40 max-h-96 overflow-y-auto text-sm md:text-base transition-all outline-none leading-relaxed shadow-inner ${soalanSelesai ? 'bg-slate-100 border-slate-300 opacity-80' : 'bg-slate-50 border-slate-300 focus:bg-white focus:border-sky-500'}`}
                  />
                  
+                 {/* 🌟 BUTANG SUARA-KE-TEKS (MUNCUL MASA UJIAN PASCA SAHAJA) 🌟 */}
+                 {jenisUjian === "post_test" && !soalanSelesai && (
+                   <div className="mt-3 flex justify-end">
+                     <button
+                       onClick={() => mulaMendengar(semasa.id)}
+                       className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all border ${
+                         isListening 
+                         ? 'bg-rose-500 hover:bg-rose-600 text-white border-rose-600 animate-pulse shadow-rose-500/30' 
+                         : 'bg-white hover:bg-sky-50 text-sky-700 border-sky-300'
+                       }`}
+                       title="Cakap Jawapan Anda"
+                     >
+                       {isListening ? (
+                         <><MicOff size={18} /> Sedang Merakam (Tekan utk Henti)</>
+                       ) : (
+                         <><Mic size={18} /> Jawab Guna Suara</>
+                       )}
+                     </button>
+                   </div>
+                 )}
+
                  {soalanSelesai ? (
                    <div className="mt-4 p-5 bg-sky-50 border border-sky-200 rounded-2xl shadow-inner animate-in fade-in slide-in-from-bottom-2 duration-500">
                      <h4 className="font-bold text-sky-800 flex items-center gap-2 mb-2">💡 Jawapan Direkodkan:</h4>
