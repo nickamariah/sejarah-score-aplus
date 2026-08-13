@@ -118,7 +118,12 @@ export default function MuridDashboard() {
     { id: 'angkasa', nama: '🌌 Angkasa', class: 'bg-gradient-to-br from-indigo-950 via-purple-900 to-black' },
     { id: 'senja', nama: '🌅 Senja', class: 'bg-gradient-to-br from-orange-50 to-rose-200' },
     // 🌟 TEMA BAHARU: KARTUN COMEL (PERMINTAAN MURID)
-    { id: 'kartun', nama: '🦄 Kartun Comel', class: 'bg-[url("/images/cute-bg.jpg")] bg-cover bg-fixed bg-center' },
+     // 🌟 TEMA BAHARU: KARTUN COMEL DENGAN URL INTERNET (LIVE)
+    { 
+      id: 'kartun', 
+      nama: '🦄 Kartun Comel', 
+      class: 'bg-[url("https://i.pinimg.com/736x/2b/96/63/2b96637b520c4270c1d68636e0d9b4b0.jpg")] bg-cover bg-fixed bg-center' 
+    },
   ];
   const [selectedTheme, setSelectedTheme] = useState(senaraiTheme[0].class);
 
