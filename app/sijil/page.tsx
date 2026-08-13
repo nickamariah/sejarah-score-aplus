@@ -95,50 +95,50 @@ function KandunganSijil() {
           className={`min-w-[850px] md:min-w-0 w-full max-w-4xl aspect-[1.414] bg-gradient-to-br ${tema.gradient} rounded-xl shadow-2xl p-6 md:p-8 flex flex-col relative overflow-hidden shrink-0 mx-auto 
           print:shadow-none print:w-[297mm] print:h-[210mm] print:max-w-none print:min-w-0 print:aspect-auto print:rounded-none print:p-0 print:m-0`}
         >
-          {/* BINGKAI DALAMAN (DIBESARKAN UNTUK PRINT) */}
+          {/* BINGKAI DALAMAN */}
           <div className={`absolute inset-4 md:inset-5 border-[5px] border-double ${tema.border} opacity-50 rounded-lg pointer-events-none print:inset-8`}></div>
           
-          {/* BINTANG PENJURU (DIBESARKAN UNTUK PRINT) */}
+          {/* BINTANG PENJURU */}
           <Star className={`absolute top-8 left-8 w-8 h-8 md:w-10 md:h-10 ${tema.border.replace('border-', 'text-')} opacity-40 print:w-16 print:h-16 print:top-14 print:left-14`} fill="currentColor" />
           <Star className={`absolute top-8 right-8 w-8 h-8 md:w-10 md:h-10 ${tema.border.replace('border-', 'text-')} opacity-40 print:w-16 print:h-16 print:top-14 print:right-14`} fill="currentColor" />
           <Star className={`absolute bottom-8 left-8 w-8 h-8 md:w-10 md:h-10 ${tema.border.replace('border-', 'text-')} opacity-40 print:w-16 print:h-16 print:bottom-14 print:left-14`} fill="currentColor" />
           <Star className={`absolute bottom-8 right-8 w-8 h-8 md:w-10 md:h-10 ${tema.border.replace('border-', 'text-')} opacity-40 print:w-16 print:h-16 print:bottom-14 print:right-14`} fill="currentColor" />
 
-          {/* KANDUNGAN TENGAH (DISUSUN SEMULA DENGAN SAIZ PRINT) */}
-          <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-4 md:px-12 print:px-20 w-full h-full py-4 print:py-16">
+          {/* KANDUNGAN TENGAH (JARAK TELAH DISEIMBANGKAN UNTUK A4) */}
+          <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-4 md:px-12 print:px-20 w-full h-full py-4 print:py-12">
             
-            <div className="mb-3 md:mb-5 print:mb-8">
-              <Award className="w-16 h-16 md:w-20 md:h-20 print:w-32 print:h-32 text-yellow-500 drop-shadow-md mx-auto" />
+            <div className="mb-3 md:mb-5 print:mb-6">
+              <Award className="w-16 h-16 md:w-20 md:h-20 print:w-28 print:h-28 text-yellow-500 drop-shadow-md mx-auto" />
             </div>
 
-            <p className="text-[10px] md:text-sm print:text-xl font-bold tracking-[0.2em] text-slate-500 uppercase mb-2 print:mb-4">I-RAGs Tutor • Sistem Pembelajaran Sejarah</p>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl print:text-[4rem] font-extrabold text-slate-800 mb-4 md:mb-6 print:mb-10 drop-shadow-sm font-serif">
+            <p className="text-[10px] md:text-sm print:text-lg font-bold tracking-[0.2em] text-slate-500 uppercase mb-2 print:mb-2">I-RAGs Tutor • Sistem Pembelajaran Sejarah</p>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl print:text-[3.5rem] font-extrabold text-slate-800 mb-4 md:mb-6 print:mb-6 drop-shadow-sm font-serif">
               SIJIL PENGUASAAN
             </h1>
 
-            <p className="text-sm md:text-lg print:text-2xl text-slate-600 mb-2 md:mb-4 print:mb-8 italic">Dengan bangganya dianugerahkan kepada:</p>
+            <p className="text-sm md:text-lg print:text-xl text-slate-600 mb-2 md:mb-4 print:mb-6 italic">Dengan bangganya dianugerahkan kepada:</p>
             
-            {/* 🌟 NAMA MURID (SAIZ GERGASI KHAS UNTUK PRINT) */}
-           <div className="w-full px-2 mb-4 md:mb-6 print:mb-10 flex justify-center overflow-hidden">
-               <h2 className={`font-black text-sky-900 border-b-2 print:border-b-4 border-slate-300 pb-2 print:pb-4 inline-block px-2 md:px-8 print:px-12 uppercase tracking-wide whitespace-nowrap ${
-                 (namaMurid || "").length > 35 ? "text-base sm:text-lg md:text-xl print:text-3xl" :
-                 (namaMurid || "").length > 25 ? "text-lg sm:text-xl md:text-2xl print:text-[2.5rem]" : 
-                 (namaMurid || "").length > 15 ? "text-xl sm:text-2xl md:text-3xl print:text-[3rem]" : 
-                 "text-2xl sm:text-3xl md:text-4xl print:text-[4rem]"
+            {/* NAMA MURID */}
+           <div className="w-full px-2 mb-4 md:mb-6 print:mb-8 flex justify-center overflow-hidden">
+               <h2 className={`font-black text-sky-900 border-b-2 print:border-b-4 border-slate-300 pb-2 print:pb-3 inline-block px-2 md:px-8 print:px-12 uppercase tracking-wide whitespace-nowrap ${
+                 (namaMurid || "").length > 35 ? "text-base sm:text-lg md:text-xl print:text-2xl" :
+                 (namaMurid || "").length > 25 ? "text-lg sm:text-xl md:text-2xl print:text-[2.2rem]" : 
+                 (namaMurid || "").length > 15 ? "text-xl sm:text-2xl md:text-3xl print:text-[2.8rem]" : 
+                 "text-2xl sm:text-3xl md:text-4xl print:text-[3.5rem]"
                }`}>
                  {namaMurid}
                </h2>
             </div>
 
-            <p className="text-xs sm:text-sm md:text-base print:text-2xl text-slate-700 max-w-2xl print:max-w-5xl leading-relaxed mb-4 md:mb-6 print:mb-12 px-4 print:px-0">
+            <p className="text-xs sm:text-sm md:text-base print:text-xl text-slate-700 max-w-2xl print:max-w-4xl leading-relaxed mb-4 md:mb-6 print:mb-8 px-4 print:px-0">
               Kerana telah menunjukkan dedikasi dan kefahaman yang sangat cemerlang dalam menguasai topik <br/>
-              <strong className="text-slate-900 print:text-3xl mt-2 inline-block">Tingkatan {tingkatan}, Bab {bab}: {tema.tajuk}</strong> <br/>
-              <span className="inline-block mt-2">dengan memperoleh skor ujian sebanyak <span className="font-bold text-lg md:text-xl print:text-4xl text-emerald-600">{skor}%</span>.</span>
+              <strong className="text-slate-900 print:text-2xl mt-1.5 inline-block">Tingkatan {tingkatan}, Bab {bab}: {tema.tajuk}</strong> <br/>
+              <span className="inline-block mt-1.5">dengan memperoleh skor ujian sebanyak <span className="font-bold text-lg md:text-xl print:text-3xl text-emerald-600">{skor}%</span>.</span>
             </p>
 
-            {/* KATA-KATA SEMANGAT (DIBESARKAN UNTUK PRINT) */}
-            <div className={`mt-auto bg-white/60 p-3 md:p-4 print:p-8 rounded-xl border ${tema.border} shadow-sm max-w-3xl print:max-w-5xl w-full mx-auto`}>
-              <p className="text-xs md:text-sm lg:text-base print:text-2xl font-bold text-slate-800 italic">
+            {/* KATA-KATA SEMANGAT */}
+            <div className={`mt-auto bg-white/60 p-3 md:p-4 print:p-5 rounded-xl border ${tema.border} shadow-sm max-w-3xl print:max-w-4xl w-full mx-auto`}>
+              <p className="text-xs md:text-sm lg:text-base print:text-xl font-bold text-slate-800 italic">
                 {tema.quote}
               </p>
             </div>
