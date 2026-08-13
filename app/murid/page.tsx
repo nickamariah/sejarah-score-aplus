@@ -511,7 +511,13 @@ export default function MuridDashboard() {
               </div>
               <div>
                 <p className="text-sky-100 text-xs md:text-sm mb-1">Selamat datang ke Hub I-RAGs,</p>
-                <h1 className="text-xl md:text-3xl font-extrabold uppercase line-clamp-2">{userData?.nama || userData?.name}</h1>
+                 <h1 className={`font-extrabold uppercase truncate transition-all duration-300 ${
+                  (userData?.nama || userData?.name || "").length > 25 ? "text-base md:text-xl tracking-tight" : 
+                  (userData?.nama || userData?.name || "").length > 15 ? "text-lg md:text-2xl" : 
+                  "text-xl md:text-3xl"
+                }`}>
+                  {userData?.nama || userData?.name}
+                </h1>
                 <p className="text-sky-50 flex items-center gap-2 mt-1 md:mt-2 text-xs md:text-sm font-medium opacity-90">
                   ID: <span className="font-bold tracking-wider">{userData?.idPengguna || userData?.id}</span>
                 </p>
