@@ -62,30 +62,34 @@ function KandunganSijil() {
 
   const tema = sijilTema[bab] || sijilTema["default"];
 
-  // 🌟 LOGIK AUTO-RESIZE NAMA MURID YANG TELAH DIBAIKI
-  const panjangNama = namaMurid.length;
-  let saizFontNama = "text-2xl sm:text-3xl md:text-4xl lg:text-5xl"; 
-  
-  if (panjangNama > 35) {
-    saizFontNama = "text-lg sm:text-xl md:text-2xl"; // Untuk nama terlampau panjang
-  } else if (panjangNama > 20) {
-    saizFontNama = "text-xl sm:text-2xl md:text-3xl lg:text-4xl"; // Untuk nama sederhana panjang macam Nur Hawani Binti Rosli
-  }
-
   if (!isClient) return null;
 
   return (
     <div className="min-h-screen bg-slate-800 p-4 sm:p-8 flex flex-col items-center justify-center font-sans print:bg-white print:p-0">
       
-      {/* CSS KHAS UNTUK CETAKAN */}
+      {/* 🌟 CSS KHAS UNTUK CETAKAN (A4 LANDSCAPE PENUH) */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          @page { size: A4 landscape; margin: 0; }
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: white !important; }
+          @page { 
+            size: A4 landscape; 
+            margin: 0; 
+          }
+          html, body { 
+            width: 100%; 
+            height: 100%; 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            background-color: white !important; 
+          }
+          body { 
+            -webkit-print-color-adjust: exact !important; 
+            print-color-adjust: exact !important; 
+          }
           ::-webkit-scrollbar { display: none; }
         }
       `}} />
 
+      {/* BUTANG MENU */}
       <div className="mb-6 flex gap-4 print:hidden w-full max-w-4xl justify-center md:justify-start items-center">
         <button onClick={() => window.close()} className="bg-slate-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-slate-600 transition shadow-lg">
           <ArrowLeft className="w-5 h-5" /> Tutup
@@ -95,12 +99,13 @@ function KandunganSijil() {
         </button>
       </div>
 
-      {/* WRAPPER SCROLL UNTUK MOBILE */}
-      <div className="w-full overflow-x-auto flex justify-start md:justify-center pb-4 print:overflow-hidden print:pb-0">
+      {/* WRAPPER SCROLL UNTUK MOBILE (DIPERBAIKI UNTUK PRINT) */}
+      <div className="w-full overflow-x-auto flex justify-start md:justify-center pb-4 print:block print:overflow-visible print:pb-0">
         
-        {/* BEKAS KANVAS SIJIL UTAMA */}
+        {/* 🌟 BEKAS KANVAS SIJIL UTAMA (DITAMBAH PRINT:W-[297mm] & PRINT:MAX-W-NONE) */}
         <div 
-          className={`min-w-[850px] md:min-w-0 w-full max-w-4xl aspect-[1.414] bg-gradient-to-br ${tema.gradient} rounded-xl shadow-2xl p-6 md:p-8 flex flex-col relative overflow-hidden shrink-0 mx-auto print:shadow-none print:w-full print:h-screen print:rounded-none print:p-10`}
+          className={`min-w-[850px] md:min-w-0 w-full max-w-4xl aspect-[1.414] bg-gradient-to-br ${tema.gradient} rounded-xl shadow-2xl p-6 md:p-8 flex flex-col relative overflow-hidden shrink-0 mx-auto 
+          print:shadow-none print:w-[297mm] print:h-[209mm] print:max-w-none print:min-w-0 print:aspect-auto print:rounded-none print:p-12 print:m-0`}
         >
           {/* BINGKAI DALAMAN */}
           <div className={`absolute inset-4 md:inset-5 border-[5px] border-double ${tema.border} opacity-50 rounded-lg pointer-events-none print:inset-6`}></div>
@@ -125,9 +130,14 @@ function KandunganSijil() {
 
             <p className="text-sm md:text-lg text-slate-600 mb-2 md:mb-4 italic">Dengan bangganya dianugerahkan kepada:</p>
             
-            {/* 🌟 NAMA MURID (BEBAS DARI PEMOTONGAN ELLIPSIS) */}
-            <div className="w-full px-2 mb-4 md:mb-6">
-               <h2 className={`${saizFontNama} font-black text-sky-900 border-b-2 border-slate-300 pb-2 inline-block px-4 md:px-8 uppercase tracking-wide leading-tight max-w-full`}>
+            {/* 🌟 NAMA MURID (AUTO-RESIZE 1 BARIS) */}
+           <div className="w-full px-2 mb-4 md:mb-6 flex justify-center overflow-hidden">
+               <h2 className={`font-black text-sky-900 border-b-2 border-slate-300 pb-2 inline-block px-2 md:px-8 uppercase tracking-wide whitespace-nowrap ${
+                 (namaMurid || "").length > 35 ? "text-base sm:text-lg md:text-xl" :
+                 (namaMurid || "").length > 25 ? "text-lg sm:text-xl md:text-2xl" : 
+                 (namaMurid || "").length > 15 ? "text-xl sm:text-2xl md:text-3xl" : 
+                 "text-2xl sm:text-3xl md:text-4xl"
+               }`}>
                  {namaMurid}
                </h2>
             </div>
@@ -138,7 +148,7 @@ function KandunganSijil() {
               dengan memperoleh skor ujian sebanyak <span className="font-bold text-lg md:text-xl text-emerald-600">{skor}%</span>.
             </p>
 
-            {/* 🌟 KATA-KATA SEMANGAT (DITOLAK KE ATAS, KEMAS DI TENGAH-BAWAH) */}
+            {/* KATA-KATA SEMANGAT */}
             <div className={`mt-auto bg-white/60 p-3 md:p-4 rounded-xl border ${tema.border} shadow-sm max-w-3xl w-full mx-auto`}>
               <p className="text-xs md:text-sm lg:text-base font-bold text-slate-800 italic">
                 {tema.quote}
