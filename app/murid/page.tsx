@@ -112,11 +112,13 @@ export default function MuridDashboard() {
   const [surveyType, setSurveyType] = useState<"pre" | "post">("pre");
 
   // STATE UNTUK TEMA 
-  const senaraiTheme = [
+ const senaraiTheme = [
     { id: 'default', nama: '🌞 Cerah (Asal)', class: 'bg-slate-50' },
     { id: 'gelap', nama: '🌙 Mod Gelap', class: 'bg-slate-900' },
     { id: 'angkasa', nama: '🌌 Angkasa', class: 'bg-gradient-to-br from-indigo-950 via-purple-900 to-black' },
     { id: 'senja', nama: '🌅 Senja', class: 'bg-gradient-to-br from-orange-50 to-rose-200' },
+    // 🌟 TEMA BAHARU: KARTUN COMEL (PERMINTAAN MURID)
+    { id: 'kartun', nama: '🦄 Kartun Comel', class: 'bg-[url("/images/cute-bg.jpg")] bg-cover bg-fixed bg-center' },
   ];
   const [selectedTheme, setSelectedTheme] = useState(senaraiTheme[0].class);
 

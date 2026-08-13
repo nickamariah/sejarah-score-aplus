@@ -4,10 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, Plus, Edit3, Trash2, ChartBar, Users, BookOpen, FileText, Loader2, HelpCircle, Save, Zap, Sparkles, Activity, UploadCloud, RefreshCw, CheckSquare, Filter, Menu, X, Search, MessageSquare, Eye, AlertTriangle, Rocket, Palette, Volume2, VolumeX, Music, TrendingUp, TrendingDown, BrainCircuit, ChevronDown, Check, Printer, PlayCircle, Grid } from "lucide-react";
 
-// IMPORT KOMPONEN MAKMAL DATA KAJIAN
 import MakmalDataKajian from "../utils/MakmalDataKajian";
 
-// IMPORT FIREBASE 
 import { collection, getDocs, query, orderBy, deleteDoc, doc, serverTimestamp, updateDoc, setDoc, where, getDoc } from "firebase/firestore";
 import { db, app } from "../../lib/firebase"; 
 import { initializeApp, getApps } from "firebase/app"; 
@@ -182,7 +180,6 @@ export default function GuruDashboard() {
       const snapSkor = await getDocs(qSkor);
       const skorData = snapSkor.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // 🌟 FIX: Pastikan data ujian disusun ikut tarikh PALING TERKINI di atas
       skorData.sort((a: any, b: any) => {
         const dateA = a.tarikh ? new Date(a.tarikh).getTime() : 0;
         const dateB = b.tarikh ? new Date(b.tarikh).getTime() : 0;
@@ -504,17 +501,72 @@ export default function GuruDashboard() {
     } catch (error) { showToastMessage("Ralat sistem. Sila cuba lagi.", "error"); } finally { setUIsSubmitting(false); }
   };
 
-  const handlePadamPengguna = async (id: string) => { if (confirm("Pasti mahu memadam akaun ini?")) { try { await deleteDoc(doc(db, "users", id)); showToastMessage("Berjaya dipadam.", "success"); tarikDataPenggunaFirebase(); } catch (error) { showToastMessage("Ralat.", "error"); } } };
+  // 🌟 PERBAIKAN: FUNGSI MASTER RESET (PADAM DATA TANPA PADAM AKAUN PROFIL MURID)
+  const handlePadamPengguna = async (id: string, idPengguna: string) => { 
+    if (confirm("Adakah anda pasti mahu RESET SEMUA REKOD (Ujian Pra, Ujian Pasca, Chat AI & Soal Selidik) untuk murid ini?\n\nProfil akaun murid TIDAK akan dipadam dan mereka boleh mula dari kosong semula.")) { 
+      try {
+        setLoadingPengguna(true);
+
+        const targetIds = [id];
+        if (idPengguna) targetIds.push(idPengguna);
+
+        // 1. Padam Semua Markah/Skor Murid
+        const qSkor = query(collection(db, "skor_murid"), where("idMurid", "in", targetIds));
+        const snapSkor = await getDocs(qSkor);
+        const deleteSkor = snapSkor.docs.map(d => deleteDoc(doc(db, "skor_murid", d.id)));
+
+        // 2. Padam Semua Sejarah Chat AI
+        const qChat = query(collection(db, "chat_sessions"), where("studentId", "in", targetIds));
+        const snapChat = await getDocs(qChat);
+        const deleteChat = snapChat.docs.map(d => deleteDoc(doc(db, "chat_sessions", d.id)));
+
+        // 3. Padam Semua Soal Selidik Kajian
+        const qSurvey = query(collection(db, "soal_selidik_murid"), where("idMurid", "in", targetIds));
+        const snapSurvey = await getDocs(qSurvey);
+        const deleteSurvey = snapSurvey.docs.map(d => deleteDoc(doc(db, "soal_selidik_murid", d.id)));
+
+        // PENTING: Jangan delete doc(db, "users", id) supaya akaun mereka tidak terpadam
+
+        await Promise.all([...deleteSkor, ...deleteChat, ...deleteSurvey]);
+
+        showToastMessage("Semua rekod data murid berjaya di-reset ke kosong!", "success"); 
+        tarikDataPenggunaFirebase(); 
+      } catch (error) { 
+        console.error("Ralat padam/reset data pengguna:", error);
+        showToastMessage("Ralat semasa memadam rekod di pangkalan data.", "error"); 
+        setLoadingPengguna(false);
+      } 
+    } 
+  };
   
+  // 🌟 PERBAIKAN: Masukkan semula fungsi setEditPengguna yang terpadam
   const setEditPengguna = (u: any) => { 
-    setIsEditingUser(true); setEditUserId(u.id); setURole(u.role || "murid"); setUNama(u.nama || ""); setUKataLaluan(u.kataLaluan || ""); setUTingkatan(String(u.tingkatan || "4")); setUKelas(u.kelas || ""); setUTahapInkuiri(u.tahapInkuiri || "Rendah"); setUKumpulan(u.kumpulan || "Eksperimen"); 
+    setIsEditingUser(true); 
+    setEditUserId(u.id); 
+    setURole(u.role || "murid"); 
+    setUNama(u.nama || ""); 
+    setUKataLaluan(u.kataLaluan || ""); 
+    setUTingkatan(String(u.tingkatan || "4")); 
+    setUKelas(u.kelas || ""); 
+    setUTahapInkuiri(u.tahapInkuiri || "Rendah"); 
+    setUKumpulan(u.kumpulan || "Eksperimen"); 
     setUSekolah(u.sekolah || senaraiSekolahKajian[0]); 
     setUBukaPostTest(u.bukaPostTest || false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   
+  // 🌟 PERBAIKAN: Masukkan semula fungsi resetFormPengguna
   const resetFormPengguna = () => { 
-    setIsEditingUser(false); setEditUserId(null); setURole("murid"); setUNama(""); setUKataLaluan(""); setUTingkatan("4"); setUKelas(""); setUTahapInkuiri("Rendah"); setUKumpulan("Eksperimen"); setUSekolah(senaraiSekolahKajian[0]); 
+    setIsEditingUser(false); 
+    setEditUserId(null); 
+    setURole("murid"); 
+    setUNama(""); 
+    setUKataLaluan(""); 
+    setUTingkatan("4"); 
+    setUKelas(""); 
+    setUTahapInkuiri("Rendah"); 
+    setUKumpulan("Eksperimen"); 
+    setUSekolah(senaraiSekolahKajian[0]); 
     setUBukaPostTest(false);
   };
 
@@ -870,7 +922,7 @@ export default function GuruDashboard() {
                               <td className="p-4 text-right align-middle">
                                  <div className="flex items-center justify-end gap-2">
                                    <button onClick={() => setEditPengguna(u)} className="bg-slate-700/50 p-2 rounded-lg text-slate-300 hover:text-white hover:bg-amber-600 transition-colors shadow-sm" title="Edit Pengguna"><Edit3 size={16} /></button>
-                                   <button onClick={() => handlePadamPengguna(u.id)} className="bg-slate-700/50 p-2 rounded-lg text-slate-300 hover:text-white hover:bg-red-600 transition-colors shadow-sm" title="Padam Pengguna"><Trash2 size={16} /></button>
+                                   <button onClick={() => handlePadamPengguna(u.id, u.idPengguna)} className="bg-slate-700/50 p-2 rounded-lg text-slate-300 hover:text-white hover:bg-red-600 transition-colors shadow-sm" title="Reset Semua Data Murid Ini"><Trash2 size={16} /></button>
                                  </div>
                               </td>
                             </tr>
@@ -985,7 +1037,7 @@ export default function GuruDashboard() {
                     </h4>
                     <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
                       {senaraiAmaran.map((amaran, idx) => (
-                        <div key={idx} className={`min-w-[300px] w-[300px] shrink-0 p-5 rounded-2xl border shadow-lg relative overflow-hidden ${amaran.warna}`}>
+                        <div key={idx} className={`min-w-75 w-75 shrink-0 p-5 rounded-2xl border shadow-lg relative overflow-hidden ${amaran.warna}`}>
                           <div className="absolute top-0 right-0 p-3 opacity-20 text-4xl">{amaran.ikon}</div>
                           <div className="relative z-10">
                             <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-900/50 border border-current mb-2 inline-block">
