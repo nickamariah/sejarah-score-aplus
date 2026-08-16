@@ -89,6 +89,9 @@ export default function MuridDashboard() {
   const [activeLevel, setActiveLevel] = useState<"t4" | "t5">("t4");
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
   const [progressBab, setProgressBab] = useState<Record<number, BabProgress>>({});
+
+// set mod kajian
+  const [kawalBab, setKawalBab] = useState<Record<string, boolean>>({});
   
   const [aiSelesaiList, setAiSelesaiList] = useState<string[]>([]);
   
@@ -150,7 +153,15 @@ export default function MuridDashboard() {
 
   const tarikDataFirebase = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
-    
+    // 🌟 TARIK TETAPAN KAWALAN BAB KAJIAN DARI GURU
+      const tetapanRef = doc(db, "system_settings", "chapter_visibility");
+      const tetapanSnap = await getDoc(tetapanRef);
+      if (tetapanSnap.exists()) {
+        setKawalBab(tetapanSnap.data());
+      }
+
+
+
     const rawUser = localStorage.getItem("currentUser");
     if (!rawUser) { window.location.href = "/login"; return; }
     const userLokal = JSON.parse(rawUser);
