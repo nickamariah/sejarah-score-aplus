@@ -18,6 +18,9 @@ export default function MakmalDataKajian() {
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   
+  // 🌟 STATE BARU UNTUK FILTER PRA/PASCA (DI TAB SOALAN)
+  const [filterFasaSoalan, setFilterFasaSoalan] = useState<"Pra" | "Pasca">("Pra");
+  
   const [formData, setFormData] = useState({ 
     fasa: "Pra", 
     kategori: "Motivasi", 
@@ -75,7 +78,7 @@ export default function MakmalDataKajian() {
   const tarikSemuaData = async () => {
     setLoading(true);
     try {
-      // 🌟 TARIK DATA TETAPAN KAWALAN BAB KAJIAN
+      // TARIK DATA TETAPAN KAWALAN BAB KAJIAN
       const tetapanRef = doc(db, "system_settings", "chapter_visibility");
       const tetapanSnap = await getDoc(tetapanRef);
       if (tetapanSnap.exists()) {
@@ -120,7 +123,7 @@ export default function MakmalDataKajian() {
       const svData: any[] = svSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       setRawSurveyData(svData);
 
-      // Analisis Soal Selidik (Berpasangan) HANYA Kumpulan Sasaran (Aras Rendah)
+      // Analisis Soal Selidik
       const validEksRendah = uData.filter((u: any) => u.role === "murid" && u.kumpulan === "Eksperimen" && u.tahapInkuiri === "Rendah");
       const tempPairedSurvey: Record<string, { pra: number[], pasca: number[] }> = {};
 
@@ -159,7 +162,6 @@ export default function MakmalDataKajian() {
 
   useEffect(() => { tarikSemuaData(); }, []);
 
-  // 🌟 FUNGSI TOGGLE BAB KAJIAN
   const handleToggleTetapan = async (key: string) => {
     setIsUpdatingTetapan(true);
     try {
@@ -319,10 +321,8 @@ export default function MakmalDataKajian() {
         <button onClick={() => setActiveSubTab("tetapan")} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap flex items-center gap-2 transition-all ${activeSubTab === 'tetapan' ? 'bg-amber-500 text-slate-900 shadow-lg' : 'bg-[#1e293b] text-slate-400 hover:bg-slate-800 border border-slate-800'}`}><Settings size={16}/> 6. Tetapan Bab Kajian</button>
       </div>
 
-      {/* 🌟 TAB 6: TETAPAN BAB KAJIAN */}
       {activeSubTab === "tetapan" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-300">
-          
           <div className="bg-[#1e293b] rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
              <div className="p-5 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
                <div>
@@ -346,7 +346,6 @@ export default function MakmalDataKajian() {
                })}
              </div>
           </div>
-
           <div className="bg-[#1e293b] rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
              <div className="p-5 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
                <div>
@@ -370,24 +369,16 @@ export default function MakmalDataKajian() {
                })}
              </div>
           </div>
-          
         </div>
       )}
 
       {activeSubTab === "kuasi" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-300">
-          
           <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-xl lg:col-span-2">
             <div className="p-5 border-b border-slate-800 bg-slate-900/30 flex items-center gap-3"><BarChart3 className="text-emerald-400"/><h3 className="text-lg font-bold text-white">Statistik Deskriptif (Pencapaian Ujian) - Murid Aras Rendah</h3></div>
             <div className="p-5 overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-max">
-                <thead>
-                  <tr className="border-b-2 border-slate-700">
-                    <th className="p-3 text-slate-400 font-semibold text-sm">Kumpulan</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Ujian</th>
-                    <th className="p-3 text-slate-400 font-semibold text-sm text-center">N</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Min (Purata)</th>
-                    <th className="p-3 text-slate-400 font-semibold text-sm text-center">Sisihan Piawai (SD)</th>
-                  </tr>
-                </thead>
+                <thead><tr className="border-b-2 border-slate-700"><th className="p-3 text-slate-400 font-semibold text-sm">Kumpulan</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Ujian</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">N</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Min (Purata)</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Sisihan Piawai (SD)</th></tr></thead>
                 <tbody className="divide-y divide-slate-800/50">
                   <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-emerald-400" rowSpan={2}>Eksperimen</td><td className="p-3 text-slate-300 text-center">Pra</td><td className="p-3 text-slate-300 text-center">{analisisEksperimen.deskriptifPra.n}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisEksperimen.deskriptifPra.mean}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisEksperimen.deskriptifPra.sd}</td></tr>
                   <tr className="hover:bg-slate-800/30 bg-slate-800/10"><td className="p-3 text-slate-300 text-center">Pasca</td><td className="p-3 text-slate-300 text-center">{analisisEksperimen.deskriptifPasca.n}</td><td className="p-3 font-mono font-bold text-emerald-400 text-center">{analisisEksperimen.deskriptifPasca.mean}</td><td className="p-3 font-mono text-slate-200 text-center">{analisisEksperimen.deskriptifPasca.sd}</td></tr>
@@ -397,7 +388,6 @@ export default function MakmalDataKajian() {
               </table>
             </div>
           </div>
-
           <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-xl lg:col-span-2">
             <div className="p-5 border-b border-slate-800 bg-slate-900/30 flex justify-between items-center">
                <div className="flex items-center gap-3"><TrendingUp className="text-cyan-400"/><h3 className="text-lg font-bold text-white">Ujian-t Sampel Berpasangan</h3></div>
@@ -411,7 +401,6 @@ export default function MakmalDataKajian() {
                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                    <div className="bg-slate-900 border-b border-slate-800 p-6 space-y-4">
                      <p className="text-sm text-slate-300 leading-relaxed mb-4">Sistem I-RAGS menggunakan formula statistik matematik sebenar yang diprogramkan secara terbina (built-in). Berikut adalah cara nilai di atas dikira:</p>
-                     
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
                          <h5 className="font-bold text-emerald-400 text-sm mb-2">1. Min (Purata)</h5>
@@ -419,14 +408,12 @@ export default function MakmalDataKajian() {
                          <code className="text-emerald-200 text-[11px] block bg-slate-900 p-2 rounded">Min = Σx / n</code>
                          <p className="text-[10px] text-slate-500 mt-1">Σx = Jumlah semua markah<br/>n = Bilangan murid</p>
                        </div>
-
                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
                          <h5 className="font-bold text-amber-400 text-sm mb-2">2. Sisihan Piawai (SD)</h5>
                          <p className="text-xs text-slate-400 mb-2">Melihat sejauh mana markah berterabur (taburan data).</p>
                          <code className="text-amber-200 text-[11px] block bg-slate-900 p-2 rounded">SD = √ [ Σ(x - Min)² / (n - 1) ]</code>
                          <p className="text-[10px] text-slate-500 mt-1">Formula sampel digunakan (n-1) untuk ketepatan populasi kecil.</p>
                        </div>
-
                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
                          <h5 className="font-bold text-cyan-400 text-sm mb-2">3. Nilai t (T-Value)</h5>
                          <p className="text-xs text-slate-400 mb-2">Mengukur perbezaan Pra dan Pasca.</p>
@@ -441,9 +428,7 @@ export default function MakmalDataKajian() {
 
             <div className="p-5 overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-max">
-                <thead>
-                  <tr className="border-b-2 border-slate-700"><th className="p-3 text-slate-400 font-semibold text-sm">Pasangan</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Perbezaan Min</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Nilai t</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Sig. (p-value)</th></tr>
-                </thead>
+                <thead><tr className="border-b-2 border-slate-700"><th className="p-3 text-slate-400 font-semibold text-sm">Pasangan</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Perbezaan Min</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Nilai t</th><th className="p-3 text-slate-400 font-semibold text-sm text-center">Sig. (p-value)</th></tr></thead>
                 <tbody className="divide-y divide-slate-800/50">
                   <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-slate-300">Eksperimen</td><td className="p-4 font-mono text-emerald-400 text-center font-bold">+{analisisEksperimen.tTest.meanDiff}</td><td className="p-4 font-mono text-slate-200 text-center">{analisisEksperimen.tTest.tValue}</td><td className="p-4 text-center"><span className="bg-emerald-900/40 text-emerald-400 px-3 py-1 rounded-full text-xs font-bold border border-emerald-800/50">{analisisEksperimen.tTest.pValue} (Sig.)</span></td></tr>
                   <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-slate-300">Kawalan</td><td className="p-4 font-mono text-amber-400 text-center font-bold">+{analisisKawalan.tTest.meanDiff}</td><td className="p-4 font-mono text-slate-200 text-center">{analisisKawalan.tTest.tValue}</td><td className="p-4 text-center"><span className="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-xs font-bold border border-slate-700">{analisisKawalan.tTest.pValue} (Tidak Sig.)</span></td></tr>
@@ -456,58 +441,22 @@ export default function MakmalDataKajian() {
 
       {activeSubTab === "spss" && (
         <div className="space-y-6 animate-in fade-in duration-300">
-           
            <div className="grid grid-cols-1 gap-6">
              <div className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700 flex justify-between items-center">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2"><FileText className="text-blue-400"/> Analisis Deskriptif & Ujian-t Berpasangan Soal Selidik</h4>
-                  <p className="text-xs text-amber-400 mt-1">Data ini dianalisis hanya daripada murid Kumpulan Eksperimen (Aras Rendah) yang melengkapkan soal selidik Pra & Pasca.</p>
-                </div>
+                <div><h4 className="text-sm font-bold text-slate-200 flex items-center gap-2"><FileText className="text-blue-400"/> Analisis Deskriptif & Ujian-t Berpasangan Soal Selidik</h4><p className="text-xs text-amber-400 mt-1">Data ini dianalisis hanya daripada murid Kumpulan Eksperimen (Aras Rendah) yang melengkapkan soal selidik Pra & Pasca.</p></div>
              </div>
-             
              {statsDeskriptif && Object.keys(statsDeskriptif).length > 0 ? (
                <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-xl w-full">
                  <div className="overflow-x-auto">
                    <table className="w-full text-left border-collapse min-w-max">
-                     <thead>
-                       <tr className="border-b-2 border-slate-700 bg-slate-900/30">
-                         <th className="p-4 text-slate-400 font-semibold text-sm">Konstruk Soal Selidik</th>
-                         <th className="p-4 text-slate-400 font-semibold text-sm text-center border-l border-slate-800">Fasa</th>
-                         <th className="p-4 text-slate-400 font-semibold text-sm text-center">N</th>
-                         <th className="p-4 text-slate-400 font-semibold text-sm text-center">Min</th>
-                         <th className="p-4 text-slate-400 font-semibold text-sm text-center">S.Piawai (SD)</th>
-                         <th className="p-4 text-slate-400 font-semibold text-sm text-center border-l border-slate-800">Beza Min</th>
-                         <th className="p-4 text-slate-400 font-semibold text-sm text-center">Nilai t</th>
-                         <th className="p-4 text-slate-400 font-semibold text-sm text-center">Sig. (p-value)</th>
-                       </tr>
-                     </thead>
+                     <thead><tr className="border-b-2 border-slate-700 bg-slate-900/30"><th className="p-4 text-slate-400 font-semibold text-sm">Konstruk Soal Selidik</th><th className="p-4 text-slate-400 font-semibold text-sm text-center border-l border-slate-800">Fasa</th><th className="p-4 text-slate-400 font-semibold text-sm text-center">N</th><th className="p-4 text-slate-400 font-semibold text-sm text-center">Min</th><th className="p-4 text-slate-400 font-semibold text-sm text-center">S.Piawai (SD)</th><th className="p-4 text-slate-400 font-semibold text-sm text-center border-l border-slate-800">Beza Min</th><th className="p-4 text-slate-400 font-semibold text-sm text-center">Nilai t</th><th className="p-4 text-slate-400 font-semibold text-sm text-center">Sig. (p-value)</th></tr></thead>
                      <tbody className="divide-y divide-slate-800/50">
                        {Object.keys(statsDeskriptif).map((kategori, idx) => {
                           const data = statsDeskriptif[kategori];
                           return (
                             <React.Fragment key={idx}>
-                              <tr className="hover:bg-slate-800/30">
-                                <td className="p-4 font-bold text-blue-400 uppercase tracking-wide" rowSpan={2}>{kategori}</td>
-                                <td className="p-3 text-slate-300 text-center border-l border-slate-800">Pra</td>
-                                <td className="p-3 text-slate-300 text-center">{data.pra.n}</td>
-                                <td className="p-3 font-mono text-slate-200 text-center">{data.pra.mean}</td>
-                                <td className="p-3 font-mono text-slate-200 text-center">{data.pra.sd}</td>
-                                <td className="p-4 font-mono text-emerald-400 text-center font-bold border-l border-slate-800" rowSpan={2}>
-                                  {Number(data.tTest.meanDiff) > 0 ? '+' : ''}{data.tTest.meanDiff}
-                                </td>
-                                <td className="p-4 font-mono text-slate-200 text-center" rowSpan={2}>{data.tTest.tValue}</td>
-                                <td className="p-4 text-center" rowSpan={2}>
-                                   <span className={`px-3 py-1 rounded-full text-[10px] font-bold border tracking-wider uppercase ${data.tTest.sig === 'Ya' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50 shadow-sm' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
-                                      {data.tTest.pValue} ({data.tTest.sig === 'Ya' ? 'Sig.' : 'Tak Sig.'})
-                                   </span>
-                                </td>
-                              </tr>
-                              <tr className="hover:bg-slate-800/30 bg-slate-800/10">
-                                <td className="p-3 text-slate-300 text-center border-l border-slate-800">Pasca</td>
-                                <td className="p-3 text-slate-300 text-center">{data.pasca.n}</td>
-                                <td className="p-3 font-mono font-bold text-blue-400 text-center">{data.pasca.mean}</td>
-                                <td className="p-3 font-mono text-slate-200 text-center">{data.pasca.sd}</td>
-                              </tr>
+                              <tr className="hover:bg-slate-800/30"><td className="p-4 font-bold text-blue-400 uppercase tracking-wide" rowSpan={2}>{kategori}</td><td className="p-3 text-slate-300 text-center border-l border-slate-800">Pra</td><td className="p-3 text-slate-300 text-center">{data.pra.n}</td><td className="p-3 font-mono text-slate-200 text-center">{data.pra.mean}</td><td className="p-3 font-mono text-slate-200 text-center">{data.pra.sd}</td><td className="p-4 font-mono text-emerald-400 text-center font-bold border-l border-slate-800" rowSpan={2}>{Number(data.tTest.meanDiff) > 0 ? '+' : ''}{data.tTest.meanDiff}</td><td className="p-4 font-mono text-slate-200 text-center" rowSpan={2}>{data.tTest.tValue}</td><td className="p-4 text-center" rowSpan={2}><span className={`px-3 py-1 rounded-full text-[10px] font-bold border tracking-wider uppercase ${data.tTest.sig === 'Ya' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50 shadow-sm' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>{data.tTest.pValue} ({data.tTest.sig === 'Ya' ? 'Sig.' : 'Tak Sig.'})</span></td></tr>
+                              <tr className="hover:bg-slate-800/30 bg-slate-800/10"><td className="p-3 text-slate-300 text-center border-l border-slate-800">Pasca</td><td className="p-3 text-slate-300 text-center">{data.pasca.n}</td><td className="p-3 font-mono font-bold text-blue-400 text-center">{data.pasca.mean}</td><td className="p-3 font-mono text-slate-200 text-center">{data.pasca.sd}</td></tr>
                             </React.Fragment>
                           )
                        })}
@@ -515,65 +464,27 @@ export default function MakmalDataKajian() {
                    </table>
                  </div>
                </div>
-             ) : (
-               <div className="p-12 text-center text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-700 border-dashed">
-                 Tiada data soal selidik berpasangan (Pra & Pasca) ditemui setakat ini untuk dilakukan Analisis-t.
-               </div>
-             )}
+             ) : ( <div className="p-12 text-center text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-700 border-dashed">Tiada data soal selidik berpasangan (Pra & Pasca) ditemui setakat ini untuk dilakukan Analisis-t.</div> )}
            </div>
-
+           
            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 overflow-hidden shadow-xl mt-8">
               <div className="p-5 border-b border-slate-700 bg-slate-900/50">
                  <h3 className="text-lg font-bold text-white flex items-center gap-2"><Users className="text-fuchsia-400"/> Rekod Jawapan Individu (Aras Rendah Sahaja)</h3>
-                 <p className="text-xs text-slate-400 mt-1">Semak skor mentah setiap soalan (Skala 1-5) yang telah dijawab oleh pelajar secara terperinci.</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-700 bg-slate-800/50">
-                      <th className="p-4 font-bold text-xs uppercase text-slate-400">Nama Murid / ID</th>
-                      <th className="p-4 font-bold text-xs uppercase text-slate-400 text-center">Fasa Kajian</th>
-                      <th className="p-4 font-bold text-xs uppercase text-slate-400 text-center">Tarikh Menjawab</th>
-                      <th className="p-4 font-bold text-xs uppercase text-slate-400 text-right">Tindakan</th>
-                    </tr>
-                  </thead>
+                  <thead><tr className="border-b border-slate-700 bg-slate-800/50"><th className="p-4 font-bold text-xs uppercase text-slate-400">Nama Murid / ID</th><th className="p-4 font-bold text-xs uppercase text-slate-400 text-center">Fasa Kajian</th><th className="p-4 font-bold text-xs uppercase text-slate-400 text-center">Tarikh Menjawab</th><th className="p-4 font-bold text-xs uppercase text-slate-400 text-right">Tindakan</th></tr></thead>
                   <tbody>
-                    {rawSurveyData.filter(s => {
-                      const realUser = rawUsersData.find(u => u.id === s.idMurid || u.idPengguna === s.idMurid);
-                      return s.kumpulan === "Eksperimen" && realUser?.tahapInkuiri === "Rendah";
-                    }).length > 0 ? (
-                      rawSurveyData.filter(s => {
-                        const realUser = rawUsersData.find(u => u.id === s.idMurid || u.idPengguna === s.idMurid);
-                        return s.kumpulan === "Eksperimen" && realUser?.tahapInkuiri === "Rendah";
-                      })
-                        .sort((a, b) => new Date(b.tarikhJawab).getTime() - new Date(a.tarikhJawab).getTime())
-                        .map((survey, i) => (
+                    {rawSurveyData.filter(s => { const realUser = rawUsersData.find(u => u.id === s.idMurid || u.idPengguna === s.idMurid); return s.kumpulan === "Eksperimen" && realUser?.tahapInkuiri === "Rendah"; }).length > 0 ? (
+                      rawSurveyData.filter(s => { const realUser = rawUsersData.find(u => u.id === s.idMurid || u.idPengguna === s.idMurid); return s.kumpulan === "Eksperimen" && realUser?.tahapInkuiri === "Rendah"; }).map((survey, i) => (
                         <tr key={i} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
-                          <td className="p-4">
-                            <div className="font-bold text-slate-200">{survey.namaMurid}</div>
-                            <div className="text-xs text-slate-500 font-mono mt-0.5">ID: {survey.idMurid}</div>
-                          </td>
-                          <td className="p-4 text-center">
-                            <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider border ${survey.fasa === "Pra" ? 'bg-indigo-900/40 text-indigo-400 border-indigo-800/50' : 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50'}`}>
-                              {survey.fasa || "Pra"}
-                            </span>
-                          </td>
-                          <td className="p-4 text-center text-xs text-slate-400">
-                             {new Date(survey.tarikhJawab).toLocaleString('ms-MY', { dateStyle: 'medium', timeStyle: 'short' })}
-                          </td>
-                          <td className="p-4 text-right">
-                             <button 
-                               onClick={() => setSelectedSurveyDetail(survey)}
-                               className="bg-slate-700 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5 shadow-sm"
-                             >
-                               <Eye size={14}/> Lihat Jawapan
-                             </button>
-                          </td>
+                          <td className="p-4"><div className="font-bold text-slate-200">{survey.namaMurid}</div><div className="text-xs text-slate-500 font-mono mt-0.5">ID: {survey.idMurid}</div></td>
+                          <td className="p-4 text-center"><span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider border ${survey.fasa === "Pra" ? 'bg-indigo-900/40 text-indigo-400 border-indigo-800/50' : 'bg-emerald-900/40 text-emerald-400 border-emerald-800/50'}`}>{survey.fasa || "Pra"}</span></td>
+                          <td className="p-4 text-center text-xs text-slate-400">{new Date(survey.tarikhJawab).toLocaleString('ms-MY', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                          <td className="p-4 text-right"><button onClick={() => setSelectedSurveyDetail(survey)} className="bg-slate-700 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5 shadow-sm"><Eye size={14}/> Lihat Jawapan</button></td>
                         </tr>
                       ))
-                    ) : (
-                      <tr><td colSpan={4} className="p-8 text-center text-slate-500">Belum ada murid Aras Rendah yang menjawab.</td></tr>
-                    )}
+                    ) : ( <tr><td colSpan={4} className="p-8 text-center text-slate-500">Belum ada murid Aras Rendah yang menjawab.</td></tr> )}
                   </tbody>
                 </table>
               </div>
@@ -581,6 +492,7 @@ export default function MakmalDataKajian() {
         </div>
       )}
 
+      {/* 🌟 TAB SOALAN (DIKEMAS KINI MENJADI 1 LAJUR + FILTER PRA/PASCA) */}
       {activeSubTab === "soalan" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300 items-start relative">
           
@@ -644,57 +556,79 @@ export default function MakmalDataKajian() {
             </form>
           </div>
           
-          <div className="w-full lg:w-2/3 grid grid-cols-1 xl:grid-cols-2 gap-6 relative">
+          {/* 🌟 1 LAJUR + FILTER PRA/PASCA 🌟 */}
+          <div className="w-full lg:col-span-2 flex flex-col gap-4 relative">
+            
             {isUpdatingOrder && (
                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center rounded-2xl">
                   <div className="flex flex-col items-center gap-2 text-fuchsia-400"><Loader2 className="animate-spin" size={32}/><span className="font-bold">Menyusun Pangkalan Data...</span></div>
                </div>
             )}
 
-            <div className="bg-indigo-900/10 rounded-2xl border border-indigo-500/30 p-4 shadow-lg flex flex-col h-full">
-              <div className="bg-indigo-900/40 p-4 rounded-xl border border-indigo-500/40 mb-4 flex justify-between items-center">
-                 <h3 className="font-bold text-indigo-300">Pra-Kajian (Sebelum)</h3>
-                 <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-md">{soalanPra.length} Item</span>
-              </div>
-              <div className="flex flex-col gap-3">
-                 {soalanPra.length > 0 ? soalanPra.map((item, i) => (
-                    <div key={item.id} draggable={!isUpdatingOrder} onDragStart={() => handleDragStartPhase("Pra", i)} onDragOver={handleDragOver} onDrop={() => handleDropPhase("Pra", i)} className={`flex gap-3 bg-slate-800/80 p-4 rounded-xl border transition-all ${draggedItemInfo?.fasa === "Pra" && draggedItemInfo.index === i ? 'border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)] opacity-50 scale-95' : 'border-slate-700 hover:border-indigo-500/50'} ${!item.aktif && 'opacity-50 grayscale'}`}>
-                       <div className="flex flex-col items-center justify-start gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-indigo-400"><GripVertical size={18}/><span className="font-bold text-sm">{item.susunan}</span></div>
-                       <div className="flex-1">
-                          <div className="flex flex-wrap gap-1.5 mb-2"><span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>{!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md">Sembunyi</span>}</div>
-                          <p className="text-sm text-slate-200 leading-relaxed font-medium">{item.soalan}</p>
-                       </div>
-                       <div className="flex flex-col gap-2 border-l border-slate-700 pl-3">
-                          <button onClick={() => handleEdit(item)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-amber-500 hover:text-white transition-colors" title="Edit"><Edit3 size={16}/></button>
-                          <button onClick={() => handlePadam(item.id)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-red-500 hover:text-white transition-colors" title="Padam"><Trash2 size={16}/></button>
-                       </div>
-                    </div>
-                 )) : <div className="text-center p-8 text-slate-500 border border-dashed border-slate-700 rounded-xl">Tiada soalan Pra-Kajian.</div>}
-              </div>
+            <div className="flex gap-2 bg-slate-800/80 p-2 rounded-xl border border-slate-700 shadow-md w-full">
+               <button onClick={() => setFilterFasaSoalan("Pra")} className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all shadow-sm ${filterFasaSoalan === "Pra" ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-700"}`}>Pra-Kajian ({soalanPra.length})</button>
+               <button onClick={() => setFilterFasaSoalan("Pasca")} className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all shadow-sm ${filterFasaSoalan === "Pasca" ? "bg-emerald-600 text-white" : "text-slate-400 hover:bg-slate-700"}`}>Pasca-Kajian ({soalanPasca.length})</button>
             </div>
 
-            <div className="bg-emerald-900/10 rounded-2xl border border-emerald-500/30 p-4 shadow-lg flex flex-col h-full">
-              <div className="bg-emerald-900/30 p-4 rounded-xl border border-emerald-500/40 mb-4 flex justify-between items-center">
-                 <h3 className="font-bold text-emerald-400">Pasca-Kajian (Selepas)</h3>
-                 <span className="bg-emerald-600 text-white text-xs font-bold px-2 py-1 rounded-md">{soalanPasca.length} Item</span>
+            {filterFasaSoalan === "Pra" ? (
+              <div className="bg-indigo-900/10 rounded-2xl border border-indigo-500/30 p-4 shadow-lg flex flex-col h-full min-h-[400px]">
+                <div className="bg-indigo-900/40 p-4 rounded-xl border border-indigo-500/40 mb-4 flex justify-between items-center">
+                   <h3 className="font-bold text-indigo-300">Item Soalan Pra-Kajian</h3>
+                </div>
+                <div className="flex flex-col gap-3">
+                   {soalanPra.length > 0 ? soalanPra.map((item, i) => (
+                      <div key={item.id} draggable={!isUpdatingOrder} onDragStart={() => handleDragStartPhase("Pra", i)} onDragOver={handleDragOver} onDrop={() => handleDropPhase("Pra", i)} className={`flex gap-4 bg-slate-800/80 p-4 rounded-xl border transition-all ${draggedItemInfo?.fasa === "Pra" && draggedItemInfo.index === i ? 'border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)] opacity-50 scale-95' : 'border-slate-700 hover:border-indigo-500/50'} ${!item.aktif && 'opacity-50 grayscale'}`}>
+                         
+                         {/* 🌟 KOD PRA 001 🌟 */}
+                         <div className="flex flex-col items-center justify-start gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-indigo-400 w-16 shrink-0 mt-1">
+                            <GripVertical size={18}/>
+                            <span className="font-black text-[11px] text-center leading-tight bg-slate-900 p-1.5 rounded-md border border-slate-700 text-indigo-300 w-full shadow-inner">
+                              PRA<br/>{String(item.susunan).padStart(3, '0')}
+                            </span>
+                         </div>
+                         
+                         <div className="flex-1 mt-1">
+                            <div className="flex flex-wrap gap-1.5 mb-2"><span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>{!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md">Sembunyi</span>}</div>
+                            <p className="text-sm text-slate-200 leading-relaxed font-medium">{item.soalan}</p>
+                         </div>
+                         <div className="flex flex-col gap-2 border-l border-slate-700 pl-4 justify-center">
+                            <button onClick={() => handleEdit(item)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-amber-500 hover:text-white transition-colors" title="Edit"><Edit3 size={16}/></button>
+                            <button onClick={() => handlePadam(item.id)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-red-500 hover:text-white transition-colors" title="Padam"><Trash2 size={16}/></button>
+                         </div>
+                      </div>
+                   )) : <div className="text-center p-8 text-slate-500 border border-dashed border-slate-700 rounded-xl">Tiada soalan Pra-Kajian didaftarkan.</div>}
+                </div>
               </div>
-              <div className="flex flex-col gap-3">
-                 {soalanPasca.length > 0 ? soalanPasca.map((item, i) => (
-                    <div key={item.id} draggable={!isUpdatingOrder} onDragStart={() => handleDragStartPhase("Pasca", i)} onDragOver={handleDragOver} onDrop={() => handleDropPhase("Pasca", i)} className={`flex gap-3 bg-slate-800/80 p-4 rounded-xl border transition-all ${draggedItemInfo?.fasa === "Pasca" && draggedItemInfo.index === i ? 'border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] opacity-50 scale-95' : 'border-slate-700 hover:border-emerald-500/50'} ${!item.aktif && 'opacity-50 grayscale'}`}>
-                       <div className="flex flex-col items-center justify-start gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-emerald-400"><GripVertical size={18}/><span className="font-bold text-sm">{item.susunan}</span></div>
-                       <div className="flex-1">
-                          <div className="flex flex-wrap gap-1.5 mb-2"><span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>{!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md">Sembunyi</span>}</div>
-                          <p className="text-sm text-slate-200 leading-relaxed font-medium">{item.soalan}</p>
-                       </div>
-                       <div className="flex flex-col gap-2 border-l border-slate-700 pl-3">
-                          <button onClick={() => handleEdit(item)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-amber-500 hover:text-white transition-colors" title="Edit"><Edit3 size={16}/></button>
-                          <button onClick={() => handlePadam(item.id)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-red-500 hover:text-white transition-colors" title="Padam"><Trash2 size={16}/></button>
-                       </div>
-                    </div>
-                 )) : <div className="text-center p-8 text-slate-500 border border-dashed border-slate-700 rounded-xl">Tiada soalan Pasca-Kajian.</div>}
+            ) : (
+              <div className="bg-emerald-900/10 rounded-2xl border border-emerald-500/30 p-4 shadow-lg flex flex-col h-full min-h-[400px]">
+                <div className="bg-emerald-900/30 p-4 rounded-xl border border-emerald-500/40 mb-4 flex justify-between items-center">
+                   <h3 className="font-bold text-emerald-400">Item Soalan Pasca-Kajian</h3>
+                </div>
+                <div className="flex flex-col gap-3">
+                   {soalanPasca.length > 0 ? soalanPasca.map((item, i) => (
+                      <div key={item.id} draggable={!isUpdatingOrder} onDragStart={() => handleDragStartPhase("Pasca", i)} onDragOver={handleDragOver} onDrop={() => handleDropPhase("Pasca", i)} className={`flex gap-4 bg-slate-800/80 p-4 rounded-xl border transition-all ${draggedItemInfo?.fasa === "Pasca" && draggedItemInfo.index === i ? 'border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] opacity-50 scale-95' : 'border-slate-700 hover:border-emerald-500/50'} ${!item.aktif && 'opacity-50 grayscale'}`}>
+                         
+                         {/* 🌟 KOD PASCA 001 🌟 */}
+                         <div className="flex flex-col items-center justify-start gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-emerald-400 w-16 shrink-0 mt-1">
+                            <GripVertical size={18}/>
+                            <span className="font-black text-[10px] text-center leading-tight bg-slate-900 p-1.5 rounded-md border border-slate-700 text-emerald-300 w-full shadow-inner tracking-tight">
+                              PASCA<br/>{String(item.susunan).padStart(3, '0')}
+                            </span>
+                         </div>
+                         
+                         <div className="flex-1 mt-1">
+                            <div className="flex flex-wrap gap-1.5 mb-2"><span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase bg-fuchsia-900/30 text-fuchsia-400 border border-fuchsia-800/50">{item.kategori}</span>{!item.aktif && <span className="text-[10px] text-rose-400 font-bold bg-rose-900/40 border border-rose-800/50 px-2 py-0.5 rounded-md">Sembunyi</span>}</div>
+                            <p className="text-sm text-slate-200 leading-relaxed font-medium">{item.soalan}</p>
+                         </div>
+                         <div className="flex flex-col gap-2 border-l border-slate-700 pl-4 justify-center">
+                            <button onClick={() => handleEdit(item)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-amber-500 hover:text-white transition-colors" title="Edit"><Edit3 size={16}/></button>
+                            <button onClick={() => handlePadam(item.id)} className="p-2 bg-slate-700/50 text-slate-300 rounded-lg hover:bg-red-500 hover:text-white transition-colors" title="Padam"><Trash2 size={16}/></button>
+                         </div>
+                      </div>
+                   )) : <div className="text-center p-8 text-slate-500 border border-dashed border-slate-700 rounded-xl">Tiada soalan Pasca-Kajian didaftarkan.</div>}
+                </div>
               </div>
-            </div>
-
+            )}
           </div>
         </div>
       )}

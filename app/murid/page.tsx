@@ -648,7 +648,9 @@ export default function MuridDashboard() {
 
         {/* SENARAI BAB (SEQUENTIAL UNLOCKING) */}
         <div className="space-y-4">
-          {currentChapters.map((chapter: any, index: number) => {
+          {currentChapters
+  .filter(chapter => kawalBab[`t${activeLevel === "t4" ? "4" : "5"}_b${chapter.id}`] !== false)
+  .map((chapter: any, index: number) => {
             const logic = getChapterLogic(chapter.id);
             const statusUI = getChapterStatusUI(chapter.id);
             const isKawalan = userData?.kumpulan === "Kawalan";
